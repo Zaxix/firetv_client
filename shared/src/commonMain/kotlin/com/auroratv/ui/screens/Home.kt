@@ -252,7 +252,7 @@ private fun Hero(
         }
         val logo = api.images.logo(item, 800)
         Box(Modifier.height(150.dp).widthIn(max = 520.dp), contentAlignment = Alignment.BottomStart) {
-            if (logo != null) ArtworkImage(logo, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false)
+            if (logo != null) ArtworkImage(logo, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
             else Text(item.seriesName ?: item.name ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(18.dp))

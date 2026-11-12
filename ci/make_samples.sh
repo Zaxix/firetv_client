@@ -4,7 +4,7 @@
 set -euo pipefail
 OUT=${1:-media}
 FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
-mkdir -p "$OUT/movies" "$OUT/tv/Northern Lights/Season 01"
+mkdir -p "$OUT/movies" "$OUT/tv/Skylark Isles/Season 01"
 TMP=$(mktemp -d)
 
 pattern() { # duration size rate [extra lavfi]
@@ -153,7 +153,7 @@ for e in 1 2 3; do
     -map 0 -map 1 -map 2 -c:v libx265 -preset ultrafast -x265-params log-level=error -pix_fmt yuv420p10le -profile:v main10 \
     -c:a aac -c:s ass -attach "$FONT" -metadata:s:t:0 mimetype=application/x-truetype-font -metadata:s:t:0 filename=DejaVuSans-Bold.ttf \
     -metadata:s:a:0 language=jpn -metadata:s:s:0 language=eng -metadata:s:s:0 title="Signs & Songs" \
-    -metadata title="Episode $e" "$OUT/tv/Northern Lights/Season 01/Northern Lights - S01E0$e.mkv"
+    -metadata title="Episode $e" "$OUT/tv/Skylark Isles/Season 01/Skylark Isles - S01E0$e.mkv"
 done
 
 rm -rf "$TMP"

@@ -23,7 +23,7 @@ MOVIES = {
         plot="A projectionist inherits a cinema with a single film reel that changes ending every time it is shown.",
         tagline="Same film. New ending."),
 }
-SERIES = dict(name="Northern Lights", hue=0.50, year=2022, genres=["Animation", "Fantasy"], rating=8.6,
+SERIES = dict(name="Skylark Isles", hue=0.50, year=2022, genres=["Animation", "Fantasy"], rating=8.6,
     plot="Kira, a sky-cartographer apprentice, chases the aurora across a floating archipelago to find where the lights are born.",
     episodes=["The Archipelago Wakes", "A Map Made of Wind", "Where the Lights Are Born"])
 
@@ -93,6 +93,6 @@ for i, name in enumerate(s["episodes"], 1):
     thumb.save(base + "-thumb.jpg", quality=88)
     open(base + ".nfo", "w").write(
         f"<?xml version='1.0' encoding='utf-8'?><episodedetails><title>{esc(name)}</title><season>1</season><episode>{i}</episode>"
-        f"<plot>Episode {i} of the Northern Lights test series, with complex ASS signs, karaoke and overlapping dialogue.</plot>"
+        f"<plot>Episode {i} of the Skylark Isles test series, with complex ASS signs, karaoke and overlapping dialogue.</plot>"
         f"<aired>2022-0{i}-01</aired></episodedetails>")
 print("artwork + nfo written")

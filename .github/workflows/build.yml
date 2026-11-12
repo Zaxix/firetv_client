@@ -242,6 +242,13 @@ jobs:
           Stop-Process -Id $p.Id -Force
           Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue
 
+      - name: Playback screenshots against the public Jellyfin demo server (best effort)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          ./ci/windows_playback.ps1 -Exe (Join-Path $app.FullName "$($app.Name).exe") -Out screenshots
+
       - name: Collect artifacts
         shell: bash
         run: |

@@ -229,7 +229,7 @@ private fun DetailHeader(
     Column(Modifier.padding(horizontal = ScreenPadding).widthIn(max = 760.dp)) {
         val logo = api.images.logo(item, 800)
         if (logo != null && !item.isEpisode) {
-            ArtworkImage(logo, item.name, Modifier.height(140.dp).widthIn(max = 520.dp), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false)
+            ArtworkImage(logo, item.name, Modifier.height(140.dp).widthIn(max = 520.dp), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
         } else {
             if (item.isEpisode) Text(item.seriesName ?: "", style = AuroraType.section, color = colors.onSurfaceMuted)
             Text(item.name ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)

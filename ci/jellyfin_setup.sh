@@ -38,7 +38,10 @@ A="Authorization: $AUTH, Token=\"$TOKEN\""
 curl -sf "$URL/System/Configuration" -H "$A" | jq '.MinResumeDurationSeconds = 0 | .MinResumePct = 1 | .MaxResumePct = 95' > /tmp/jf_config.json
 curl -sf -X POST "$URL/System/Configuration" -H "$A" -H "$J" -d @/tmp/jf_config.json && echo "Resume thresholds lowered for short test clips" >&2
 
-opts='{"LibraryOptions":{"EnableRealtimeMonitor":false,"EnableChapterImageExtraction":false,"EnableTrickplayImageExtraction":false,"SaveLocalMetadata":false}}'
+# Local NFO + images only: no internet metadata or image providers, so nothing third-party appears in screenshots.
+NOFETCH='{"MetadataFetchers":[],"ImageFetchers":[],"MetadataFetcherOrder":[],"ImageFetcherOrder":[]}'
+TYPES=$(for t in Movie Series Season Episode Person; do echo "$NOFETCH" | jq -c --arg t "$t" '. + {Type:$t}'; done | jq -sc .)
+opts=$(jq -nc --argjson types "$TYPES" '{LibraryOptions:{EnableRealtimeMonitor:false,EnableChapterImageExtraction:false,EnableTrickplayImageExtraction:false,SaveLocalMetadata:false,EnableInternetProviders:false,TypeOptions:$types}}')
 curl -sf -X POST "$URL/Library/VirtualFolders?name=Movies&collectionType=movies&paths=%2Fmedia%2Fmovies&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"
 curl -sf -X POST "$URL/Library/VirtualFolders?name=TV%20Shows&collectionType=tvshows&paths=%2Fmedia%2Ftv&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"
 curl -sf -X POST "$URL/Library/Refresh" -H "$A"

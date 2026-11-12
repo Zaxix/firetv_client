@@ -31,6 +31,7 @@ fun ArtworkImage(
     contentScale: ContentScale = ContentScale.Crop,
     alignment: Alignment = Alignment.Center,
     showPlaceholder: Boolean = true,
+    colorFilter: androidx.compose.ui.graphics.ColorFilter? = null,
 ) {
     val colors = Aurora.colors
     val placeholder = remember(artwork?.blurHash) {
@@ -52,7 +53,15 @@ fun ArtworkImage(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale,
                 alignment = alignment,
+                colorFilter = colorFilter,
             )
         }
     }
+}
+
+/** Title logos are usually white; in Light theme they're drawn as a dark silhouette so they stay readable. */
+@Composable
+fun logoColorFilter(): androidx.compose.ui.graphics.ColorFilter? {
+    val colors = Aurora.colors
+    return if (colors.isDark) null else androidx.compose.ui.graphics.ColorFilter.tint(colors.onBackground, androidx.compose.ui.graphics.BlendMode.SrcIn)
 }

@@ -39,7 +39,12 @@ fun main(args: Array<String>) {
     val platform = DesktopPlatform()
     val container = AppContainer(platform)
     args.indexOf("--route").takeIf { it >= 0 }?.let { container.initialRoute = args.getOrNull(it + 1) }
-    val saved = platform.files.read("window.json")?.let { runCatching { AuroraJson.decodeFromString(SavedWindow.serializer(), it) }.getOrNull() } ?: SavedWindow()
+    val screen = runCatching { java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds }.getOrNull()
+    val firstRun = SavedWindow(
+        width = minOf(1440f, (screen?.width ?: 1440) * 0.9f),
+        height = minOf(840f, (screen?.height ?: 840) * 0.9f),
+    )
+    val saved = platform.files.read("window.json")?.let { runCatching { AuroraJson.decodeFromString(SavedWindow.serializer(), it) }.getOrNull() } ?: firstRun
     val icon = runCatching { BitmapPainter(ImageIO.read(DesktopPlatform::class.java.getResourceAsStream("/aurora.png")).toComposeImageBitmap()) }.getOrNull()
         ?: runCatching { BitmapPainter(ImageIO.read(Thread.currentThread().contextClassLoader.getResourceAsStream("aurora.png")).toComposeImageBitmap()) }.getOrNull()
 

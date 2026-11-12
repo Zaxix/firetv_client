@@ -54,6 +54,7 @@ object MpvSelfTest {
                     LibMpv.EVENT_FILE_LOADED -> {
                         // Generated pattern: attach the styled ASS file. Real samples use their embedded/default tracks.
                         if (target.startsWith("av://")) lib.mpv_command(ctx, arrayOf("sub-add", assFile.absolutePath, "select", null))
+                        else if (countTracks(::prop, "sub") > 0) lib.mpv_set_property_string(ctx, "sid", "1") // exercise the first (often ASS) track
                         details = listOfNotNull(
                             "mpv=${prop("mpv-version")}", "ffmpeg=${prop("ffmpeg-version")}",
                             "video=${prop("video-codec")}", "format=${prop("video-params/pixelformat") ?: prop("video-format")}",
