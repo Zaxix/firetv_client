@@ -14,6 +14,7 @@ q() { curl -sf "$URL/Items?userId=$UID_&recursive=true&$1" -H "$A" | jq -r '.Ite
 GLASS=$(q "includeItemTypes=Movie&searchTerm=Glass%20Meridian")
 SERIES=$(q "includeItemTypes=Series")
 EP1=$(q "includeItemTypes=Episode&sortBy=SortName")
+EP3=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[2].Id')
 SEVEN=$(q "includeItemTypes=Movie&searchTerm=Seven%20Rivers")
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
@@ -49,7 +50,7 @@ open "player:$EP1"; sleep 22; shot android-09-player-ass-typesetting
 sleep 4; shot android-10-player-ass-later
 key KEYCODE_DPAD_UP; sleep 2; shot android-11-player-controls
 key KEYCODE_BACK; sleep 1
-open "player:$EP1"; sleep 9; key KEYCODE_DPAD_DOWN; sleep 3; shot android-12-player-episode-browser
+open "player:$EP3"; sleep 9; key KEYCODE_DPAD_UP KEYCODE_DPAD_DOWN; sleep 3; shot android-12-player-episode-browser
 key KEYCODE_DPAD_RIGHT; sleep 1; shot android-13-player-episode-focus
 open "player:$SEVEN"; sleep 10; key KEYCODE_DPAD_UP; sleep 1; key KEYCODE_DPAD_RIGHT; sleep 0.3; shot android-16-player-scrubbing
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass

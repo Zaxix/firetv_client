@@ -314,6 +314,7 @@ fun PlayerChrome(
                         onSelect = {
                             if (scrubTarget != null) { scrubJob?.cancel(); scrubTarget?.let { controller.seekTo(it) }; scrubTarget = null } else togglePlay()
                         },
+                        onDown = { openPanel(if (isEpisode) Panel.Episodes else Panel.Info) },
                         seekStepMs = s.seekForwardSeconds * 1000L,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -641,6 +642,7 @@ private fun Scrubber(
     focusRequester: FocusRequester,
     onScrub: (Long) -> Unit,
     onSelect: () -> Unit,
+    onDown: () -> Unit,
     seekStepMs: Long,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -655,6 +657,8 @@ private fun Scrubber(
                     ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft -> { held++; onScrub(-seekStepMs / 3 * accel(held)); true }
                     ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionRight -> { held++; onScrub(seekStepMs / 3 * accel(held)); true }
                     ev.type == KeyEventType.KeyUp && (ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight) -> { held = 0; true }
+                    // Down from the timeline opens Episodes/Info, like swiping down on tvOS.
+                    ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown -> { onDown(); true }
                     ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionCenter || ev.key == Key.Enter) -> true
                     ev.type == KeyEventType.KeyUp && (ev.key == Key.DirectionCenter || ev.key == Key.Enter) -> { onSelect(); true }
                     else -> false

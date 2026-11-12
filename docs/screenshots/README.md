@@ -10,8 +10,8 @@ library (all artwork, titles and video are generated, nothing third-party).
 | ![](android-tv-00-connect.jpg) Connect | ![](android-tv-01-home.jpg) Home: tab bar, full-screen featured title |
 | ![](android-tv-02-dpad-rail-focus.jpg) D-pad Down into a rail (tvOS lift + sheen) | ![](android-tv-03-movie-detail.jpg) Select → detail page |
 | ![](android-tv-04-tab-bar.jpg) Back → focus moves to the tab bar | ![](android-tv-05-series-detail.jpg) Series detail with episodes |
-| ![](android-tv-07-player-yellow-intro-credits.jpg) Player: intro and credits ranges in yellow on the scrubber, Back, Episodes/Chapters/Subtitles/Info | ![](android-tv-06-libass-anime-typesetting.jpg) libass: rotated/moving signs, `\\clip`+`\\t`, karaoke |
-| ![](android-tv-08-hevc-main10-styled-ass.jpg) Styled ASS (colours, `\\pos`, simultaneous lines) | ![](android-tv-09-about-capabilities.jpg) Settings → About: detected capabilities |
+| ![](android-tv-07-player-yellow-intro-credits.jpg) Player: intro and credits ranges in yellow on the scrubber, Back, Episodes/Chapters/Subtitles/Info | ![](android-tv-06-libass-anime-typesetting.jpg) libass: rotated/moving signs, `\clip`+`\t`, karaoke |
+| ![](android-tv-08-hevc-main10-styled-ass.jpg) Styled ASS (colours, `\pos`, simultaneous lines) | ![](android-tv-09-about-capabilities.jpg) Settings → About: detected capabilities |
 
 ## Desktop (same shared UI; Linux build under Xvfb in CI)
 
