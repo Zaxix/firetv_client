@@ -1,0 +1,165 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Tests + Android APK/AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (shared logic + keyboard/remote navigation UI tests)
+        run: ./gradlew --no-daemon --stacktrace :shared:desktopTest :shared:testDebugUnitTest
+
+      - name: Prepare release signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.AURORA_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AURORA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AURORA_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "AURORA_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNING=repository secret" >> "$GITHUB_ENV"
+          else
+            # No secret configured: sign with a throwaway key so the APK installs. Updates between
+            # builds signed with different throwaway keys require uninstalling first (see README).
+            PASS=$(openssl rand -hex 16)
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.jks" -alias aurora -keyalg RSA -keysize 4096 \
+              -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Aurora TV CI, O=Aurora TV" >/dev/null 2>&1
+            echo "AURORA_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=aurora" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "SIGNING=ephemeral CI key" >> "$GITHUB_ENV"
+          fi
+          echo "AURORA_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build debug APK, release APK and release AAB
+        run: ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
+
+      - name: Verify APK signatures and contents
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          for apk in androidApp/build/outputs/apk/*/*.apk; do
+            echo "== $apk ($(du -h "$apk" | cut -f1))"
+            $BT/apksigner verify --print-certs "$apk" | head -3
+            $BT/aapt2 dump badging "$apk" | grep -E "package:|sdkVersion|leanback|native-code" || true
+            unzip -l "$apk" | grep -E "libass|ffmpeg" | head -10 || true
+          done
+          echo "Release signed with: $SIGNING"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp androidApp/build/outputs/apk/debug/*.apk dist/AuroraTV-debug.apk
+          cp androidApp/build/outputs/apk/release/*.apk dist/AuroraTV-release.apk
+          cp androidApp/build/outputs/bundle/release/*.aab dist/AuroraTV-release.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: shared/build/reports/tests/
+
+  windows:
+    name: Windows EXE/MSI + libmpv self-test
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch libmpv (shinchiro mpv-winbuild-cmake, x86_64)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R shinchiro/mpv-winbuild-cmake --pattern 'mpv-dev-x86_64-2*.7z' --dir mpv
+          ls -la mpv
+          mkdir -p desktopApp/native/windows
+          7z e mpv/*.7z -odesktopApp/native/windows libmpv-2.dll -r -y
+          ls -la desktopApp/native/windows
+          echo "$(ls mpv)" > desktopApp/native/windows/LIBMPV_SOURCE.txt
+
+      - name: Package (MSI, EXE installer, portable folder)
+        shell: bash
+        run: ./gradlew --no-daemon --stacktrace :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:createDistributable
+
+      - name: Self-test packaged app (libmpv decode + libass)
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          $exe = Join-Path $app.FullName "$($app.Name).exe"
+          Write-Host "Running $exe --self-test"
+          $p = Start-Process -FilePath $exe -ArgumentList @("--self-test", "$PWD\selftest.txt") -PassThru -Wait
+          Get-Content selftest.txt
+          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
+
+      - name: Launch smoke test + screenshot
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          $exe = Join-Path $app.FullName "$($app.Name).exe"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue; throw "App exited early (code $($p.ExitCode))" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force screenshots | Out-Null
+          $bmp.Save("screenshots/windows-first-launch.png")
+          Stop-Process -Id $p.Id -Force
+          Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp desktopApp/build/compose/binaries/main/msi/*.msi dist/
+          cp desktopApp/build/compose/binaries/main/exe/*.exe dist/
+          (cd desktopApp/build/compose/binaries/main/app && 7z a -tzip "$GITHUB_WORKSPACE/dist/AuroraTV-windows-x64-portable.zip" . >/dev/null)
+          cp selftest.txt dist/windows-selftest.txt
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-screenshots
+          path: screenshots/

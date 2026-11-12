@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Most home Jellyfin servers are plain HTTP on the LAN, so cleartext must be allowed.
+     User-installed CAs are trusted so self-signed home certificates work when the user installs them. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
