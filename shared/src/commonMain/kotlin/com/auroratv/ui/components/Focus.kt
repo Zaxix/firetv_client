@@ -77,6 +77,7 @@ fun FocusSurface(
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) {
+                    com.auroratv.core.Log.d("AuroraFocus", "focused ${focusKey ?: "surface"}")
                     if (focusKey != null) entry?.focus?.lastKey = focusKey
                     onFocused?.invoke()
                 }

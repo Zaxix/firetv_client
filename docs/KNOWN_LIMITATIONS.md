@@ -44,6 +44,8 @@ can only be confirmed on that device; CI can't test them.
   recorders, remote desktop) the overlay may not composite. Fullscreen (F11) is the intended TV mode.
 * **Audio passthrough** must be enabled manually (Settings → Playback): Windows can't reliably report
   what a receiver connected over S/PDIF/HDMI accepts.
+* **libmpv needs `vulkan-1.dll`.** It ships with every GPU driver, and Aurora bundles the Khronos loader
+  as well, so the app also starts on PCs or VMs without GPU drivers (playback then uses software decoding).
 * **Controllers:** XInput (Xbox-compatible) controllers are supported. DirectInput-only and
   PlayStation pads need Steam Input or DS4Windows to present as XInput.
 * **The installers aren't code-signed**, so Windows SmartScreen will warn on first run ("More info →
@@ -51,6 +53,11 @@ can only be confirmed on that device; CI can't test them.
 * Built for **x64 only** (no ARM64 Windows build).
 
 ## Server features
+
+* **HDR detection is the server's job.** Jellyfin decides HDR10/HLG/Dolby Vision from its own media
+  probe. On the CI server (Jellyfin 12.4) a correctly tagged PQ/BT.2020 test file was reported as SDR,
+  so in that case the server would neither tone-map nor flag it as HDR. If HDR titles look washed out,
+  refresh their metadata on the server.
 
 * **Skip Intro** needs Jellyfin 10.10+ media segments, produced by a segment provider plugin (e.g.
   *Intro Skipper*). Without one, no Skip button appears.

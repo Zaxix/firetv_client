@@ -74,6 +74,7 @@ Requirements: JDK 21, Android SDK (API 36), internet access to Maven Central/Goo
 # Windows (run on Windows; jpackage can't cross-compile)
 #  1. Put libmpv-2.dll in desktopApp/native/windows/
 #     (from shinchiro/mpv-winbuild-cmake releases: mpv-dev-x86_64-*.7z)
+#     and vulkan-1.dll next to it (Khronos loader, e.g. from the Silk.NET.Vulkan.Loader.Native NuGet package)
 ./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:createDistributable
 #  Output: desktopApp/build/compose/binaries/main/{msi,exe,app}
 
@@ -120,7 +121,7 @@ About (version, platform, token storage, detected codec/HDR/audio/subtitle capab
 
 GPL-3.0 (see `LICENSE`). Aurora TV bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and a GPL
 build of libmpv, so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
-Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA (Apache-2.0); ass-media (MIT) with libass
+Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); ass-media (MIT) with libass
 (ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1). See *Settings → About*.
 
 Not affiliated with Apple, Amazon or the Jellyfin project. All UI artwork and icons are original.

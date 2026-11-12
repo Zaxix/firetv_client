@@ -53,6 +53,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
@@ -112,7 +113,12 @@ fun AuroraApp(container: AppContainer) {
             LocalContainer provides container,
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.auroratv.ui.components.MinimalBringIntoViewSpec,
         ) {
-            Box(Modifier.fillMaxSize().background(Aurora.colors.background).arrowKeyNavigation()) {
+            Box(
+                Modifier.fillMaxSize().background(Aurora.colors.background)
+                    .onPreviewKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown) com.auroratv.core.Log.d("AuroraKeys", "compose preview ${ev.key}"); false }
+                    .onKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown) com.auroratv.core.Log.d("AuroraKeys", "compose unconsumed ${ev.key}"); false }
+                    .arrowKeyNavigation()
+            ) {
                 val state by container.sessions.state.collectAsState()
                 LaunchedEffect(Unit) { container.sessions.restore() }
                 when (val s = state) {

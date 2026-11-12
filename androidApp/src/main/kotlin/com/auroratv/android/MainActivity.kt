@@ -26,4 +26,12 @@ class MainActivity : ComponentActivity() {
         })
         setContent { AuroraApp(container) }
     }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val handled = super.dispatchKeyEvent(event)
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            android.util.Log.d("AuroraKeys", "key=${android.view.KeyEvent.keyCodeToString(event.keyCode)} handled=$handled focus=${currentFocus?.javaClass?.simpleName} touchMode=${window.decorView.isInTouchMode}")
+        }
+        return handled
+    }
 }

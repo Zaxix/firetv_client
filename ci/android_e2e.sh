@@ -54,6 +54,7 @@ open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
 adb logcat -d > "$OUT/logcat-full.txt"
-grep -E "Negotiator|Caps|Capabilities|ExoEngine|libass|AndroidRuntime|FATAL" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
-echo "---- Aurora log excerpt ----"; tail -60 "$OUT/logcat-aurora.txt"
+grep -E "Negotiator|Caps|Capabilities|ExoEngine|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
+echo "---- Key / focus trace ----"; grep -E "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | head -120
+echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi
