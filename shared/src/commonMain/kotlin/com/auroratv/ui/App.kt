@@ -242,7 +242,7 @@ private fun SideNav(navigator: Navigator) {
     Column(
         Modifier.fillMaxHeight().width(width)
             .background(
-                if (expanded) Brush.horizontalGradient(listOf(colors.background, colors.background.copy(alpha = 0.92f), colors.background.copy(alpha = 0f)))
+                if (expanded) Brush.horizontalGradient(0f to colors.background, 0.82f to colors.background.copy(alpha = 0.97f), 1f to colors.background.copy(alpha = 0f))
                 else Brush.horizontalGradient(listOf(colors.background.copy(alpha = 0.6f), colors.background.copy(alpha = 0f)))
             )
             .onFocusChanged { expanded = it.hasFocus }

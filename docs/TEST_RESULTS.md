@@ -93,31 +93,38 @@ real hardware. The first run found that libmpv requires `vulkan-1.dll`, which PC
 lack, so the Khronos Vulkan loader is now bundled.
 
 A launch smoke test then starts the installed-layout app, confirms it stays running and captures a
-screenshot. A best-effort step signs in to the public Jellyfin demo server and captures Home, a
-detail page and the player.
+screenshot. A best-effort step signs in to the public Jellyfin demo server and captures Home and the player:
+real video plays through mpv in its own window, with Aurora's transparent controls drawn on top.
 
 ## 4. Android TV emulator (every push)
 
 `reactivecircus/android-emulator-runner` boots an Android 11 TV image (1080p), installs the debug APK,
 and drives it only with remote key events (`adb shell input keyevent`) against the Docker Jellyfin
-server:
+server. Debug builds log every remote key the activity receives, so the run proves the D-pad reaches the app.
 
-* typed the server address into the connect screen and pressed Enter → login screen ✅
-* typed username/password, Enter → Home with the featured carousel and rails ✅
-* deep-linked to the series detail (logo, metadata, Play S1:E1, seasons) ✅
-* played videos through Media3: the emulator's software decoders were probed (H.264 ≤1080p) and the
-  app chose **Direct Play** for H.264 MKV and asked the server to **transcode** HEVC Main10 with
+* typed the server address and pressed Enter → login; typed credentials → Home ✅
+* **D-pad Down** moved focus from the hero into the first rail; **Right + Select** opened that movie's
+  detail page; **Back** returned Home with focus restored to the same card; **Left** expanded the side menu ✅
+* **D-pad Down ×4** in Settings reached the About page, which lists the detected decoders and
+  capabilities (Media3 1.8.0, software H.264/HEVC on the emulator, Keystore token storage) ✅
+* played video through Media3. The emulator's decoders were probed (software, ≤1080p) and the
+  app chose **Direct Play** for H.264 MKV and asked the server to **transcode** HEVC Main10, with
   reasons `VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported` ✅
-* the player controls (progress bar, elapsed/remaining, transport and track buttons) appeared on D-pad Up ✅
+* **libass rendered the anime typesetting sample on Android**: rotated sign, `\move`, `\clip` + `\t`
+  transform, karaoke romaji and overlapping dialogue, plus colours, `\pos` and simultaneous top/bottom
+  lines in the styled sample (see screenshots) ✅
+* player controls (progress bar, elapsed/remaining, transport, audio/subtitle/info, next episode) ✅
 * no crashes (`FATAL EXCEPTION` check on logcat) ✅
 
-The first emulator run exposed two real bugs, both since fixed: D-pad focus moves didn't work on
-Android (the shared arrow-key handler conflicted with Android's native D-pad focus search; Android
-now uses its native traversal), and Android TV's pivot scrolling clipped the top of Home (replaced
-with minimal scroll-into-view).
+The emulator runs found and fixed three real bugs:
 
-The emulator occasionally fails to boot in CI (infrastructure timeout, not an app failure); re-running
-the job resolves it.
+1. **The on-screen keyboard stayed active after sign-in and swallowed the remote's D-pad** (Select
+   typed "q"). Aurora now dismisses the keyboard on connect, on sign-in and when the main app opens.
+2. Android TV's default pivot scrolling clipped the top of Home; replaced with minimal scroll-into-view.
+3. The shared arrow-key handler is now desktop-only; Android uses its native D-pad focus search.
+
+The emulator occasionally fails to boot in CI (an infrastructure timeout, not an app failure);
+re-running the job fixes it.
 
 ## Not tested in CI (needs real hardware)
 

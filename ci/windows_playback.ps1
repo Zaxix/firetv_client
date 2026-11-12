@@ -44,7 +44,6 @@ function Run([string]$name, [string[]]$appArgs, [int]$wait, [string[]]$keys = @(
 }
 
 Run "windows-home-demo-server" @() 25
-Run "windows-detail" @("--route", "detail:$($movie.Id)") 15
 Run "windows-player" @("--route", "player:$($movie.Id)") 30
 Run "windows-player-controls" @("--route", "player:$($movie.Id)") 30 @("{UP}")
 Get-Content (Join-Path $dir "aurora.log") -Tail 40 -ErrorAction SilentlyContinue
