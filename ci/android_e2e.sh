@@ -36,7 +36,7 @@ sleep 20; shot android-03-home
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-04-rail-focus
 key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 8; shot android-05-detail
 key KEYCODE_BACK; sleep 3; shot android-06-back-focus-restored
-key KEYCODE_DPAD_LEFT; sleep 2; shot android-07-sidenav-expanded
+key KEYCODE_BACK; sleep 2; shot android-07-back-to-tab-bar
 
 # Deep links (session is restored from the Keystore vault on relaunch).
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
@@ -48,8 +48,10 @@ open "detail:$SERIES"; sleep 14; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; shot a
 open "player:$EP1"; sleep 22; shot android-09-player-ass-typesetting
 sleep 4; shot android-10-player-ass-later
 key KEYCODE_DPAD_UP; sleep 2; shot android-11-player-controls
-open "player:$SEVEN"; sleep 20; key KEYCODE_DPAD_UP; sleep 1; shot android-12-player-multitrack
-key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 2; shot android-13-player-subtitle-panel
+key KEYCODE_BACK; sleep 1
+open "player:$EP1"; sleep 20; key KEYCODE_DPAD_DOWN; sleep 4; shot android-12-player-episode-browser
+key KEYCODE_DPAD_RIGHT; sleep 1; shot android-13-player-episode-focus
+open "player:$SEVEN"; sleep 20; key KEYCODE_DPAD_UP; sleep 1; key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 1; shot android-16-player-scrubbing
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 

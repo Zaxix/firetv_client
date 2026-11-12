@@ -147,10 +147,35 @@ D="$OUT/movies/Old Reel (1999)"; mkdir -p "$D"
 ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 20 720x480 25)" -f lavfi -i "sine=frequency=800:duration=20" \
   -c:v mpeg4 -vtag XVID -q:v 5 -c:a libmp3lame -b:a 128k "$D/Old Reel (1999).avi"
 
+# Chapter markers named like real anime releases, so the player can show intro/credits ranges in yellow.
+cat > "$TMP/chapters.txt" <<'CH'
+;FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=3000
+title=Prologue
+[CHAPTER]
+TIMEBASE=1/1000
+START=3000
+END=8000
+title=Opening
+[CHAPTER]
+TIMEBASE=1/1000
+START=8000
+END=16000
+title=Part A
+[CHAPTER]
+TIMEBASE=1/1000
+START=16000
+END=20000
+title=Ending
+CH
+
 # ---------- 6) Series: anime-style typesetting, HEVC Main10, 3 episodes ----------
 for e in 1 2 3; do
-  ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 20 1920x1080 24)" -f lavfi -i "sine=frequency=$((300 + e * 50)):duration=20" -i "$TMP/anime.ass" \
-    -map 0 -map 1 -map 2 -c:v libx265 -preset ultrafast -x265-params log-level=error -pix_fmt yuv420p10le -profile:v main10 \
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 20 1920x1080 24)" -f lavfi -i "sine=frequency=$((300 + e * 50)):duration=20" -i "$TMP/anime.ass" -f ffmetadata -i "$TMP/chapters.txt" \
+    -map 0 -map 1 -map 2 -map_chapters 3 -c:v libx265 -preset ultrafast -x265-params log-level=error -pix_fmt yuv420p10le -profile:v main10 \
     -c:a aac -c:s ass -attach "$FONT" -metadata:s:t:0 mimetype=application/x-truetype-font -metadata:s:t:0 filename=DejaVuSans-Bold.ttf \
     -metadata:s:a:0 language=jpn -metadata:s:s:0 language=eng -metadata:s:s:0 title="Signs & Songs" \
     -metadata title="Episode $e" "$OUT/tv/Skylark Isles/Season 01/Skylark Isles - S01E0$e.mkv"
