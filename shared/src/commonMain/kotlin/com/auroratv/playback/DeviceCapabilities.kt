@@ -68,13 +68,16 @@ data class DeviceCapabilities(
         if (HdrFormat.HDR10 in formats) result += "HDR10"
         if (HdrFormat.HDR10_PLUS in formats || HdrFormat.HDR10 in formats) result += "HDR10Plus"
         if (HdrFormat.HLG in formats) result += "HLG"
-        if (HdrFormat.DOLBY_VISION in formats) result += HdrFormat.DOLBY_VISION.jellyfinRangeTypes
+        if (HdrFormat.DOLBY_VISION in formats) result += HdrFormat.DOLBY_VISION.jellyfinRangeTypes + listOf("DOVIWithEL", "DOVIWithHDR10Plus", "DOVIWithELHDR10Plus")
         else {
-            // Dolby Vision files with a backwards-compatible base layer can still play as that base layer.
-            if (HdrFormat.HDR10 in formats) result += "DOVIWithHDR10"
+            // Dolby Vision files with a backwards-compatible base layer can still play as that base layer
+            // (profile 7 enhancement layers and HDR10+ metadata are ignored by HDR10 decoders).
+            if (HdrFormat.HDR10 in formats) result += listOf("DOVIWithHDR10", "DOVIWithEL", "DOVIWithHDR10Plus", "DOVIWithELHDR10Plus")
             if (HdrFormat.HLG in formats) result += "DOVIWithHLG"
             result += "DOVIWithSDR"
         }
+        // Jellyfin 10.11+ marks out-of-spec DV as DOVIInvalid; its base layer plays where HDR10 does.
+        if (HdrFormat.HDR10 in formats) result += "DOVIInvalid"
         return result.distinct()
     }
 }

@@ -107,8 +107,10 @@ jobs:
 
       - name: Generate test media + artwork
         run: |
+          ffmpeg -hide_banner -version | head -1
           ci/make_samples.sh "$RUNNER_TEMP/media"
           python3 ci/make_artwork.py "$RUNNER_TEMP/media"
+          for f in "$RUNNER_TEMP"/media/movies/*/*.mkv; do echo "== $f"; ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,pix_fmt,color_transfer,color_primaries,color_space -of compact "$f"; done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -182,6 +184,18 @@ jobs:
           7z e mpv/*.7z -odesktopApp/native/windows libmpv-2.dll -r -y
           ls -la desktopApp/native/windows
           echo "$(ls mpv)" > desktopApp/native/windows/LIBMPV_SOURCE.txt
+          echo "--- libmpv imports not satisfied on this machine (before bundling) ---"
+          ldd desktopApp/native/windows/libmpv-2.dll | grep -i "not found" || echo "(none)"
+
+      - name: Bundle the Vulkan loader (libmpv needs vulkan-1.dll; PCs without GPU drivers lack it)
+        shell: bash
+        run: |
+          curl -sSfL "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime-components.zip?u=" -o vrt.zip
+          7z x vrt.zip -ovrt -y >/dev/null
+          find vrt -iname "vulkan-1.dll" | grep -i x64 | head -1 | xargs -I{} cp "{}" desktopApp/native/windows/
+          ls -la desktopApp/native/windows
+          echo "--- libmpv imports still not satisfied ---"
+          (cd desktopApp/native/windows && ldd ./libmpv-2.dll | grep -i "not found") || echo "(none)"
 
       - name: Package (MSI, EXE installer, portable folder)
         shell: bash
@@ -297,3 +311,61 @@ jobs:
         with:
           name: android-e2e
           path: dist/
+
+  publish:
+    name: Publish downloads + CI results
+    runs-on: ubuntu-latest
+    needs: [android, e2e, windows, android-e2e]
+    if: ${{ !cancelled() && needs.android.result == 'success' }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Push screenshots and reports to the ci-results branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p results/screenshots/desktop results/screenshots/android results/screenshots/windows results/reports
+          cp artifacts/e2e/screenshots/*.png results/screenshots/desktop/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/*.png results/screenshots/android/ 2>/dev/null || true
+          cp artifacts/windows-screenshots/*.png results/screenshots/windows/ 2>/dev/null || true
+          cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
+          cp artifacts/windows/windows-selftest.txt results/reports/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
+          cp artifacts/e2e/screenshots/aurora.log results/reports/desktop-aurora.log 2>/dev/null || true
+          cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true
+          cat > results/README.md <<MD
+          CI results for ${GITHUB_SHA} (run ${GITHUB_RUN_ID}).
+          Jobs: android=${{ needs.android.result }} e2e=${{ needs.e2e.result }} windows=${{ needs.windows.result }} android-e2e=${{ needs.android-e2e.result }}
+          MD
+          cd results
+          git init -q -b ci-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "CI results for ${GITHUB_SHA::7} [skip ci]"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
+
+      - name: Publish rolling pre-release with APK/AAB and Windows installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p upload
+          cp artifacts/android/* upload/
+          cp artifacts/windows/*.msi artifacts/windows/*.exe artifacts/windows/*.zip upload/ 2>/dev/null || true
+          for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
+          ls -la upload
+          gh release delete latest-build --yes --cleanup-tag -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          cat > notes.md <<MD
+          Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
+
+          * **Fire TV / Android TV:** install \`AuroraTV-release.apk\` (sideload). \`AuroraTV-debug.apk\` is a debuggable build; the AAB is for store uploads.
+          * **Windows 10/11 x64:** \`.msi\` or \`.exe\` installer, or the portable ZIP.
+
+          CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Windows ${{ needs.windows.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
+          MD
+          gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Aurora TV — latest build (${GITHUB_SHA::7})" --notes-file notes.md

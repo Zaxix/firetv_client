@@ -37,14 +37,16 @@ import kotlin.test.fail
 class JellyfinIntegrationTest {
     private val url = System.getenv("AURORA_IT_URL")
     private val report = StringBuilder()
+    private val failures = mutableListOf<String>()
 
+    /** Runs one check, records it in the report and keeps going so the report shows every result. */
     private fun record(name: String, block: suspend () -> String) {
         if (url == null) return
         val result = runCatching { runBlocking { block() } }
-        val line = result.fold({ "| ✅ | $name | $it |" }, { "| ❌ | $name | ${it::class.simpleName}: ${it.message?.take(160)} |" })
+        val line = result.fold({ "| ✅ | $name | $it |" }, { "| ❌ | $name | ${it::class.simpleName}: ${it.message?.take(200)} |" })
         report.appendLine(line)
         println(line)
-        result.exceptionOrNull()?.let { throw AssertionError("$name failed", it) }
+        result.exceptionOrNull()?.let { failures += name; it.printStackTrace() }
     }
 
     private lateinit var session: UserSession
@@ -75,6 +77,7 @@ class JellyfinIntegrationTest {
         } finally {
             File(System.getenv("AURORA_IT_REPORT") ?: "build/integration-report.md").apply { parentFile?.mkdirs() }.writeText(report.toString())
         }
+        if (failures.isNotEmpty()) fail("Failed checks: ${failures.joinToString()}")
     }
 
     private fun run() {
@@ -167,6 +170,7 @@ class JellyfinIntegrationTest {
         record("4K HDR10 → Direct Play on HDR10 display") {
             val m = movie("Ember Field")
             val v = m.mediaSources.first().videoStream!!
+            assertEquals("HDR10", v.videoRangeType, "server must detect the sample as HDR10 (range=${v.videoRange})")
             val p = plan(m, fireTv4k)
             assertEquals(PlayMethod.DirectPlay, p.method)
             "${v.width}x${v.height} ${v.videoRangeType} → ${p.method}"
