@@ -53,7 +53,6 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
@@ -113,12 +112,7 @@ fun AuroraApp(container: AppContainer) {
             LocalContainer provides container,
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.auroratv.ui.components.MinimalBringIntoViewSpec,
         ) {
-            Box(
-                Modifier.fillMaxSize().background(Aurora.colors.background)
-                    .onPreviewKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown) com.auroratv.core.Log.d("AuroraKeys", "compose preview ${ev.key}"); false }
-                    .onKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown) com.auroratv.core.Log.d("AuroraKeys", "compose unconsumed ${ev.key}"); false }
-                    .arrowKeyNavigation()
-            ) {
+            Box(Modifier.fillMaxSize().background(Aurora.colors.background).arrowKeyNavigation()) {
                 val state by container.sessions.state.collectAsState()
                 LaunchedEffect(Unit) { container.sessions.restore() }
                 when (val s = state) {
@@ -166,6 +160,9 @@ private fun MainShell(container: AppContainer) {
         navigator.currentSection != Section.Home -> { navigator.selectSection(Section.Home); true }
         else -> false
     }
+    // Entering the app from sign-in: make sure no on-screen keyboard is left capturing the D-pad.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) { keyboard?.hide(); container.platform.hideKeyboard() }
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack
         onDispose { container.backHandler = { false } }

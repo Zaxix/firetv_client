@@ -80,5 +80,10 @@ class AndroidPlatform(private val activity: Activity) : Platform {
         }
     }
 
+    override fun hideKeyboard() {
+        val imm = activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java) ?: return
+        imm.hideSoftInputFromWindow(activity.window.decorView.windowToken, 0)
+    }
+
     override fun exitApp() { activity.finish() }
 }

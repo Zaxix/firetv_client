@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -117,9 +118,12 @@ fun ConnectScreen(container: AppContainer) {
     var error by remember { mutableStateOf<String?>(null) }
     val fieldFocus = remember { FocusRequester() }
     val servers by container.sessions.servers.collectAsState()
+    val keyboard = LocalSoftwareKeyboardController.current
 
     fun connect() {
         if (busy || address.isBlank()) return
+        // Close the on-screen keyboard: on Android TV it otherwise keeps capturing the remote's D-pad.
+        keyboard?.hide(); container.platform.hideKeyboard()
         busy = true; error = null
         scope.launch {
             try {
@@ -196,6 +200,7 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?) 
     val userFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     val api = remember(server) { container.sessions.apiFor(server.url) }
+    val keyboard = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(server.id) {
         publicUsers = container.sessions.publicUsers(server)
@@ -204,6 +209,7 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?) 
 
     fun signIn() {
         if (busy || username.isBlank()) return
+        keyboard?.hide(); container.platform.hideKeyboard()
         busy = true; error = null
         scope.launch {
             try {

@@ -29,7 +29,8 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val handled = super.dispatchKeyEvent(event)
-        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+        // Debug builds log remote input so CI can verify D-pad delivery; release builds don't.
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             android.util.Log.d("AuroraKeys", "key=${android.view.KeyEvent.keyCodeToString(event.keyCode)} handled=$handled focus=${currentFocus?.javaClass?.simpleName} touchMode=${window.decorView.isInTouchMode}")
         }
         return handled

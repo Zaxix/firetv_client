@@ -55,6 +55,6 @@ open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCO
 
 adb logcat -d > "$OUT/logcat-full.txt"
 grep -E "Negotiator|Caps|Capabilities|ExoEngine|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
-echo "---- Key / focus trace ----"; grep -E "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | head -120
+echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi

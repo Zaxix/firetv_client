@@ -55,5 +55,8 @@ interface Platform {
     /** Desktop only: toggles fullscreen "TV mode". No-op on TV. */
     fun toggleFullscreen() {}
 
+    /** Dismisses any on-screen keyboard (Android TV's keyboard otherwise keeps capturing the D-pad). */
+    fun hideKeyboard() {}
+
     fun exitApp()
 }
