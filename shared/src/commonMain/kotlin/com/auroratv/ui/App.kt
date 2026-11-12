@@ -137,7 +137,18 @@ private fun Splash() {
 
 @Composable
 private fun MainShell(container: AppContainer) {
-    val navigator = remember { Navigator(Route.Root(Section.Home)) }
+    val navigator = remember {
+        Navigator(Route.Root(Section.Home)).also { nav ->
+            val link = container.initialRoute
+            container.initialRoute = null
+            when {
+                link == null -> Unit
+                link.startsWith("section:") -> Section.entries.firstOrNull { it.name.equals(link.substringAfter(':'), true) }?.let(nav::selectSection)
+                link.startsWith("detail:") -> nav.push(Route.Detail(link.substringAfter(':')))
+                link.startsWith("player:") -> nav.push(Route.Player(link.substringAfter(':')))
+            }
+        }
+    }
     val entry = navigator.current
 
     fun handleBack(): Boolean = when {

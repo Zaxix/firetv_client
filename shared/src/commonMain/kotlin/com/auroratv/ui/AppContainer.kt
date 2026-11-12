@@ -37,6 +37,12 @@ class AppContainer(val platform: Platform) {
         if (error is AppError.SessionExpired) sessions.onSessionExpired()
     }
 
+    /**
+     * Optional deep link applied once after sign-in, e.g. from `--route detail:<itemId>` on desktop.
+     * Formats: `section:<Home|Movies|Shows|Continue|Favorites|Search|Libraries|Settings>`, `detail:<id>`, `player:<id>`.
+     */
+    var initialRoute: String? = null
+
     /** Set by the UI; platform back buttons route through here. Returns false when the app should close. */
     var backHandler: () -> Boolean = { false }
 }

@@ -38,6 +38,7 @@ fun main(args: Array<String>) {
 
     val platform = DesktopPlatform()
     val container = AppContainer(platform)
+    args.indexOf("--route").takeIf { it >= 0 }?.let { container.initialRoute = args.getOrNull(it + 1) }
     val saved = platform.files.read("window.json")?.let { runCatching { AuroraJson.decodeFromString(SavedWindow.serializer(), it) }.getOrNull() } ?: SavedWindow()
     val icon = runCatching { BitmapPainter(ImageIO.read(DesktopPlatform::class.java.getResourceAsStream("/aurora.png")).toComposeImageBitmap()) }.getOrNull()
         ?: runCatching { BitmapPainter(ImageIO.read(Thread.currentThread().contextClassLoader.getResourceAsStream("aurora.png")).toComposeImageBitmap()) }.getOrNull()

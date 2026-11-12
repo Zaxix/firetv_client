@@ -55,6 +55,13 @@ class KeyboardNavigationTest {
     }
 
     @Test
+    fun blurHashDecodesToPlaceholderBitmap() {
+        val bmp = com.auroratv.ui.theme.BlurHash.decode("LEHV6nWB2yk8pyo0adR*.7kCMdnj", 8, 4)
+        kotlin.test.assertNotNull(bmp)
+        assertEquals(8, bmp.width)
+    }
+
+    @Test
     fun enterActivatesTheFocusedCard() = runComposeUiTest {
         var clicks by mutableIntStateOf(0)
         setContent {

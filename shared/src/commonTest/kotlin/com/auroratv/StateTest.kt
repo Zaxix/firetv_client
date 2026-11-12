@@ -75,6 +75,11 @@ class StateTest {
         val avg = assertNotNull(BlurHash.averageColor(hash))
         assertTrue(avg.red > 0f)
         assertNull(BlurHash.averageColor("x"))
-        assertNotNull(BlurHash.accentFrom(hash, dark = true))
+        assertNull(BlurHash.accentFrom(hash, dark = true), "Near-grey artwork keeps the theme accent")
+        val blue = "005?~E" // 1x1 BlurHash of #3366CC
+        val avgBlue = assertNotNull(BlurHash.averageColor(blue))
+        assertEquals(0x33 / 255f, avgBlue.red, 0.01f)
+        val accent = assertNotNull(BlurHash.accentFrom(blue, dark = true))
+        assertTrue(accent.blue > accent.red, "Accent keeps the artwork's hue")
     }
 }
