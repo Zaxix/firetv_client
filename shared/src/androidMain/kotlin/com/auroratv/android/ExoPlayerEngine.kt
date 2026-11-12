@@ -91,7 +91,8 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
         .buildWithAssSupport(
             context = context,
             renderType = if (assMode == AssRenderMode.Full) AssRenderType.OVERLAY_OPEN_GL else AssRenderType.CUES,
-            config = AssHandlerConfig(),
+            // Cap libass rendering at 1080p: on 4K TVs this halves overlay cost with no visible loss at TV distance.
+            config = AssHandlerConfig(maxRenderPixels = 1920 * 1080),
             subtitleView = view.subtitleView,
             dataSourceFactory = DefaultDataSource.Factory(context, httpFactory),
             extractorsFactory = DefaultExtractorsFactory(),

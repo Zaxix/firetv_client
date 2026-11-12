@@ -44,6 +44,7 @@ jobs:
             # No secret configured: sign with a throwaway key so the APK installs. Updates between
             # builds signed with different throwaway keys require uninstalling first (see README).
             PASS=$(openssl rand -hex 16)
+            echo "::add-mask::$PASS"
             keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.jks" -alias aurora -keyalg RSA -keysize 4096 \
               -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Aurora TV CI, O=Aurora TV" >/dev/null 2>&1
             echo "AURORA_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
@@ -118,7 +119,9 @@ jobs:
       - name: Start Jellyfin
         run: |
           docker run -d --name jellyfin -p 8096:8096 -v "$RUNNER_TEMP/media:/media:ro" jellyfin/jellyfin:latest
-          TOKEN=$(ci/jellyfin_setup.sh | tail -1)
+          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
           echo "::add-mask::$TOKEN"
           echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
@@ -193,6 +196,8 @@ jobs:
       - name: Self-test packaged app (libmpv decode of every sample + libass)
         shell: pwsh
         run: |
+          Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Include *.dll,*.cfg | Where-Object { $_.Name -like "*mpv*" -or $_.Extension -eq ".cfg" } | ForEach-Object { $_.FullName }
+          Get-Content (Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Filter *.cfg | Select-Object -First 1).FullName
           $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
           $exe = Join-Path $app.FullName "$($app.Name).exe"
           $files = @(Get-ChildItem samples -Recurse -Include *.mkv,*.avi -ErrorAction SilentlyContinue | ForEach-Object { '"' + $_.FullName + '"' })
@@ -240,3 +245,55 @@ jobs:
         with:
           name: windows-screenshots
           path: screenshots/
+
+  android-e2e:
+    name: Android TV emulator — sign-in, D-pad navigation, playback
+    runs-on: ubuntu-latest
+    needs: [android, e2e]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: samples
+          path: media
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Jellyfin
+        run: |
+          sudo apt-get install -y -qq jq >/dev/null
+          docker run -d --name jellyfin -p 8096:8096 -v "$PWD/media:/media:ro" jellyfin/jellyfin:latest
+          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run on Android TV emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-e2e
+          path: dist/

@@ -54,10 +54,15 @@ interface LibMpv : Library {
             cached?.let { return it }
             val options = mapOf(Library.OPTION_STRING_ENCODING to "UTF-8")
             val resourcesDir = System.getProperty("compose.application.resources.dir")?.let(::File)
+            // Also look next to the launcher and in the jpackage app folder, in case the property isn't set.
+            val appDir = runCatching { File(LibMpv::class.java.protectionDomain.codeSource.location.toURI()).parentFile }.getOrNull()
+            val dirs = listOfNotNull(resourcesDir, appDir, appDir?.let { File(it, "resources") }, appDir?.parentFile).distinct()
+            dirs.forEach { com.sun.jna.NativeLibrary.addSearchPath("mpv-2", it.absolutePath); com.sun.jna.NativeLibrary.addSearchPath("libmpv-2", it.absolutePath) }
             val candidates = buildList {
-                resourcesDir?.let { dir -> listOf("libmpv-2.dll", "mpv-2.dll", "libmpv.so.2", "libmpv.so", "libmpv.2.dylib").forEach { add(File(dir, it).absolutePath) } }
+                dirs.forEach { dir -> listOf("libmpv-2.dll", "mpv-2.dll", "libmpv.so.2", "libmpv.so", "libmpv.2.dylib").forEach { add(File(dir, it).absolutePath) } }
                 addAll(listOf("libmpv-2", "mpv-2", "mpv"))
             }
+            val errors = mutableListOf<String>()
             for (name in candidates) {
                 if (name.contains(File.separatorChar) && !File(name).exists()) continue
                 try {
@@ -66,9 +71,10 @@ interface LibMpv : Library {
                     cached = lib
                     return lib
                 } catch (t: Throwable) {
-                    loadError = t.message
+                    errors += "$name: ${t.message?.lineSequence()?.firstOrNull()}"
                 }
             }
+            loadError = "searched ${dirs.joinToString()} (resources.dir=${resourcesDir}); " + errors.joinToString(" | ")
             Log.e("libmpv", "libmpv could not be loaded: $loadError")
             return null
         }

@@ -16,6 +16,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         container = AppContainer(AndroidPlatform(this))
+        // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
+        container.initialRoute = intent?.getStringExtra("route")
         // Back presses that Compose didn't consume (e.g. nothing focused) still go through app navigation.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
