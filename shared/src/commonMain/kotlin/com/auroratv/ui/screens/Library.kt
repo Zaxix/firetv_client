@@ -149,13 +149,14 @@ fun LibraryScreen(route: Route.Library) {
             .collect { last -> if (last >= paged.items.size - 14) paged.loadMore() }
     }
 
+    com.auroratv.ui.ReportScrollToTopBar { model.gridState.firstVisibleItemIndex == 0 && model.gridState.firstVisibleItemScrollOffset < 40 }
     val style = if (route.collectionType == "music") CardStyle.Square else CardStyle.Poster
     val colors = Aurora.colors
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(style.width + 22.dp),
         state = model.gridState,
-        contentPadding = PaddingValues(start = ScreenPadding, end = ScreenPadding, top = 48.dp, bottom = 64.dp),
+        contentPadding = PaddingValues(start = ScreenPadding, end = ScreenPadding, top = com.auroratv.ui.TopBarSpace, bottom = 64.dp),
         horizontalArrangement = Arrangement.spacedBy(22.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
         modifier = Modifier.fillMaxSize(),

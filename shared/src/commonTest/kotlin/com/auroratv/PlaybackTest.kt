@@ -164,6 +164,34 @@ class NegotiationTest {
         assertEquals(5, TrackSelector.pickSubtitle(streams, SubtitleMode.Always, "es", "eng", null), "ISO 639-1 'es' matches 'spa'")
     }
 
+    // ---- Intro / credits ranges (yellow timeline markers) -----------------------------------
+
+    @Test
+    fun skipRangesComeFromSegmentsOrChapterNames() {
+        val ep = com.auroratv.jellyfin.model.BaseItemDto(id = "e", type = "Episode", runTimeTicks = 1_440_000L * 10_000)
+        val fromSegments = com.auroratv.playback.PlayerUiState(
+            item = ep,
+            segments = listOf(
+                com.auroratv.jellyfin.model.MediaSegmentDto(type = "Intro", startTicks = 60_000L * 10_000, endTicks = 150_000L * 10_000),
+                com.auroratv.jellyfin.model.MediaSegmentDto(type = "Outro", startTicks = 1_320_000L * 10_000, endTicks = 1_440_000L * 10_000),
+                com.auroratv.jellyfin.model.MediaSegmentDto(type = "Commercial", startTicks = 0, endTicks = 10),
+            ),
+        )
+        assertEquals(listOf(com.auroratv.playback.SkipRange.Kind.Intro, com.auroratv.playback.SkipRange.Kind.Credits), fromSegments.skipRanges.map { it.kind })
+        assertEquals(60_000L, fromSegments.activeSkip(90_000)?.startMs)
+        assertNull(fromSegments.activeSkip(200_000))
+
+        val ch = { name: String, ms: Long -> com.auroratv.jellyfin.model.ChapterInfo(startPositionTicks = ms * 10_000, name = name) }
+        val fromChapters = com.auroratv.playback.PlayerUiState(
+            item = ep,
+            chapters = listOf(ch("Prologue", 0), ch("Opening", 90_000), ch("Part A", 180_000), ch("Ending", 1_300_000), ch("Preview", 1_400_000)),
+        )
+        val r = fromChapters.skipRanges
+        assertEquals(2, r.size)
+        assertEquals(com.auroratv.playback.SkipRange(com.auroratv.playback.SkipRange.Kind.Intro, 90_000, 180_000), r[0])
+        assertEquals(com.auroratv.playback.SkipRange(com.auroratv.playback.SkipRange.Kind.Credits, 1_300_000, 1_400_000), r[1])
+    }
+
     // ---- Address handling -------------------------------------------------------------------
 
     @Test

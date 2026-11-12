@@ -71,7 +71,7 @@ fun SettingsScreen(container: AppContainer) {
     val colors = Aurora.colors
     ScreenFocus(entry, navigator, first)
 
-    Row(Modifier.fillMaxSize().padding(start = ScreenPadding, top = 48.dp, end = ScreenPadding)) {
+    Row(Modifier.fillMaxSize().padding(start = ScreenPadding, top = com.auroratv.ui.TopBarSpace, end = ScreenPadding)) {
         Column(Modifier.width(260.dp).focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Settings", style = AuroraType.title, color = colors.onBackground, modifier = Modifier.padding(bottom = 24.dp))
             SettingsPage.entries.forEachIndexed { i, p ->
@@ -127,7 +127,7 @@ private fun SettingRow(title: String, value: String?, description: String? = nul
 @Composable
 private fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     LazyColumn(
-        contentPadding = PaddingValues(top = 64.dp, bottom = 64.dp),
+        contentPadding = PaddingValues(top = 56.dp, bottom = 64.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxSize(),
         content = content,

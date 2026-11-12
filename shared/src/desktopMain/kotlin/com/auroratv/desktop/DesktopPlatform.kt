@@ -95,7 +95,7 @@ class DesktopPlatform : Platform {
      * drawn in a transparent dialog stacked above it. Both follow the main window when it moves.
      */
     @Composable
-    override fun PlayerHost(engine: PlaybackEngine, controls: @Composable () -> Unit) {
+    override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {
         val mpv = engine as MpvEngine
         val owner = mainWindow ?: return
         var bounds by remember { mutableStateOf(contentBounds(owner)) }
@@ -139,7 +139,8 @@ class DesktopPlatform : Platform {
             size = DpSize(bounds.width.dp, bounds.height.dp),
         )
         DialogWindow(
-            onCloseRequest = {},
+            // Alt+F4 / closing the overlay leaves the player rather than doing nothing.
+            onCloseRequest = onClose,
             state = dialogState,
             title = "Aurora TV",
             undecorated = true,

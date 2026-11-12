@@ -41,7 +41,7 @@ private fun PlayerSession(container: AppContainer, route: Route.Player, caps: De
     DisposableEffect(controller) { onDispose { controller.release() } }
     LaunchedEffect(route.itemId) { controller.start(route.itemId, route.startFromBeginning) }
 
-    container.platform.PlayerHost(engine) {
+    container.platform.PlayerHost(engine, onClose = { controller.stop(); navigator.pop() }) {
         PlayerChrome(
             controller = controller,
             settings = container.settings.settings,

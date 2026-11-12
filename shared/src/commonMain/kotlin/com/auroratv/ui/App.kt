@@ -46,6 +46,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,8 +95,6 @@ import okio.Path.Companion.toPath
 val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No container") }
 val LocalSession = staticCompositionLocalOf<UserSession> { error("No session") }
 
-private val NavCollapsed = 84.dp
-private val NavExpanded = 260.dp
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -155,8 +158,12 @@ private fun MainShell(container: AppContainer) {
     }
     val entry = navigator.current
 
+    val topBar = remember { TopBarState() }
+
+    // tvOS behaviour: Back walks up the stack, then to the tab bar, then to Home, then exits.
     fun handleBack(): Boolean = when {
         navigator.pop() -> true
+        !topBar.hasFocus -> { topBar.contentAtTop = true; runCatching { topBar.currentTab.requestFocus() }.isSuccess }
         navigator.currentSection != Section.Home -> { navigator.selectSection(Section.Home); true }
         else -> false
     }
@@ -168,7 +175,7 @@ private fun MainShell(container: AppContainer) {
         onDispose { container.backHandler = { false } }
     }
 
-    CompositionLocalProvider(LocalNavigator provides navigator) {
+    CompositionLocalProvider(LocalNavigator provides navigator, LocalTopBar provides topBar) {
         Box(
             Modifier.fillMaxSize().onKeyEvent { ev ->
                 // Bubbling handler: screens that need Back (player, dialogs) consume it first.
@@ -185,7 +192,7 @@ private fun MainShell(container: AppContainer) {
             val isPlayer = entry.route is Route.Player
             val motion = Aurora.motion
             if (!isPlayer) {
-                Box(Modifier.fillMaxSize().padding(start = NavCollapsed)) {
+                Box(Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = entry,
                         transitionSpec = { fadeIn(tween(motion.duration(220))) togetherWith fadeOut(tween(motion.duration(120))) },
@@ -193,7 +200,7 @@ private fun MainShell(container: AppContainer) {
                         CompositionLocalProvider(LocalEntry provides e) { RouteContent(container, e.route) }
                     }
                 }
-                SideNav(navigator)
+                TopTabBar(navigator, topBar)
             } else {
                 CompositionLocalProvider(LocalEntry provides entry) { RouteContent(container, entry.route) }
             }
@@ -231,75 +238,73 @@ private fun Section.icon(): ImageVector = when (this) {
     Section.Settings -> Icons.Filled.Settings
 }
 
-/** tvOS-style side bar: icons only until it holds focus, then expands with labels over the content. */
+/** Shared state for the tvOS-style tab bar: visible while content is scrolled to the top or the bar has focus. */
+class TopBarState {
+    var contentAtTop by mutableStateOf(true)
+    var hasFocus by mutableStateOf(false)
+    val currentTab = FocusRequester()
+    val visible get() = contentAtTop || hasFocus
+}
+
+val LocalTopBar = staticCompositionLocalOf { TopBarState() }
+
+/** Space screens leave at the top so their first row clears the tab bar. */
+val TopBarSpace = 96.dp
+
+/** Screens call this with their list state so the tab bar hides once the user scrolls down, as on tvOS. */
+@Composable
+fun ReportScrollToTopBar(atTop: () -> Boolean) {
+    val bar = LocalTopBar.current
+    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { atTop() }.collect { bar.contentAtTop = it } }
+    DisposableEffect(Unit) { onDispose { bar.contentAtTop = true } }
+}
+
+private fun Section.short(): String = when (this) {
+    Section.Continue -> "Up Next"
+    else -> label
+}
+
+/** tvOS top tab bar: centred text tabs, a selected-tab capsule, and a white capsule on focus. */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun SideNav(navigator: Navigator) {
+private fun TopTabBar(navigator: Navigator, bar: TopBarState) {
     val colors = Aurora.colors
-    var expanded by remember { mutableStateOf(false) }
-    val width by animateDpAsState(if (expanded) NavExpanded else NavCollapsed, tween(Aurora.motion.duration(200)))
-    val session = LocalSession.current
-    Column(
-        Modifier.fillMaxHeight().width(width)
-            .background(
-                if (expanded) Brush.horizontalGradient(0f to colors.background, 0.82f to colors.background.copy(alpha = 0.97f), 1f to colors.background.copy(alpha = 0f))
-                else Brush.horizontalGradient(listOf(colors.background.copy(alpha = 0.6f), colors.background.copy(alpha = 0f)))
-            )
-            .onFocusChanged { expanded = it.hasFocus }
-            .focusRestorer()
-            .padding(vertical = 36.dp, horizontal = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    val alpha by androidx.compose.animation.core.animateFloatAsState(if (bar.visible) 1f else 0f, tween(Aurora.motion.duration(250)))
+    val offset by animateDpAsState(if (bar.visible) 0.dp else (-24).dp, tween(Aurora.motion.duration(250)))
+    Box(
+        Modifier.fillMaxWidth().height(TopBarSpace)
+            .graphicsLayer { this.alpha = alpha; translationY = offset.toPx() }
+            .background(Brush.verticalGradient(listOf(colors.background.copy(alpha = 0.75f), colors.background.copy(alpha = 0f)))),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            if (expanded) "Aurora" else "A",
-            style = AuroraType.section,
-            color = colors.onBackground,
-            modifier = Modifier.padding(start = 16.dp, bottom = 24.dp),
-            maxLines = 1,
-        )
-        Section.entries.forEach { section ->
-            val selected = navigator.currentSection == section
-            FocusSurface(
-                onClick = { navigator.selectSection(section) },
-                shape = RoundedCornerShape(14.dp),
-                ringWidth = 0.dp,
-                scaleOnFocus = false,
-                modifier = Modifier.fillMaxWidth(),
-            ) { focused ->
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(
-                            when {
-                                focused -> colors.focusFill
-                                selected -> colors.onBackground.copy(alpha = 0.12f)
-                                else -> colors.background.copy(alpha = 0f)
-                            }
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val tint = when {
-                        focused -> colors.background
-                        selected -> colors.onBackground
-                        else -> colors.onSurfaceFaint
-                    }
-                    Icon(section.icon(), section.label, tint = tint, modifier = Modifier.size(24.dp))
-                    if (expanded) {
-                        Spacer(Modifier.width(16.dp))
-                        Text(section.label, style = AuroraType.label, color = tint, maxLines = 1)
+        Row(
+            Modifier.onFocusChanged { bar.hasFocus = it.hasFocus }.focusRestorer(bar.currentTab)
+                .clip(RoundedCornerShape(50)).background(colors.onBackground.copy(alpha = 0.08f)).padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Section.entries.forEach { section ->
+                val selected = navigator.currentSection == section
+                val iconOnly = section == Section.Search || section == Section.Settings
+                FocusSurface(
+                    onClick = { navigator.selectSection(section) },
+                    shape = RoundedCornerShape(50),
+                    sheen = false,
+                    scaleOnFocus = true,
+                    modifier = if (selected) Modifier.focusRequester(bar.currentTab) else Modifier,
+                ) { focused ->
+                    val fg = when { focused -> Color.Black; selected -> colors.onBackground; else -> colors.onSurfaceMuted }
+                    Box(
+                        Modifier.background(
+                            when { focused -> Color.White; selected -> colors.onBackground.copy(alpha = 0.16f); else -> Color.Transparent }
+                        ).padding(horizontal = if (iconOnly) 14.dp else 20.dp, vertical = 9.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (iconOnly) Icon(section.icon(), section.label, tint = fg, modifier = Modifier.size(22.dp))
+                        else Text(section.short(), style = AuroraType.tab, color = fg, maxLines = 1)
                     }
                 }
             }
-        }
-        Spacer(Modifier.weight(1f))
-        if (expanded) {
-            Text(
-                "${session.user.name} · ${session.server.name}",
-                style = AuroraType.caption,
-                color = colors.onSurfaceFaint,
-                modifier = Modifier.padding(start = 16.dp),
-                maxLines = 1,
-            )
         }
     }
 }

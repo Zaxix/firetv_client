@@ -49,6 +49,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation(compose.materialIconsExtended)
+                implementation(compose.components.resources)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.ktor.client.core)
@@ -93,6 +94,12 @@ kotlin {
             }
         }
     }
+}
+
+compose.resources {
+    publicResClass = false
+    packageOfResClass = "com.auroratv.resources"
+    generateResClass = always
 }
 
 android {

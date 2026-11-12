@@ -73,6 +73,7 @@ fun SearchScreen() {
     val fieldFocus = remember { FocusRequester() }
     val colors = Aurora.colors
     ScreenFocus(entry, navigator, fieldFocus)
+    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
 
     // Debounced: typing cancels the previous request (LaunchedEffect restarts on every keystroke).
     LaunchedEffect(model.query) {
@@ -103,7 +104,7 @@ fun SearchScreen() {
 
     LazyColumn(
         state = model.listState,
-        contentPadding = PaddingValues(top = 48.dp, bottom = 64.dp),
+        contentPadding = PaddingValues(top = com.auroratv.ui.TopBarSpace, bottom = 64.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -175,16 +176,17 @@ private fun SectionedScreen(
     ScreenFocus(entry, navigator, fallback, ready = model.sections != null)
 
     val sections = model.sections
+    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
     when {
         sections == null && model.error != null -> ErrorState(model.error!!, onRetry = { reload++ })
-        sections == null -> Column(Modifier.padding(top = 120.dp)) { SkeletonRail(CardStyle.Landscape); SkeletonRail(CardStyle.Poster) }
-        sections.all { it.second.isEmpty() } -> Column(Modifier.padding(top = 48.dp)) {
+        sections == null -> Column(Modifier.padding(top = com.auroratv.ui.TopBarSpace)) { SkeletonRail(CardStyle.Landscape); SkeletonRail(CardStyle.Poster) }
+        sections.all { it.second.isEmpty() } -> Column(Modifier.padding(top = com.auroratv.ui.TopBarSpace)) {
             Text(title, style = AuroraType.title, color = colors.onBackground, modifier = Modifier.padding(horizontal = ScreenPadding))
             EmptyState(emptyTitle, emptyMessage)
         }
         else -> LazyColumn(
             state = model.listState,
-            contentPadding = PaddingValues(top = 48.dp, bottom = 64.dp),
+            contentPadding = PaddingValues(top = com.auroratv.ui.TopBarSpace, bottom = 64.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -266,7 +268,7 @@ fun LibrariesScreen() {
         else -> LazyVerticalGrid(
             columns = GridCells.Adaptive(CardStyle.Landscape.width + 22.dp),
             state = model.gridState,
-            contentPadding = PaddingValues(start = ScreenPadding, end = ScreenPadding, top = 48.dp, bottom = 64.dp),
+            contentPadding = PaddingValues(start = ScreenPadding, end = ScreenPadding, top = com.auroratv.ui.TopBarSpace, bottom = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalArrangement = Arrangement.spacedBy(30.dp),
         ) {

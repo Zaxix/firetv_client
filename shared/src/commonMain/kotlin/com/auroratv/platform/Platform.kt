@@ -50,7 +50,7 @@ interface Platform {
      * video window behind a transparent controls window. [controls] is the shared Compose player UI.
      */
     @Composable
-    fun PlayerHost(engine: PlaybackEngine, controls: @Composable () -> Unit)
+    fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit)
 
     /** Desktop only: toggles fullscreen "TV mode". No-op on TV. */
     fun toggleFullscreen() {}

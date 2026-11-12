@@ -3,6 +3,7 @@ package com.auroratv.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
@@ -45,8 +46,10 @@ fun FocusSurface(
     focusKey: String? = null,
     onLongClick: (() -> Unit)? = null,
     onFocused: (() -> Unit)? = null,
-    ringWidth: Dp = 3.dp,
+    ringWidth: Dp = 0.dp,
     scaleOnFocus: Boolean = true,
+    /** tvOS-style specular highlight across artwork when focused. */
+    sheen: Boolean = scaleOnFocus,
     content: @Composable (focused: Boolean) -> Unit,
 ) {
     val motion = Aurora.motion
@@ -69,7 +72,7 @@ fun FocusSurface(
         modifier
             .graphicsLayer {
                 scaleX = scale; scaleY = scale
-                shadowElevation = if (active) 24f else 0f
+                shadowElevation = if (active && scaleOnFocus) 40f else 0f
                 this.shape = shape
                 clip = false
             }
@@ -92,6 +95,18 @@ fun FocusSurface(
             .clip(shape)
     ) {
         content(active)
+        if (sheen && active) {
+            // Soft diagonal glare, like light catching a glass card on tvOS.
+            Box(
+                Modifier.matchParentSize().background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        0f to Color.White.copy(alpha = 0.22f),
+                        0.45f to Color.White.copy(alpha = 0.04f),
+                        1f to Color.Transparent,
+                    )
+                )
+            )
+        }
     }
 }
 

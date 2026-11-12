@@ -47,7 +47,7 @@ import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
 
 /** Horizontal padding used by every screen so rails, headers and hero text align. */
-val ScreenPadding = 56.dp
+val ScreenPadding = 64.dp
 
 /** Pill button used for primary actions (Play, Resume, Favorite...). */
 @Composable
@@ -63,19 +63,19 @@ fun AuroraButton(
     val colors = Aurora.colors
     FocusSurface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(12.dp),
         focusKey = focusKey,
-        ringWidth = 0.dp,
+        sheen = false,
         modifier = modifier.then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
     ) { focused ->
         val bg = when {
-            focused -> colors.focusFill
-            primary -> colors.onBackground.copy(alpha = 0.18f)
-            else -> colors.onBackground.copy(alpha = 0.10f)
+            focused -> Color.White
+            primary -> colors.onBackground.copy(alpha = 0.22f)
+            else -> colors.onBackground.copy(alpha = 0.14f)
         }
-        val fg = if (focused) colors.background else colors.onBackground
+        val fg = if (focused) Color.Black else colors.onBackground
         Row(
-            Modifier.background(bg).padding(horizontal = 22.dp, vertical = 12.dp),
+            Modifier.background(bg).padding(horizontal = 26.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -99,14 +99,14 @@ fun IconAction(
     FocusSurface(
         onClick = onClick,
         shape = RoundedCornerShape(50),
-        ringWidth = 0.dp,
+        sheen = false,
         modifier = modifier.size(size).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
     ) { focused ->
         Box(
-            Modifier.fillMaxSize().background(if (focused) colors.focusFill else colors.onBackground.copy(alpha = 0.12f)),
+            Modifier.fillMaxSize().background(if (focused) Color.White else colors.onBackground.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription, tint = if (focused) colors.background else colors.onBackground, modifier = Modifier.size(size * 0.48f))
+            Icon(icon, contentDescription, tint = if (focused) Color.Black else colors.onBackground, modifier = Modifier.size(size * 0.48f))
         }
     }
 }
@@ -115,16 +115,16 @@ fun IconAction(
 @Composable
 fun AuroraChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, focusKey: String? = null) {
     val colors = Aurora.colors
-    FocusSurface(onClick = onClick, shape = RoundedCornerShape(50), ringWidth = 0.dp, focusKey = focusKey, modifier = modifier) { focused ->
+    FocusSurface(onClick = onClick, shape = RoundedCornerShape(50), sheen = false, focusKey = focusKey, modifier = modifier) { focused ->
         val bg = when {
-            focused -> colors.focusFill
+            focused -> Color.White
             selected -> colors.onBackground.copy(alpha = 0.22f)
             else -> Color.Transparent
         }
         Text(
             text,
             style = AuroraType.label,
-            color = if (focused) colors.background else if (selected) colors.onBackground else colors.onSurfaceMuted,
+            color = if (focused) Color.Black else if (selected) colors.onBackground else colors.onSurfaceMuted,
             modifier = Modifier.background(bg).padding(horizontal = 18.dp, vertical = 9.dp),
         )
     }

@@ -5,10 +5,13 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,7 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,22 +27,22 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +62,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -67,20 +71,29 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.auroratv.jellyfin.Artwork
+import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.jellyfin.model.ticksToMs
 import com.auroratv.playback.PlayMethod
 import com.auroratv.playback.PlayerController
+import com.auroratv.playback.SkipRange
 import com.auroratv.playback.TrackSelector
 import com.auroratv.settings.Settings
 import com.auroratv.settings.SkipIntroMode
+import com.auroratv.ui.LocalSession
+import com.auroratv.ui.components.ArtworkImage
 import com.auroratv.ui.components.AuroraButton
+import com.auroratv.ui.components.CardStyle
 import com.auroratv.ui.components.FocusSurface
-import com.auroratv.ui.components.IconAction
-import com.auroratv.ui.components.arrowKeyNavigation
 import com.auroratv.ui.components.LoadingState
+import com.auroratv.ui.components.ProgressStrip
+import com.auroratv.ui.components.arrowKeyNavigation
+import com.auroratv.ui.components.formatRuntime
 import com.auroratv.ui.components.formatTime
+import com.auroratv.ui.components.requestWidth
 import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
 import kotlinx.coroutines.Job
@@ -88,11 +101,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-private enum class Panel { None, Audio, Subtitles, Chapters, Info }
+private enum class Panel(val title: String) { None(""), Episodes("Episodes"), Chapters("Chapters"), Audio("Audio"), Subtitles("Subtitles"), Info("Info") }
+
+/** Intro / recap / credits highlight colour on the timeline. */
+private val SkipYellow = Color(0xFFFFD60A)
 
 /**
- * Apple TV-style playback controls. Everything here is plain Compose drawn above the native video
- * surface; animations are opacity/offset only and never touch the decoder.
+ * tvOS-style playback UI drawn over the native video surface. Only opacity/offset animate — the
+ * decoder is never touched by UI work. Back/Esc closes an open panel, otherwise leaves the player.
  */
 @Composable
 fun PlayerChrome(
@@ -112,23 +128,29 @@ fun PlayerChrome(
     var scrubTarget by remember { mutableStateOf<Long?>(null) }
     var scrubJob by remember { mutableStateOf<Job?>(null) }
     var repeatCount by remember { mutableIntStateOf(0) }
+    var flash by remember { mutableStateOf<ImageVector?>(null) }
 
     val rootFocus = remember { FocusRequester() }
-    val playFocus = remember { FocusRequester() }
+    val scrubFocus = remember { FocusRequester() }
     val skipFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
 
-    val segment = ui.activeSegment(es.positionMs)?.takeIf { s.skipIntro != SkipIntroMode.Off }
+    val skip = ui.activeSkip(es.positionMs)?.takeIf { s.skipIntro != SkipIntroMode.Off }
     val showUpNext = ui.ended && ui.nextEpisode != null
+    val isEpisode = ui.item?.isEpisode == true
 
+    fun exit() { controller.stop(); onExit() }
     fun poke() { interaction++ }
-    fun showControls() {
-        controlsVisible = true; poke()
-        scope.launch { delay(16); runCatching { playFocus.requestFocus() } }
+    fun focusLater(r: FocusRequester) { scope.launch { delay(30); runCatching { r.requestFocus() } } }
+    fun showControls() { controlsVisible = true; poke(); focusLater(scrubFocus) }
+    fun hideControls() { controlsVisible = false; panel = Panel.None; runCatching { rootFocus.requestFocus() } }
+    fun togglePlay() {
+        flash = if (es.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
+        controller.togglePlayPause(); poke()
     }
-    fun hideControls() {
-        controlsVisible = false; panel = Panel.None
-        runCatching { rootFocus.requestFocus() }
+    fun openPanel(p: Panel) {
+        if (p == Panel.Episodes) controller.loadEpisodes()
+        panel = p; poke()
     }
 
     /** Accumulates repeated seek presses (hold to accelerate) and commits once the user pauses. */
@@ -139,38 +161,36 @@ fun PlayerChrome(
         poke()
         scrubJob?.cancel()
         scrubJob = scope.launch {
-            delay(650)
+            delay(700)
             controller.seekTo(target)
             scrubTarget = null
             repeatCount = 0
         }
     }
 
-    // Auto-hide controls 4.5s after the last interaction while playing.
+    LaunchedEffect(flash) { if (flash != null) { delay(650); flash = null } }
     LaunchedEffect(interaction, controlsVisible, es.isPlaying, panel) {
         if (controlsVisible && es.isPlaying && panel == Panel.None && ui.error == null) {
-            delay(4_500)
+            delay(5_000)
             hideControls()
         }
     }
-    LaunchedEffect(Unit) { delay(50); runCatching { playFocus.requestFocus() } }
-    LaunchedEffect(panel) { if (panel != Panel.None) { delay(50); runCatching { panelFocus.requestFocus() } } }
-    LaunchedEffect(segment?.startTicks, controlsVisible) {
-        if (segment != null && !controlsVisible) { delay(50); runCatching { skipFocus.requestFocus() } }
+    LaunchedEffect(Unit) { focusLater(scrubFocus) }
+    LaunchedEffect(panel) { if (panel != Panel.None) { delay(80); runCatching { panelFocus.requestFocus() } } }
+    LaunchedEffect(skip?.startMs, controlsVisible) {
+        if (skip != null && !controlsVisible) { delay(50); runCatching { skipFocus.requestFocus() } }
     }
 
-    // Up Next countdown when an episode ends.
     var countdown by remember { mutableIntStateOf(10) }
     LaunchedEffect(showUpNext) {
         if (!showUpNext) return@LaunchedEffect
-        controlsVisible = false
+        controlsVisible = false; panel = Panel.None
         countdown = 10
         if (!s.autoPlayNext) return@LaunchedEffect
         while (countdown > 0) { delay(1_000); countdown-- }
         controller.playNext()
     }
     LaunchedEffect(ui.ended, ui.nextEpisode) {
-        // Movie (or last episode) finished: leave the player.
         if (ui.ended && ui.nextEpisode == null) { delay(800); onExit() }
     }
 
@@ -178,31 +198,32 @@ fun PlayerChrome(
         val down = ev.type == KeyEventType.KeyDown
         val up = ev.type == KeyEventType.KeyUp
         when (ev.key) {
-            Key.MediaPlayPause, Key.Spacebar -> { if (down) { controller.togglePlayPause(); poke() }; return true }
+            Key.MediaPlayPause, Key.Spacebar -> { if (down) togglePlay(); return true }
             Key.MediaPlay -> { if (down) controller.play(); return true }
             Key.MediaPause -> { if (down) controller.pause(); return true }
             Key.MediaFastForward -> { if (down) scrubBy(s.seekForwardSeconds * 1000L); return true }
             Key.MediaRewind -> { if (down) scrubBy(-s.seekBackSeconds * 1000L); return true }
             Key.MediaNext -> { if (down && ui.nextEpisode != null) controller.playNext(); return true }
             Key.Back, Key.Escape -> {
-                if (up) when {
-                    panel != Panel.None -> { panel = Panel.None; showControls() }
-                    controlsVisible && !showUpNext && ui.error == null -> hideControls()
-                    else -> { controller.stop(); onExit() }
-                }
+                // One press leaves the player; with a panel open it closes the panel first.
+                if (up) { if (panel != Panel.None) { panel = Panel.None; showControls() } else exit() }
                 return true
             }
         }
-        if (showUpNext || ui.error != null) return false
-        if (!controlsVisible && panel == Panel.None) {
+        if (showUpNext || ui.error != null || panel != Panel.None) { poke(); return false }
+        if (!controlsVisible) {
             if (!down) return ev.key in setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown)
             when (ev.key) {
                 Key.DirectionLeft -> { repeatCount++; scrubBy(-s.seekBackSeconds * 1000L * accel(repeatCount)); return true }
                 Key.DirectionRight -> { repeatCount++; scrubBy(s.seekForwardSeconds * 1000L * accel(repeatCount)); return true }
-                Key.DirectionUp, Key.DirectionDown, Key.Menu, Key.Info -> { showControls(); return true }
+                Key.DirectionUp, Key.Menu, Key.Info -> { showControls(); return true }
+                Key.DirectionDown -> {
+                    // Like swiping down on tvOS: straight to Episodes (series) or Info.
+                    controlsVisible = true; openPanel(if (isEpisode) Panel.Episodes else Panel.Info); return true
+                }
                 Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                    if (segment != null) return false // the focused Skip button handles it
-                    showControls(); return true
+                    if (skip != null) return false // the focused Skip button handles it
+                    togglePlay(); showControls(); return true
                 }
             }
             return false
@@ -228,54 +249,87 @@ fun PlayerChrome(
                     }
                 }
             }
+            .pointerInput(panel) {
+                // Clicking the picture closes a panel, otherwise toggles play/pause (mouse on Windows).
+                detectTapGestures(onTap = { if (panel != Panel.None) panel = Panel.None else togglePlay() })
+            }
     ) {
-        val colors = Aurora.colors
-
         if (ui.loading || (es.isBuffering && !es.isEnded && ui.error == null)) {
             Box(Modifier.fillMaxSize()) { LoadingState() }
         }
 
+        // Brief centred play/pause glyph when toggling, like tvOS.
+        AnimatedVisibility(flash != null, Modifier.align(Alignment.Center), enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 1.2f)) {
+            Box(Modifier.size(96.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                flash?.let { Icon(it, null, tint = Color.White, modifier = Modifier.size(56.dp)) }
+            }
+        }
+
         // ---- Controls ----
-        AnimatedVisibility(controlsVisible && !showUpNext && ui.error == null, enter = fadeIn(tween(Aurora.motion.duration(200))), exit = fadeOut(tween(Aurora.motion.duration(300)))) {
+        AnimatedVisibility(controlsVisible && !showUpNext && ui.error == null, enter = fadeIn(tween(Aurora.motion.duration(200))), exit = fadeOut(tween(Aurora.motion.duration(350)))) {
             Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.8f)))))
-                // Title
-                Column(Modifier.align(Alignment.TopStart).padding(start = 64.dp, top = 40.dp, end = 64.dp)) {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.18f to Color.Transparent, 0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
+
+                // Always-visible way out of the player.
+                Row(Modifier.align(Alignment.TopStart).padding(start = 48.dp, top = 36.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GlassPill(text = "Back", onClick = ::exit, icon = Icons.Filled.ArrowBack)
+                }
+
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 64.dp, vertical = 40.dp)) {
                     val item = ui.item
                     if (item?.isEpisode == true) {
-                        Text(item.seriesName ?: "", style = AuroraType.section, color = Color.White.copy(alpha = 0.8f))
-                        Text(listOfNotNull(item.episodeLabel, item.name).joinToString(" · "), style = AuroraType.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.seriesName.orEmpty().uppercase(), style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f))
+                        Text(listOfNotNull(item.episodeLabel, item.name).joinToString("  ·  "), style = AuroraType.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     } else {
-                        Text(item?.name ?: "", style = AuroraType.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item?.name.orEmpty(), style = AuroraType.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val meta = listOfNotNull(item?.productionYear?.toString(), item?.officialRating, formatRuntime(item?.runtimeMs)).joinToString("  ·  ")
+                        if (meta.isNotBlank()) Text(meta, style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f))
                     }
-                }
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 64.dp, vertical = 40.dp)) {
-                    SeekBar(
+                    Spacer(Modifier.height(18.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        GlassIcon(if (es.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (es.isPlaying) "Pause" else "Play", ::togglePlay)
+                        GlassIcon(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { controller.seekBy(-s.seekBackSeconds * 1000L); poke() })
+                        GlassIcon(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { controller.seekBy(s.seekForwardSeconds * 1000L); poke() })
+                        Spacer(Modifier.width(14.dp))
+                        if (isEpisode) GlassPill(text = "Episodes", onClick = { openPanel(Panel.Episodes) })
+                        if (ui.chapters.size > 1) GlassPill(text = "Chapters", onClick = { openPanel(Panel.Chapters) })
+                        if (ui.audioStreams.size > 1) GlassPill(text = "Audio", onClick = { openPanel(Panel.Audio) })
+                        GlassPill(text = "Subtitles", onClick = { openPanel(Panel.Subtitles) })
+                        GlassPill(text = "Info", onClick = { openPanel(Panel.Info) })
+                        Spacer(Modifier.weight(1f))
+                        if (ui.nextEpisode != null) GlassPill(text = "Next Episode", onClick = { controller.playNext() }, icon = Icons.Filled.SkipNext)
+                    }
+                    Spacer(Modifier.height(22.dp))
+
+                    Scrubber(
                         positionMs = scrubTarget ?: es.positionMs,
                         durationMs = es.durationMs,
                         bufferedMs = es.bufferedMs,
                         chapters = ui.chapters.map { it.startPositionTicks.ticksToMs() },
+                        skipRanges = ui.skipRanges,
+                        scrubbing = scrubTarget != null,
+                        focusRequester = scrubFocus,
                         onScrub = { delta -> scrubBy(delta) },
-                        onCommit = { scrubJob?.cancel(); scrubTarget?.let { controller.seekTo(it) }; scrubTarget = null },
+                        onSelect = {
+                            if (scrubTarget != null) { scrubJob?.cancel(); scrubTarget?.let { controller.seekTo(it) }; scrubTarget = null } else togglePlay()
+                        },
                         seekStepMs = s.seekForwardSeconds * 1000L,
                     )
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(formatTime(scrubTarget ?: es.positionMs), style = AuroraType.label, color = Color.White)
+                        if (ui.skipRanges.isNotEmpty()) {
+                            Spacer(Modifier.width(18.dp))
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(SkipYellow))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                ui.skipRanges.map { when (it.kind) { SkipRange.Kind.Credits -> "Credits"; SkipRange.Kind.Recap -> "Recap"; SkipRange.Kind.Intro -> "Intro" } }.distinct().joinToString(" · "),
+                                style = AuroraType.caption, color = Color.White.copy(alpha = 0.75f),
+                            )
+                        }
                         Spacer(Modifier.weight(1f))
                         Text("-" + formatTime((es.durationMs - (scrubTarget ?: es.positionMs)).coerceAtLeast(0)), style = AuroraType.label, color = Color.White.copy(alpha = 0.8f))
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        IconAction(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { controller.seekBy(-s.seekBackSeconds * 1000L); poke() })
-                        IconAction(if (es.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (es.isPlaying) "Pause" else "Play", { controller.togglePlayPause(); poke() }, size = 68.dp, focusRequester = playFocus)
-                        IconAction(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { controller.seekBy(s.seekForwardSeconds * 1000L); poke() })
-                        Spacer(Modifier.weight(1f))
-                        if (ui.chapters.size > 1) IconAction(Icons.Filled.ViewList, "Chapters", { panel = Panel.Chapters })
-                        if (ui.audioStreams.size > 1) IconAction(Icons.Filled.Audiotrack, "Audio", { panel = Panel.Audio })
-                        IconAction(Icons.Filled.ClosedCaption, "Subtitles", { panel = Panel.Subtitles })
-                        IconAction(Icons.Filled.Info, "Playback info", { panel = Panel.Info })
-                        if (ui.nextEpisode != null) IconAction(Icons.Filled.SkipNext, "Next episode", { controller.playNext() })
                     }
                 }
             }
@@ -284,28 +338,22 @@ fun PlayerChrome(
         // ---- Scrub-only bar when seeking with controls hidden ----
         if (!controlsVisible && scrubTarget != null) {
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))).padding(horizontal = 64.dp, vertical = 40.dp)) {
-                Text(formatTime(scrubTarget!!), style = AuroraType.title, color = Color.White)
-                Spacer(Modifier.height(10.dp))
-                ProgressTrack(scrubTarget!!, es.durationMs, es.bufferedMs, focused = true)
+                Track(scrubTarget!!, es.durationMs, es.bufferedMs, focused = true, chapters = emptyList(), skipRanges = ui.skipRanges, showBubble = true)
             }
         }
 
         // ---- Skip intro / recap / credits ----
-        if (segment != null && !showUpNext && ui.error == null) {
-            val label = when (segment.type) { "Intro" -> "Skip Intro"; "Recap" -> "Skip Recap"; "Outro" -> if (ui.nextEpisode != null) "Next Episode" else "Skip Credits"; else -> "Skip" }
-            Box(Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = if (controlsVisible) 200.dp else 64.dp)) {
+        if (skip != null && !showUpNext && ui.error == null && panel == Panel.None) {
+            val label = if (skip.kind == SkipRange.Kind.Credits && ui.nextEpisode != null) "Next Episode" else skip.kind.label
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = if (controlsVisible) 230.dp else 64.dp)) {
                 AuroraButton(label, {
-                    if (segment.type == "Outro" && ui.nextEpisode != null) controller.playNext() else controller.skipSegment()
+                    if (skip.kind == SkipRange.Kind.Credits && ui.nextEpisode != null) controller.playNext() else controller.skipSegment()
                 }, primary = true, focusRequester = skipFocus)
             }
         }
 
-        // ---- Up next ----
-        if (showUpNext) {
-            UpNextCard(ui.nextEpisode!!, controller, if (s.autoPlayNext) countdown else null, onExit = { controller.stop(); onExit() })
-        }
+        if (showUpNext) UpNextCard(ui.nextEpisode!!, controller, if (s.autoPlayNext) countdown else null, onExit = ::exit)
 
-        // ---- Error ----
         ui.error?.let { message ->
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(620.dp)) {
@@ -317,68 +365,59 @@ fun PlayerChrome(
                     LaunchedEffect(Unit) { delay(50); runCatching { retryFocus.requestFocus() } }
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         AuroraButton("Try with transcoding", { controller.retry() }, primary = true, focusRequester = retryFocus)
-                        AuroraButton("Exit", { controller.stop(); onExit() })
+                        AuroraButton("Exit", ::exit)
                     }
                 }
             }
         }
 
-        // ---- Side panels ----
+        // ---- Bottom sheet panels ----
         AnimatedVisibility(
             panel != Panel.None,
-            modifier = Modifier.align(Alignment.CenterEnd),
-            enter = slideInHorizontally(tween(Aurora.motion.duration(220))) { it } + fadeIn(),
-            exit = slideOutHorizontally(tween(Aurora.motion.duration(180))) { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(tween(Aurora.motion.duration(260))) { it } + fadeIn(),
+            exit = slideOutVertically(tween(Aurora.motion.duration(200))) { it } + fadeOut(),
         ) {
             Column(
-                Modifier.fillMaxHeight().width(440.dp).background(colors.surfaceGlass.copy(alpha = 0.94f)).padding(28.dp)
+                Modifier.fillMaxWidth().height(360.dp)
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(Color(0xE6121214))
+                    .padding(start = 56.dp, end = 56.dp, top = 22.dp)
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(panel.title, style = AuroraType.section, color = Color.White)
+                    Spacer(Modifier.weight(1f))
+                    Text("Back to close", style = AuroraType.caption, color = Color.White.copy(alpha = 0.5f))
+                }
+                Spacer(Modifier.height(14.dp))
                 when (panel) {
-                    Panel.Audio -> {
-                        PanelTitle("Audio")
-                        OptionList(
-                            options = ui.audioStreams.map { it.index to TrackSelector.label(it) },
-                            selected = ui.audioIndex,
-                            firstFocus = panelFocus,
-                            onSelect = { idx -> idx?.let { controller.selectAudio(it) }; panel = Panel.None },
-                        )
-                    }
-                    Panel.Subtitles -> {
-                        PanelTitle("Subtitles")
-                        if (controller.supportsSubtitleDelay && ui.subtitleIndex != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                AuroraButton("−0.1s", { controller.adjustSubtitleDelay(-100) })
-                                Text("Delay ${ui.subtitleDelayMs} ms", style = AuroraType.label, color = colors.onBackground)
-                                AuroraButton("+0.1s", { controller.adjustSubtitleDelay(100) })
-                            }
-                            Spacer(Modifier.height(12.dp))
-                        }
+                    Panel.Episodes -> EpisodesPanel(controller, panelFocus) { panel = Panel.None }
+                    Panel.Chapters -> ChaptersPanel(controller, es.positionMs, panelFocus) { panel = Panel.None }
+                    Panel.Audio -> OptionRow(
+                        options = ui.audioStreams.map { it.index to TrackSelector.label(it) },
+                        selected = ui.audioIndex, firstFocus = panelFocus,
+                        onSelect = { idx -> idx?.let { controller.selectAudio(it) }; panel = Panel.None },
+                    )
+                    Panel.Subtitles -> Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            AuroraButton("A−", { controller.setSubtitleScale(ui.subtitleScale - 0.1f) })
-                            Text("Size ${(ui.subtitleScale * 100).toInt()}%", style = AuroraType.label, color = colors.onBackground)
-                            AuroraButton("A+", { controller.setSubtitleScale(ui.subtitleScale + 0.1f) })
+                            GlassPill(text = "A−", onClick = { controller.setSubtitleScale(ui.subtitleScale - 0.1f) })
+                            Text("Size ${(ui.subtitleScale * 100).toInt()}%", style = AuroraType.label, color = Color.White)
+                            GlassPill(text = "A+", onClick = { controller.setSubtitleScale(ui.subtitleScale + 0.1f) })
+                            if (controller.supportsSubtitleDelay && ui.subtitleIndex != null) {
+                                Spacer(Modifier.width(24.dp))
+                                GlassPill(text = "−0.1s", onClick = { controller.adjustSubtitleDelay(-100) })
+                                Text("Delay ${ui.subtitleDelayMs} ms", style = AuroraType.label, color = Color.White)
+                                GlassPill(text = "+0.1s", onClick = { controller.adjustSubtitleDelay(100) })
+                            }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        OptionList(
+                        Spacer(Modifier.height(10.dp))
+                        OptionRow(
                             options = listOf<Pair<Int?, String>>(null to "Off") + ui.subtitleStreams.map { it.index to TrackSelector.label(it) },
-                            selected = ui.subtitleIndex,
-                            firstFocus = panelFocus,
+                            selected = ui.subtitleIndex, firstFocus = panelFocus,
                             onSelect = { idx -> controller.selectSubtitle(idx); panel = Panel.None },
                         )
                     }
-                    Panel.Chapters -> {
-                        PanelTitle("Chapters")
-                        OptionList(
-                            options = ui.chapters.mapIndexed { i, ch -> i to "${formatTime(ch.startPositionTicks.ticksToMs())}  ${ch.name ?: "Chapter ${i + 1}"}" },
-                            selected = ui.chapters.indexOfLast { it.startPositionTicks.ticksToMs() <= es.positionMs },
-                            firstFocus = panelFocus,
-                            onSelect = { i -> i?.let { controller.seekTo(ui.chapters[it].startPositionTicks.ticksToMs()) }; panel = Panel.None },
-                        )
-                    }
-                    Panel.Info -> {
-                        PanelTitle("Playback Info")
-                        InfoPanel(controller, panelFocus)
-                    }
+                    Panel.Info -> InfoPanel(controller, panelFocus)
                     Panel.None -> Unit
                 }
             }
@@ -393,38 +432,133 @@ private fun accel(repeat: Int): Long = when {
     else -> 8
 }
 
+/** Frosted capsule used for player buttons (white with black text when focused, like tvOS). */
 @Composable
-private fun PanelTitle(text: String) {
-    Text(text, style = AuroraType.title, color = Aurora.colors.onBackground)
-    Spacer(Modifier.height(18.dp))
+private fun GlassPill(text: String, onClick: () -> Unit, icon: ImageVector? = null, modifier: Modifier = Modifier) {
+    FocusSurface(onClick = onClick, shape = RoundedCornerShape(50), sheen = false, modifier = modifier) { focused ->
+        Row(
+            Modifier.background(if (focused) Color.White else Color.White.copy(alpha = 0.16f)).padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (icon != null) Icon(icon, null, tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(20.dp))
+            Text(text, style = AuroraType.label, color = if (focused) Color.Black else Color.White)
+        }
+    }
 }
 
 @Composable
-private fun <T> OptionList(options: List<Pair<T, String>>, selected: T?, firstFocus: FocusRequester, onSelect: (T?) -> Unit) {
-    val colors = Aurora.colors
-    if (options.isEmpty()) {
-        Text("None available", style = AuroraType.body, color = colors.onSurfaceMuted)
-        return
+private fun GlassIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
+    FocusSurface(onClick = onClick, shape = CircleShape, sheen = false, modifier = Modifier.size(46.dp)) { focused ->
+        Box(Modifier.fillMaxSize().background(if (focused) Color.White else Color.White.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Icon(icon, description, tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(24.dp))
+        }
     }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+}
+
+@Composable
+private fun <T> OptionRow(options: List<Pair<T, String>>, selected: T?, firstFocus: FocusRequester, onSelect: (T?) -> Unit) {
+    if (options.isEmpty()) {
+        Text("None available", style = AuroraType.body, color = Color.White.copy(alpha = 0.7f)); return
+    }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.widthIn(max = 720.dp)) {
         itemsIndexed(options) { i, (value, label) ->
             FocusSurface(
                 onClick = { onSelect(value) },
-                shape = RoundedCornerShape(10.dp),
-                ringWidth = 0.dp,
-                scaleOnFocus = false,
+                shape = RoundedCornerShape(12.dp), sheen = false, scaleOnFocus = false,
                 modifier = Modifier.fillMaxWidth().then(if ((selected == null && i == 0) || value == selected) Modifier.focusRequester(firstFocus) else Modifier),
             ) { focused ->
-                Row(
-                    Modifier.fillMaxWidth().background(if (focused) colors.focusFill else Color.Transparent).padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(24.dp)) {
-                        if (value == selected) Icon(Icons.Filled.Check, null, tint = if (focused) colors.background else colors.onBackground)
-                    }
+                Row(Modifier.fillMaxWidth().background(if (focused) Color.White else Color.Transparent).padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(24.dp)) { if (value == selected) Icon(Icons.Filled.Check, null, tint = if (focused) Color.Black else Color.White) }
                     Spacer(Modifier.width(10.dp))
-                    Text(label, style = AuroraType.bodyStrong, color = if (focused) colors.background else colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(label, style = AuroraType.bodyStrong, color = if (focused) Color.Black else Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            }
+        }
+    }
+}
+
+/** In-player episode browser: season capsules and a row of episode stills; selecting one plays it. */
+@Composable
+private fun EpisodesPanel(controller: PlayerController, focus: FocusRequester, onClose: () -> Unit) {
+    val ui by controller.state.collectAsState()
+    val api = LocalSession.current.api
+    val current = ui.item ?: return
+    var season by remember { mutableStateOf(current.seasonId) }
+    LaunchedEffect(season) { controller.loadEpisodes(season) }
+    val episodes = season?.let { ui.episodesBySeason[it] }
+
+    if (ui.seasons.size > 1) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(ui.seasons, key = { it.id }) { sn ->
+                val selected = sn.id == season
+                FocusSurface(onClick = { season = sn.id }, shape = RoundedCornerShape(50), sheen = false) { focused ->
+                    Text(
+                        sn.name ?: "Season ${sn.indexNumber}", style = AuroraType.label,
+                        color = if (focused) Color.Black else Color.White,
+                        modifier = Modifier.background(if (focused) Color.White else if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent).padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
+    if (episodes == null) { Box(Modifier.fillMaxWidth().height(180.dp)) { LoadingState() }; return }
+    val currentIndex = episodes.indexOfFirst { it.id == current.id }.coerceAtLeast(0)
+    val listState = rememberLazyListState((currentIndex - 1).coerceAtLeast(0))
+    LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+        itemsIndexed(episodes, key = { _, e -> e.id }) { i, ep ->
+            val playing = ep.id == current.id
+            Column(Modifier.width(CardStyle.Landscape.width)) {
+                FocusSurface(
+                    onClick = { controller.playEpisode(ep.id); onClose() },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (i == currentIndex) Modifier.focusRequester(focus) else Modifier),
+                ) {
+                    Box(Modifier.fillMaxSize()) {
+                        ArtworkImage(api.images.landscape(ep, CardStyle.Landscape.requestWidth()), ep.name, Modifier.fillMaxSize())
+                        if (playing) {
+                            Text(
+                                "NOW PLAYING", style = AuroraType.caption, color = Color.Black,
+                                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(SkipYellow).padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
+                        ep.progressFraction?.takeIf { !playing && ep.userData?.played != true }?.let {
+                            ProgressStrip(it, Modifier.align(Alignment.BottomCenter).padding(10.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(listOfNotNull(ep.indexNumber?.let { "Episode $it" }, formatRuntime(ep.runtimeMs)).joinToString(" · "), style = AuroraType.caption, color = Color.White.copy(alpha = 0.6f))
+                Text(ep.name.orEmpty(), style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChaptersPanel(controller: PlayerController, positionMs: Long, focus: FocusRequester, onClose: () -> Unit) {
+    val ui by controller.state.collectAsState()
+    val api = LocalSession.current.api
+    val item = ui.item ?: return
+    val current = ui.chapters.indexOfLast { it.startPositionTicks.ticksToMs() <= positionMs }.coerceAtLeast(0)
+    LazyRow(state = rememberLazyListState((current - 1).coerceAtLeast(0)), horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+        itemsIndexed(ui.chapters) { i, ch ->
+            Column(Modifier.width(240.dp)) {
+                FocusSurface(
+                    onClick = { controller.seekTo(ch.startPositionTicks.ticksToMs()); onClose() },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (i == current) Modifier.focusRequester(focus) else Modifier),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                        val img = api.images.chapter(item.id, i, ch.imageTag, 480)
+                        if (img != null) ArtworkImage(Artwork(img, null), ch.name, Modifier.fillMaxSize())
+                        else Text("${i + 1}", style = AuroraType.title, color = Color.White.copy(alpha = 0.5f))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(formatTime(ch.startPositionTicks.ticksToMs()), style = AuroraType.caption, color = Color.White.copy(alpha = 0.6f))
+                Text(ch.name ?: "Chapter ${i + 1}", style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -433,7 +567,6 @@ private fun <T> OptionList(options: List<Pair<T, String>>, selected: T?, firstFo
 @Composable
 private fun InfoPanel(controller: PlayerController, focus: FocusRequester) {
     val ui by controller.state.collectAsState()
-    val colors = Aurora.colors
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1_000); tick++ } }
     val plan = ui.plan
@@ -443,69 +576,78 @@ private fun InfoPanel(controller: PlayerController, focus: FocusRequester) {
             add("Play method" to p.method.label)
             if (p.method != PlayMethod.DirectPlay && p.transcodeReasons.isNotEmpty()) add("Reason" to p.transcodeReasons.joinToString(", ") { r -> r.replace(Regex("([a-z])([A-Z])"), "$1 $2") })
             add("Container" to (p.mediaSource.container?.uppercase() ?: "—"))
-            p.mediaSource.bitrate?.let { add("Source bitrate" to "${it / 1_000_000} Mbps") }
             p.mediaSource.videoStream?.let { v ->
                 add("Video" to listOfNotNull(v.codec?.uppercase(), v.profile, v.width?.let { w -> "${w}x${v.height}" }, v.bitDepth?.let { b -> "$b-bit" }, v.videoRangeType).joinToString(" · "))
             }
             p.audioStreams.firstOrNull { it.index == ui.audioIndex }?.let { a -> add("Audio" to (a.displayTitle ?: a.codec.orEmpty())) }
-            p.subtitleStreams.firstOrNull { it.index == ui.subtitleIndex }?.let { st ->
-                add("Subtitles" to "${st.displayTitle ?: st.codec} (${st.deliveryMethod ?: "?"})")
-            }
+            p.subtitleStreams.firstOrNull { it.index == ui.subtitleIndex }?.let { st -> add("Subtitles" to "${st.displayTitle ?: st.codec} (${st.deliveryMethod ?: "?"})") }
         }
-        @Suppress("UNUSED_EXPRESSION") tick
-        addAll(controller.engineStats())
+        if (tick >= 0) addAll(controller.engineStats())
     }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(lines) { (k, v) ->
-            Column {
-                Text(k, style = AuroraType.caption, color = colors.onSurfaceFaint)
-                Text(v, style = AuroraType.body, color = colors.onBackground)
-            }
-        }
-        item {
-            Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).padding(end = 24.dp)) {
+            ui.item?.overview?.let { Text(it, style = AuroraType.body, color = Color.White.copy(alpha = 0.85f), maxLines = 7, overflow = TextOverflow.Ellipsis) }
             Box(Modifier.size(1.dp).focusRequester(focus).focusable())
+        }
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            items(lines) { (k, v) ->
+                Row {
+                    Text(k, style = AuroraType.caption, color = Color.White.copy(alpha = 0.55f), modifier = Modifier.width(140.dp))
+                    Text(v, style = AuroraType.caption, color = Color.White)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun UpNextCard(next: com.auroratv.jellyfin.model.BaseItemDto, controller: PlayerController, countdown: Int?, onExit: () -> Unit) {
+private fun UpNextCard(next: BaseItemDto, controller: PlayerController, countdown: Int?, onExit: () -> Unit) {
     val focus = remember { FocusRequester() }
+    val api = LocalSession.current.api
     LaunchedEffect(Unit) { delay(50); runCatching { focus.requestFocus() } }
-    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))) {
-        Column(Modifier.align(Alignment.BottomEnd).padding(64.dp).width(520.dp)) {
-            Text("Up Next", style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f))
-            Text(listOfNotNull(next.episodeLabel, next.name).joinToString(" · "), style = AuroraType.title, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            Text(next.overview ?: "", style = AuroraType.body, color = Color.White.copy(alpha = 0.75f), maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                AuroraButton(if (countdown != null) "Play in $countdown" else "Play Next", { controller.playNext() }, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus)
-                AuroraButton("Back to Browse", onExit)
+    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.9f)))) {
+        Row(Modifier.align(Alignment.BottomEnd).padding(64.dp), verticalAlignment = Alignment.Bottom) {
+            Box(Modifier.width(320.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp))) {
+                ArtworkImage(api.images.landscape(next, 640), next.name, Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.width(24.dp))
+            Column(Modifier.width(420.dp)) {
+                Text("UP NEXT", style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f))
+                Text(listOfNotNull(next.episodeLabel, next.name).joinToString(" · "), style = AuroraType.section, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(6.dp))
+                Text(next.overview ?: "", style = AuroraType.body, color = Color.White.copy(alpha = 0.75f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AuroraButton(if (countdown != null) "Play in $countdown" else "Play Next", { controller.playNext() }, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus)
+                    AuroraButton("Back to Browse", onExit)
+                }
             }
         }
     }
 }
 
 /**
- * Focusable seek bar. Left/Right scrub in [seekStepMs] steps (held keys accelerate via the caller);
- * Enter commits immediately. Grows when focused, like tvOS.
+ * tvOS scrubber: thin track that thickens on focus, a time bubble over the playhead while scrubbing,
+ * chapter ticks, and intro/recap/credits ranges highlighted in yellow.
  */
 @Composable
-private fun SeekBar(
+private fun Scrubber(
     positionMs: Long,
     durationMs: Long,
     bufferedMs: Long,
     chapters: List<Long>,
+    skipRanges: List<SkipRange>,
+    scrubbing: Boolean,
+    focusRequester: FocusRequester,
     onScrub: (Long) -> Unit,
-    onCommit: () -> Unit,
+    onSelect: () -> Unit,
     seekStepMs: Long,
 ) {
     var focused by remember { mutableStateOf(false) }
     var held by remember { mutableIntStateOf(0) }
     Box(
-        Modifier.fillMaxWidth().height(28.dp)
+        Modifier.fillMaxWidth().height(44.dp)
+            .focusRequester(focusRequester)
             .onFocusChanged { focused = it.isFocused }
             .onPreviewKeyEvent { ev ->
                 if (!focused) return@onPreviewKeyEvent false
@@ -513,30 +655,52 @@ private fun SeekBar(
                     ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft -> { held++; onScrub(-seekStepMs / 3 * accel(held)); true }
                     ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionRight -> { held++; onScrub(seekStepMs / 3 * accel(held)); true }
                     ev.type == KeyEventType.KeyUp && (ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight) -> { held = 0; true }
-                    ev.type == KeyEventType.KeyUp && (ev.key == Key.DirectionCenter || ev.key == Key.Enter) -> { onCommit(); true }
+                    ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionCenter || ev.key == Key.Enter) -> true
+                    ev.type == KeyEventType.KeyUp && (ev.key == Key.DirectionCenter || ev.key == Key.Enter) -> { onSelect(); true }
                     else -> false
                 }
             }
             .focusable(),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.BottomStart,
     ) {
-        ProgressTrack(positionMs, durationMs, bufferedMs, focused, chapters)
+        Track(positionMs, durationMs, bufferedMs, focused, chapters, skipRanges, showBubble = focused || scrubbing)
     }
 }
 
 @Composable
-private fun ProgressTrack(positionMs: Long, durationMs: Long, bufferedMs: Long, focused: Boolean, chapters: List<Long> = emptyList()) {
-    val height by animateDpAsState(if (focused) 10.dp else 6.dp, tween(Aurora.motion.duration(150)))
-    val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-    val buffered = if (durationMs > 0) (bufferedMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-    BoxWithConstraints(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.CenterStart) {
+private fun Track(
+    positionMs: Long,
+    durationMs: Long,
+    bufferedMs: Long,
+    focused: Boolean,
+    chapters: List<Long>,
+    skipRanges: List<SkipRange>,
+    showBubble: Boolean,
+) {
+    val height by animateDpAsState(if (focused) 10.dp else 5.dp, tween(Aurora.motion.duration(150)))
+    fun frac(ms: Long) = if (durationMs > 0) (ms.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    BoxWithConstraints(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.BottomStart) {
         val w = maxWidth
-        Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f)))
-        Box(Modifier.fillMaxWidth(buffered).height(height).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.35f)))
-        Box(Modifier.fillMaxWidth(fraction).height(height).clip(RoundedCornerShape(50)).background(Color.White))
-        if (durationMs > 0) chapters.filter { it > 0 }.forEach { c ->
-            Box(Modifier.offset(x = w * (c.toFloat() / durationMs)).size(width = 2.dp, height = height).background(Color.Black.copy(alpha = 0.5f)))
+        val bar = Modifier.padding(bottom = 6.dp)
+        Box(bar.fillMaxWidth().height(height).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f)))
+        Box(bar.fillMaxWidth(frac(bufferedMs)).height(height).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.32f)))
+        skipRanges.forEach { r ->
+            val start = frac(r.startMs); val end = frac(r.endMs)
+            if (end > start) Box(bar.offset(x = w * start).width(w * (end - start)).height(height).clip(RoundedCornerShape(50)).background(SkipYellow))
         }
-        if (focused) Box(Modifier.offset(x = w * fraction - 9.dp).size(18.dp).clip(CircleShape).background(Color.White))
+        Box(bar.fillMaxWidth(frac(positionMs)).height(height).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.92f)))
+        if (durationMs > 0) chapters.filter { it > 0 }.forEach { c ->
+            Box(bar.offset(x = w * frac(c)).size(width = 2.dp, height = height).background(Color.Black.copy(alpha = 0.55f)))
+        }
+        if (focused || showBubble) {
+            Box(Modifier.padding(bottom = 6.dp - (16.dp - height) / 2).offset(x = w * frac(positionMs) - 8.dp).size(16.dp).clip(CircleShape).background(Color.White))
+        }
+        if (showBubble) {
+            val x = (w * frac(positionMs) - 36.dp).coerceIn(0.dp, w - 72.dp)
+            Text(
+                formatTime(positionMs), style = AuroraType.caption, color = Color.Black, textAlign = TextAlign.Center,
+                modifier = Modifier.offset(x = x, y = (-20).dp).width(72.dp).clip(RoundedCornerShape(8.dp)).background(Color.White).padding(vertical = 3.dp),
+            )
+        }
     }
 }

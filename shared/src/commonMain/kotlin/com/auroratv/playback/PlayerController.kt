@@ -28,6 +28,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/** A part of the timeline the user may want to skip; drawn in yellow on the progress bar. */
+data class SkipRange(val kind: Kind, val startMs: Long, val endMs: Long) {
+    enum class Kind(val label: String) { Recap("Skip Recap"), Intro("Skip Intro"), Credits("Skip Credits") }
+}
+
 data class PlayerUiState(
     val item: BaseItemDto? = null,
     val loading: Boolean = true,
@@ -41,12 +46,42 @@ data class PlayerUiState(
     val chapters: List<ChapterInfo> = emptyList(),
     val nextEpisode: BaseItemDto? = null,
     val ended: Boolean = false,
+    /** Seasons of the current series and their episodes, for the in-player episode browser. */
+    val seasons: List<BaseItemDto> = emptyList(),
+    val episodesBySeason: Map<String, List<BaseItemDto>> = emptyMap(),
 ) {
+    /** Intro/recap/credits ranges from server media segments, or chapter names as a fallback. */
+    val skipRanges: List<SkipRange>
+        get() {
+            val fromSegments = segments.mapNotNull { seg ->
+                val kind = when (seg.type) { "Intro" -> SkipRange.Kind.Intro; "Recap" -> SkipRange.Kind.Recap; "Outro" -> SkipRange.Kind.Credits; else -> null }
+                kind?.let { SkipRange(it, seg.startTicks.ticksToMs(), seg.endTicks.ticksToMs()) }
+            }.filter { it.endMs > it.startMs }
+            if (fromSegments.isNotEmpty()) return fromSegments
+            val runtime = item?.runtimeMs ?: return emptyList()
+            return chapters.mapIndexedNotNull { i, ch ->
+                val name = ch.name?.lowercase()?.trim() ?: return@mapIndexedNotNull null
+                val kind = when {
+                    CREDITS.containsMatchIn(name) -> SkipRange.Kind.Credits
+                    RECAP.containsMatchIn(name) -> SkipRange.Kind.Recap
+                    INTRO.containsMatchIn(name) -> SkipRange.Kind.Intro
+                    else -> null
+                } ?: return@mapIndexedNotNull null
+                val start = ch.startPositionTicks.ticksToMs()
+                val end = chapters.getOrNull(i + 1)?.startPositionTicks?.ticksToMs() ?: runtime
+                SkipRange(kind, start, end).takeIf { end > start }
+            }
+        }
+
+    fun activeSkip(positionMs: Long): SkipRange? = skipRanges.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
+
     val audioStreams: List<MediaStream> get() = plan?.audioStreams.orEmpty()
     val subtitleStreams: List<MediaStream> get() = plan?.subtitleStreams.orEmpty()
 
-    fun activeSegment(positionMs: Long): MediaSegmentDto? = segments.firstOrNull {
-        positionMs >= it.startTicks.ticksToMs() && positionMs < it.endTicks.ticksToMs() - 1_000
+    private companion object {
+        val INTRO = Regex("""\b(intro|opening|op|opening credits|theme song)\b""")
+        val RECAP = Regex("""\b(recap|previously)\b""")
+        val CREDITS = Regex("""\b(credits|ending|ed|outro|end credits|closing)\b""")
     }
 }
 
@@ -187,10 +222,10 @@ class PlayerController(
             while (isActive) {
                 delay(500)
                 if (settings().skipIntro != SkipIntroMode.Auto) continue
-                val seg = _state.value.activeSegment(engine.state.value.positionMs) ?: continue
-                if (seg.type == "Intro" || seg.type == "Recap") {
-                    val key = "${currentItemId}:${seg.startTicks}"
-                    if (autoSkipped.add(key)) engine.seekTo(seg.endTicks.ticksToMs())
+                val range = _state.value.activeSkip(engine.state.value.positionMs) ?: continue
+                if (range.kind != SkipRange.Kind.Credits) {
+                    val key = "${currentItemId}:${range.startMs}"
+                    if (autoSkipped.add(key)) engine.seekTo(range.endMs)
                 }
             }
         }
@@ -257,8 +292,34 @@ class PlayerController(
     fun seekBy(deltaMs: Long) = seekTo(engine.state.value.positionMs + deltaMs)
 
     fun skipSegment() {
-        val seg = _state.value.activeSegment(engine.state.value.positionMs) ?: return
-        engine.seekTo(seg.endTicks.ticksToMs())
+        val range = _state.value.activeSkip(engine.state.value.positionMs) ?: return
+        engine.seekTo(range.endMs)
+    }
+
+    // ---- Episode browser -----------------------------------------------------------------------
+
+    /** Loads the series' seasons (once) and the given season's episodes (default: the playing one). */
+    fun loadEpisodes(seasonId: String? = null) {
+        val item = _state.value.item ?: return
+        val seriesId = item.seriesId ?: return
+        scope.launch {
+            appResult {
+                val seasons = _state.value.seasons.ifEmpty { api.seasons(seriesId) }
+                val target = seasonId ?: item.seasonId ?: seasons.firstOrNull()?.id ?: return@appResult
+                val eps = _state.value.episodesBySeason[target] ?: api.episodes(seriesId, seasonId = target)
+                _state.update { it.copy(seasons = seasons, episodesBySeason = it.episodesBySeason + (target to eps)) }
+            }.onFailure { Log.w(tag, "Couldn't load episodes", it) }
+        }
+    }
+
+    /** Switches playback to another episode, reporting the current one as stopped first. */
+    fun playEpisode(episodeId: String) {
+        if (episodeId == currentItemId) return
+        val keep = _state.value
+        reportStopped(ended = false)
+        start(episodeId)
+        // Keep the browser's data so reopening it is instant.
+        _state.update { it.copy(seasons = keep.seasons, episodesBySeason = keep.episodesBySeason) }
     }
 
     fun selectAudio(index: Int) {

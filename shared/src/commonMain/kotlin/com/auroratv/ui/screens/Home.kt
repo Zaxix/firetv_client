@@ -40,6 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -153,7 +158,9 @@ fun HomeScreen() {
     } else null
     val accent by animateColorAsState(accentTarget ?: Aurora.colors.accent, tween(Aurora.motion.duration(600)))
 
-    Box(Modifier.fillMaxSize()) {
+    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val heroHeight = maxHeight * 0.80f
         if (settings.showBackdrops) {
             HomeBackdrop(backdropItem, accent)
         }
@@ -165,7 +172,7 @@ fun HomeScreen() {
         ) {
             if (settings.showHeroCarousel) {
                 item(key = "hero") {
-                    Hero(model, heroItem, heroFocus, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) })
+                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) })
                 }
             }
             if (rails == null) {
@@ -206,14 +213,15 @@ fun openItem(navigator: com.auroratv.ui.nav.Navigator, item: BaseItemDto) {
 private fun HomeBackdrop(item: BaseItemDto?, accent: Color) {
     val api = LocalSession.current.api
     val colors = Aurora.colors
-    Box(Modifier.fillMaxWidth().fillMaxHeight(0.78f)) {
+    Box(Modifier.fillMaxSize()) {
         Crossfade(targetState = item?.id, animationSpec = tween(Aurora.motion.duration(500))) { id ->
             val target = if (id == item?.id) item else null
             ArtworkImage(target?.let { api.images.backdrop(it, 1920) }, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
         }
         // Left and bottom scrims keep text readable; the accent tints the shadow side like ambient light.
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(colors.background, colors.background.copy(alpha = 0.75f), accent.copy(alpha = 0.10f), Color.Transparent))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, colors.background.copy(alpha = 0.85f), colors.background))))
+        // tvOS keeps artwork bright; only the lower-left, where text sits, is shaded.
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to colors.background.copy(alpha = 0.85f), 0.45f to colors.background.copy(alpha = 0.25f), 0.7f to accent.copy(alpha = 0.06f), 1f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.5f to Color.Transparent, 0.78f to colors.background.copy(alpha = 0.9f), 1f to colors.background)))
     }
 }
 
@@ -222,6 +230,7 @@ private fun Hero(
     model: HomeModel,
     item: BaseItemDto?,
     focus: FocusRequester,
+    height: androidx.compose.ui.unit.Dp,
     onPlay: (BaseItemDto) -> Unit,
     onInfo: (BaseItemDto) -> Unit,
 ) {
@@ -240,18 +249,18 @@ private fun Hero(
     LaunchedEffect(heroFocused) { if (heroFocused) model.focused = null }
 
     Column(
-        Modifier.fillMaxWidth().heightIn(min = 420.dp).padding(start = ScreenPadding, top = 72.dp, end = ScreenPadding)
+        Modifier.fillMaxWidth().height(height).padding(start = ScreenPadding, end = ScreenPadding, bottom = 36.dp)
             .onFocusChanged { heroFocused = it.hasFocus },
+        verticalArrangement = Arrangement.Bottom,
     ) {
         if (item == null) {
-            Spacer(Modifier.height(300.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 AuroraButton("Browse", { }, focusRequester = focus)
             }
             return@Column
         }
         val logo = api.images.logo(item, 800)
-        Box(Modifier.height(150.dp).widthIn(max = 520.dp), contentAlignment = Alignment.BottomStart) {
+        Box(Modifier.height(170.dp).widthIn(max = 560.dp), contentAlignment = Alignment.BottomStart) {
             if (logo != null) ArtworkImage(logo, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
             else Text(item.seriesName ?: item.name ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
@@ -275,8 +284,16 @@ private fun Hero(
         )
         Spacer(Modifier.height(26.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            AuroraButton("Play", { onPlay(item) }, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus, focusKey = "hero/play")
-            AuroraButton("More Info", { onInfo(item) }, icon = Icons.Filled.Info, focusKey = "hero/info")
+            // Left on Play / Right on More Info pages through the featured titles, like swiping on tvOS.
+            val count = model.hero.size.coerceAtLeast(1)
+            AuroraButton("Play", { onPlay(item) }, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus, focusKey = "hero/play",
+                modifier = Modifier.onPreviewKeyEvent { ev ->
+                    if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft && model.hero.size > 1) { model.heroIndex = (model.heroIndex - 1 + count) % count; true } else false
+                })
+            AuroraButton("More Info", { onInfo(item) }, icon = Icons.Filled.Info, focusKey = "hero/info",
+                modifier = Modifier.onPreviewKeyEvent { ev ->
+                    if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionRight && model.hero.size > 1) { model.heroIndex = (model.heroIndex + 1) % count; true } else false
+                })
             Spacer(Modifier.width(18.dp))
             model.hero.forEachIndexed { i, _ ->
                 Box(

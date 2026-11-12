@@ -155,21 +155,24 @@ fun DetailScreen(route: Route.Detail) {
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        // Backdrop with scrims; sized to the screen so it's decoded once at display resolution.
-        Box(Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
+    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val headerHeight = maxHeight * 0.86f
+        // Full-screen backdrop like the tvOS TV app; shade only where text sits (lower left).
+        Box(Modifier.fillMaxSize()) {
             ArtworkImage(api.images.backdrop(item, 1920), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(colors.background, colors.background.copy(alpha = 0.7f), Color.Transparent))))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, colors.background.copy(alpha = 0.6f), colors.background))))
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to colors.background.copy(alpha = 0.88f), 0.5f to colors.background.copy(alpha = 0.3f), 1f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.8f to colors.background.copy(alpha = 0.92f), 1f to colors.background)))
         }
 
         LazyColumn(
             state = model.listState,
-            contentPadding = PaddingValues(top = 80.dp, bottom = 64.dp),
+            contentPadding = PaddingValues(bottom = 64.dp),
             verticalArrangement = Arrangement.spacedBy(32.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "header") {
+                Box(Modifier.fillMaxWidth().height(headerHeight), contentAlignment = Alignment.BottomStart) {
                 DetailHeader(
                     item = item,
                     nextUp = model.nextUp,
@@ -180,6 +183,7 @@ fun DetailScreen(route: Route.Detail) {
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
                     episodesFallback = model.episodes?.firstOrNull(),
                 )
+                }
             }
             if (item.isSeries && model.seasons.isNotEmpty()) {
                 item(key = "seasons") {

@@ -65,7 +65,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine = ExoPlayerEngine(activity, settings.assRenderMode)
 
     @Composable
-    override fun PlayerHost(engine: PlaybackEngine, controls: @Composable () -> Unit) {
+    override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {
         val exo = engine as ExoPlayerEngine
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         // Pause when the app goes to the background (Home button, input switch, screensaver).
