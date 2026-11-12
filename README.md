@@ -25,9 +25,12 @@ both platforms.
 * Movies, TV Shows and folder libraries with sort (A–Z, added, release, rating, last watched), filters (unwatched, watched, favorites) and paging
 * Detail pages: backdrop, logo, metadata, resume/restart, favorite, watched, seasons and episodes, cast, More Like This, media info
 * Search, Continue Watching, Favorites, Libraries (including collections)
-* Player: big progress bar with chapter ticks, elapsed/remaining time, skip back/forward with hold-to-accelerate, chapters, audio and subtitle pickers, playback info panel (play method, transcode reasons, decoder), Skip Intro/Recap/Credits (from server media segments), Up Next with countdown, resume, progress sync
+* Player (tvOS-style): a scrubber with a time bubble, chapter ticks, and **intro/recap/credits ranges marked in yellow** (from server media segments, or chapter names like "Opening"/"Ending"). An **in-player episode browser** (season picker plus episode cards). Chapters, audio and subtitle sheets, and a playback info panel (play method, transcode reasons, decoder). Skip Intro/Recap/Credits, Up Next with countdown, resume and progress sync. A visible **Back** button; Back/Esc leaves the player in one press, and on Windows clicking the picture pauses and closing the window exits.
+* tvOS-style navigation: top tab bar (Back from content goes to the tab bar), full-screen featured titles you can page with Left/Right, focus lift with a light sheen, rounded buttons, and the Inter typeface (open-source, in the style of San Francisco)
 * Dark, Light and System themes across the entire app, including the player; artwork-derived accent colours
 * Fire TV remote, keyboard, mouse and Xbox-compatible controllers (Windows)
+
+The design follows tvOS's layout and behaviour but uses only original artwork and the open-source Inter font. Apple's SF Pro font may only be used on Apple platforms.
 
 ## Install
 
@@ -121,7 +124,7 @@ About (version, platform, token storage, detected codec/HDR/audio/subtitle capab
 
 GPL-3.0 (see `LICENSE`). Aurora TV bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and a GPL
 build of libmpv, so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
-Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); ass-media (MIT) with libass
+Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
 (ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1). See *Settings → About*.
 
 Not affiliated with Apple, Amazon or the Jellyfin project. All UI artwork and icons are original.

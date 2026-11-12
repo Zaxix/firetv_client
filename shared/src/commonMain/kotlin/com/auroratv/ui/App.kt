@@ -175,6 +175,8 @@ private fun MainShell(container: AppContainer) {
         onDispose { container.backHandler = { false } }
     }
 
+    // Each new screen starts with the tab bar shown; screens that scroll then report their position.
+    LaunchedEffect(entry) { topBar.contentAtTop = true }
     CompositionLocalProvider(LocalNavigator provides navigator, LocalTopBar provides topBar) {
         Box(
             Modifier.fillMaxSize().onKeyEvent { ev ->
@@ -256,7 +258,6 @@ val TopBarSpace = 96.dp
 fun ReportScrollToTopBar(atTop: () -> Boolean) {
     val bar = LocalTopBar.current
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { atTop() }.collect { bar.contentAtTop = it } }
-    DisposableEffect(Unit) { onDispose { bar.contentAtTop = true } }
 }
 
 private fun Section.short(): String = when (this) {

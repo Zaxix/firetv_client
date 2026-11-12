@@ -49,9 +49,9 @@ open "player:$EP1"; sleep 22; shot android-09-player-ass-typesetting
 sleep 4; shot android-10-player-ass-later
 key KEYCODE_DPAD_UP; sleep 2; shot android-11-player-controls
 key KEYCODE_BACK; sleep 1
-open "player:$EP1"; sleep 20; key KEYCODE_DPAD_DOWN; sleep 4; shot android-12-player-episode-browser
+open "player:$EP1"; sleep 9; key KEYCODE_DPAD_DOWN; sleep 3; shot android-12-player-episode-browser
 key KEYCODE_DPAD_RIGHT; sleep 1; shot android-13-player-episode-focus
-open "player:$SEVEN"; sleep 20; key KEYCODE_DPAD_UP; sleep 1; key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 1; shot android-16-player-scrubbing
+open "player:$SEVEN"; sleep 10; key KEYCODE_DPAD_UP; sleep 1; key KEYCODE_DPAD_RIGHT; sleep 0.3; shot android-16-player-scrubbing
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
