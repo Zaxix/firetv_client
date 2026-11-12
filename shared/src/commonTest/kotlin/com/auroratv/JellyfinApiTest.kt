@@ -6,6 +6,7 @@ import com.auroratv.data.SessionManager
 import com.auroratv.data.SessionState
 import com.auroratv.jellyfin.ItemQuery
 import com.auroratv.jellyfin.ServerAddress
+import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -153,6 +154,26 @@ class JellyfinApiTest {
         val needs = assertIs<SessionState.NeedsLogin>(sm2.state.value)
         assertTrue(needs.message!!.contains("expired"))
         assertNull(vault.data["token:s1:u1"], "Revoked token is deleted")
+    }
+
+    @Test
+    fun httpToHttpsRedirectIsFollowedAndSavedIncludingSignIn() = runTest {
+        val server = FakeServer { req ->
+            if (req.url.protocol.name == "http") {
+                respond("", HttpStatusCode.MovedPermanently, io.ktor.http.headersOf(io.ktor.http.HttpHeaders.Location, req.url.toString().replace("http://", "https://")))
+            } else when (req.url.encodedPath) {
+                "/System/Info/Public" -> json(publicInfo)
+                "/Users/AuthenticateByName" -> json(authOk)
+                else -> json("{}", HttpStatusCode.NotFound)
+            }
+        }
+        val sm = SessionManager(server.client, MemoryFileStore(), MemoryVault(), "TV")
+        val (url, info) = sm.discover("http://zaxifin.com")
+        assertEquals("https://zaxifin.com", url, "the redirected HTTPS address is what gets saved")
+        val saved = sm.addServer(url, info)
+        sm.login(saved.copy(url = "http://zaxifin.com"), "zak", "pw") // even an old http:// entry signs in
+        val ready = assertIs<SessionState.Ready>(sm.state.value)
+        assertEquals("https://zaxifin.com", ready.session.server.url)
     }
 
     @Test

@@ -16,6 +16,7 @@ import com.auroratv.jellyfin.model.QueryResult
 import com.auroratv.jellyfin.model.UserDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpRedirect
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
@@ -55,6 +56,12 @@ fun createJellyfinHttpClient(base: HttpClient? = null): HttpClient {
     val config: io.ktor.client.HttpClientConfig<*>.() -> Unit = {
         expectSuccess = false
         install(ContentNegotiation) { json(AuroraJson) }
+        // Many servers redirect http→https (301) or add a path. Follow redirects for every method,
+        // including the sign-in POST, but never downgrade https to http.
+        install(HttpRedirect) {
+            checkHttpMethod = false
+            allowHttpsDowngrade = false
+        }
         install(HttpTimeout) {
             connectTimeoutMillis = 8_000
             requestTimeoutMillis = 30_000
@@ -132,12 +139,23 @@ class JellyfinApi(
 
     // ---- System / auth -------------------------------------------------------------------------
 
-    suspend fun publicSystemInfo(): PublicSystemInfo {
+    suspend fun publicSystemInfo(): PublicSystemInfo = publicSystemInfoResolved().first
+
+    /**
+     * Fetches public server info and returns the base URL the server actually answered on after any
+     * redirects (e.g. http://example.com → https://example.com), so that's the address we save.
+     */
+    suspend fun publicSystemInfoResolved(): Pair<PublicSystemInfo, String> {
         val response = http.get(url("/System/Info/Public"))
         if (response.status.value !in 200..299) throw AppError.NotJellyfin()
         val info = try { response.body<PublicSystemInfo>() } catch (t: Throwable) { throw AppError.NotJellyfin() }
         if (info.id.isNullOrBlank()) throw AppError.NotJellyfin()
-        return info
+        val finalUrl = response.call.request.url.toString()
+        val resolved = finalUrl.substringBefore("?").let {
+            val idx = it.lastIndexOf("/System/Info/Public", ignoreCase = true)
+            if (idx > 0) it.substring(0, idx) else baseUrl
+        }.trimEnd('/')
+        return info to resolved
     }
 
     suspend fun publicUsers(): List<UserDto> =

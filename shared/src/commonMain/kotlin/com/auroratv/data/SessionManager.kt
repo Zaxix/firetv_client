@@ -127,9 +127,10 @@ class SessionManager(
         var lastError: AppError = AppError.Unreachable()
         for (url in candidates) {
             try {
-                val info = apiFor(url).publicSystemInfo()
-                Log.i(tag, "Found Jellyfin ${info.version} at $url")
-                return url to info
+                val (info, resolved) = apiFor(url).publicSystemInfoResolved()
+                if (resolved != url) Log.i(tag, "Server redirected $url → $resolved")
+                Log.i(tag, "Found Jellyfin ${info.version} at $resolved")
+                return resolved to info
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
@@ -156,11 +157,13 @@ class SessionManager(
         runCatching { apiFor(server.url).publicUsers() }.getOrDefault(emptyList())
 
     suspend fun login(server: SavedServer, username: String, password: String): UserSession {
-        val api = apiFor(server.url)
+        // Re-check the address first: a saved http:// URL may now redirect to https://.
+        val resolvedUrl = runCatching { apiFor(server.url).publicSystemInfoResolved().second }.getOrDefault(server.url)
+        val api = apiFor(resolvedUrl)
         val result = api.authenticate(username.trim(), password)
         val user = SavedUser(result.user.id, result.user.name, result.user.primaryImageTag)
         vault.put(tokenKey(server.id, user.id), result.accessToken)
-        val updated = server.copy(users = server.users.filterNot { it.id == user.id } + user, lastUserId = user.id)
+        val updated = server.copy(url = resolvedUrl, users = server.users.filterNot { it.id == user.id } + user, lastUserId = user.id)
         store = store.copy(servers = store.servers.map { if (it.id == server.id) updated else it }, lastServerId = server.id)
         save()
         val session = UserSession(updated, user, api)
