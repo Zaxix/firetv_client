@@ -33,6 +33,11 @@ done
 [ -n "$TOKEN" ] || { echo "Could not authenticate CI user" >&2; exit 1; }
 A="Authorization: $AUTH, Token=\"$TOKEN\""
 
+# The CI clips are 6-30 s long; Jellyfin only stores resume points for items longer than
+# MinResumeDurationSeconds (default 300 s), so lower it to exercise resume/Continue Watching.
+curl -sf "$URL/System/Configuration" -H "$A" | jq '.MinResumeDurationSeconds = 0 | .MinResumePct = 1 | .MaxResumePct = 95' > /tmp/jf_config.json
+curl -sf -X POST "$URL/System/Configuration" -H "$A" -H "$J" -d @/tmp/jf_config.json && echo "Resume thresholds lowered for short test clips" >&2
+
 opts='{"LibraryOptions":{"EnableRealtimeMonitor":false,"EnableChapterImageExtraction":false,"EnableTrickplayImageExtraction":false,"SaveLocalMetadata":false}}'
 curl -sf -X POST "$URL/Library/VirtualFolders?name=Movies&collectionType=movies&paths=%2Fmedia%2Fmovies&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"
 curl -sf -X POST "$URL/Library/VirtualFolders?name=TV%20Shows&collectionType=tvshows&paths=%2Fmedia%2Ftv&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"

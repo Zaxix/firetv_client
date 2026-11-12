@@ -101,6 +101,7 @@ fun FocusSurface(
  */
 @Composable
 fun Modifier.arrowKeyNavigation(): Modifier {
+    if (platformHandlesDpadFocus) return this // Android's ComposeView already moves focus for D-pad keys
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     return this.onKeyEvent { ev ->
         if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onKeyEvent false
@@ -113,5 +114,26 @@ fun Modifier.arrowKeyNavigation(): Modifier {
         }
         focusManager.moveFocus(dir)
         true
+    }
+}
+
+/** True where the platform moves focus for D-pad/arrow keys itself (Android). */
+internal expect val platformHandlesDpadFocus: Boolean
+
+/**
+ * Scrolls only as far as needed to show the focused element plus a small margin. Android TV's default
+ * pivot behaviour scrolls the focused item to ~30% of the viewport, which cut off the top of Home.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+val MinimalBringIntoViewSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val margin = containerSize * 0.05f
+        val trailing = offset + size
+        return when {
+            size >= containerSize - 2 * margin -> offset - margin // taller than the viewport: show its start
+            offset < margin -> offset - margin
+            trailing > containerSize - margin -> trailing - (containerSize - margin)
+            else -> 0f
+        }
     }
 }

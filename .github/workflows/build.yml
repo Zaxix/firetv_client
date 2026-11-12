@@ -138,9 +138,11 @@ jobs:
           ! grep -q "❌" dist/integration-report.md
 
       - name: Build Linux desktop app (for screenshots)
+        if: ${{ !cancelled() }}
         run: ./gradlew --no-daemon :desktopApp:createDistributable
 
       - name: Capture UI screenshots
+        if: ${{ !cancelled() }}
         run: |
           Xvfb :99 -screen 0 1920x1080x24 +extension GLX +render -noreset >/dev/null 2>&1 &
           export DISPLAY=:99
@@ -190,9 +192,10 @@ jobs:
       - name: Bundle the Vulkan loader (libmpv needs vulkan-1.dll; PCs without GPU drivers lack it)
         shell: bash
         run: |
-          curl -sSfL "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime-components.zip?u=" -o vrt.zip
-          7z x vrt.zip -ovrt -y >/dev/null
-          find vrt -iname "vulkan-1.dll" | grep -i x64 | head -1 | xargs -I{} cp "{}" desktopApp/native/windows/
+          # Khronos Vulkan loader (Apache-2.0) for win-x64, from the Silk.NET native package on NuGet.
+          curl -sSfL "https://www.nuget.org/api/v2/package/Silk.NET.Vulkan.Loader.Native" -o vkloader.nupkg
+          7z x vkloader.nupkg -ovkloader -y >/dev/null
+          cp vkloader/runtimes/win-x64/native/vulkan-1.dll desktopApp/native/windows/
           ls -la desktopApp/native/windows
           echo "--- libmpv imports still not satisfied ---"
           (cd desktopApp/native/windows && ldd ./libmpv-2.dll | grep -i "not found") || echo "(none)"

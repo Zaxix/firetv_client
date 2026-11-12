@@ -81,6 +81,29 @@ Dialogue: 0,0:00:01.50,0:00:06.00,Dialogue,,0,0,0,,Overlapping line two (stacks 
 Dialogue: 0,0:00:06.20,0:00:09.80,Dialogue,,0,0,0,,{\fad(300,300)\be1}Edge-blur fade
 ASS
 
+# Repeat every subtitle event every 10 s so styled subtitles are on screen for the whole clip.
+repeat_events() { # file
+  python3 - "$1" <<'PY'
+import re, sys
+p = sys.argv[1]; lines = open(p).read().split("\n")
+head = [l for l in lines if not l.startswith("Dialogue:")]
+ev = [l for l in lines if l.startswith("Dialogue:")]
+def shift(t, s):
+    h, m, rest = t.split(":"); sec = float(rest) + int(m) * 60 + int(h) * 3600 + s
+    return "%d:%02d:%05.2f" % (sec // 3600, (sec % 3600) // 60, sec % 60)
+out = []
+for k in range(0, 4):
+    for l in ev:
+        f = l.split(",", 9)
+        f[1] = (f[1].split(": ")[0] + ": " + shift(f[1].split(": ")[1], 10 * k)) if ": " in f[1] else shift(f[1], 10 * k)
+        f[2] = shift(f[2], 10 * k)
+        out.append(",".join(f))
+open(p, "w").write("\n".join(head + out) + "\n")
+PY
+}
+repeat_events "$TMP/styled.ass"
+repeat_events "$TMP/anime.ass"
+
 # ---------- 1) H.264 + AAC + embedded SRT, plus external .en.srt sidecar ----------
 D="$OUT/movies/Harbor Lights (2021)"; mkdir -p "$D"
 ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 30 1920x1080 24)" -f lavfi -i "sine=frequency=440:duration=30" -i "$TMP/plain.srt" \

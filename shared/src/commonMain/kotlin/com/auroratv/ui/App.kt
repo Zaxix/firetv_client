@@ -93,6 +93,7 @@ val LocalSession = staticCompositionLocalOf<UserSession> { error("No session") }
 private val NavCollapsed = 84.dp
 private val NavExpanded = 260.dp
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AuroraApp(container: AppContainer) {
     val settings by container.settings.settings.collectAsState()
@@ -107,7 +108,10 @@ fun AuroraApp(container: AppContainer) {
     }
 
     AuroraTheme(settings.theme, settings.animations) {
-        CompositionLocalProvider(LocalContainer provides container) {
+        CompositionLocalProvider(
+            LocalContainer provides container,
+            androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.auroratv.ui.components.MinimalBringIntoViewSpec,
+        ) {
             Box(Modifier.fillMaxSize().background(Aurora.colors.background).arrowKeyNavigation()) {
                 val state by container.sessions.state.collectAsState()
                 LaunchedEffect(Unit) { container.sessions.restore() }

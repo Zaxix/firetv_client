@@ -286,7 +286,7 @@ private fun AboutPage(container: AppContainer) {
                 "Aurora TV is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
                     "Compose Multiplatform (Apache 2.0), Ktor (Apache 2.0), Coil (Apache 2.0), AndroidX Media3 (Apache 2.0), " +
                     "Jellyfin Media3 FFmpeg decoder (GPL v3, FFmpeg LGPL/GPL), libass-android / ass-media (MIT; libass ISC, FreeType FTL, " +
-                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), JNA (Apache 2.0/LGPL). Full texts ship in the LICENSES folder.",
+                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), Vulkan loader (Apache 2.0), JNA (Apache 2.0/LGPL). See the project README for full license details.",
                 style = AuroraType.caption, color = colors.onSurfaceMuted,
             )
         }

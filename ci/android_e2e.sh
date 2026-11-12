@@ -40,6 +40,10 @@ key KEYCODE_DPAD_LEFT; sleep 2; shot android-07-sidenav-expanded
 
 # Deep links (session is restored from the Keystore vault on relaunch).
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
+# Turn subtitles on (English, always) the same way the Settings screen persists them.
+adb shell am force-stop "$PKG"
+echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}' | adb shell "run-as $PKG sh -c 'cat > files/settings.json'"
+adb shell "run-as $PKG cat files/settings.json" || true
 open "detail:$SERIES"; sleep 14; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; shot android-08-series-detail
 open "player:$EP1"; sleep 22; shot android-09-player-ass-typesetting
 sleep 4; shot android-10-player-ass-later
