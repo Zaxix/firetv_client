@@ -165,11 +165,12 @@ private fun MainShell(container: AppContainer) {
             }
         ) {
             val isPlayer = entry.route is Route.Player
+            val motion = Aurora.motion
             if (!isPlayer) {
                 Box(Modifier.fillMaxSize().padding(start = NavCollapsed)) {
                     AnimatedContent(
                         targetState = entry,
-                        transitionSpec = { fadeIn(tween(Aurora.motion.duration(220))) togetherWith fadeOut(tween(Aurora.motion.duration(120))) },
+                        transitionSpec = { fadeIn(tween(motion.duration(220))) togetherWith fadeOut(tween(motion.duration(120))) },
                     ) { e ->
                         CompositionLocalProvider(LocalEntry provides e) { RouteContent(container, e.route) }
                     }
