@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta http-equiv="x-ua-compatible" content="IE=edge"/>
+<title>Test results - Class com.auroratv.JellyfinApiTest</title>
+<link href="../css/base-style.css" rel="stylesheet" type="text/css"/>
+<link href="../css/style.css" rel="stylesheet" type="text/css"/>
+<script src="../js/report.js" type="text/javascript"></script>
+</head>
+<body>
+<div id="content">
+<h1>Class com.auroratv.JellyfinApiTest</h1>
+<div class="breadcrumbs">
+<a href="../index.html">all</a> &gt; 
+<a href="../packages/com.auroratv.html">com.auroratv</a> &gt; JellyfinApiTest</div>
+<div id="summary">
+<table>
+<tr>
+<td>
+<div class="summaryGroup">
+<table>
+<tr>
+<td>
+<div class="infoBox" id="tests">
+<div class="counter">14</div>
+<p>tests</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="failures">
+<div class="counter">0</div>
+<p>failures</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="ignored">
+<div class="counter">0</div>
+<p>ignored</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="duration">
+<div class="counter">0.343s</div>
+<p>duration</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</td>
+<td>
+<div class="infoBox success" id="successRate">
+<div class="percent">100%</div>
+<p>successful</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="tab-container">
+<ul class="tabLinks">
+<li>
+<a href="#">Tests</a>
+</li>
+<li>
+<a href="#">Standard output</a>
+</li>
+<li>
+<a href="#">Standard error</a>
+</li>
+</ul>
+<div class="tab">
+<h2>Tests</h2>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Duration</th>
+<th>Result</th>
+</tr>
+</thead>
+<tr>
+<td class="success">authenticationSendsClientHeaderAndStoresToken</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">expiredTokenMapsToSessionExpired</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">httpToHttpsRedirectIsFollowedAndSavedIncludingSignIn</td>
+<td class="success">0.010s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">invalidCredentialsMapToFriendlyError</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">logRedactsSecrets</td>
+<td class="success">0s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">malformedJsonIsReportedAsBadData</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">nonJellyfinServerIsRejected</td>
+<td class="success">0.008s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">paginationParametersAreSent</td>
+<td class="success">0.011s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">restoreWithRevokedTokenAsksForLogin</td>
+<td class="success">0.009s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">searchSendsSearchTerm</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">serverErrorsAndMissingItemsAreDistinguished</td>
+<td class="success">0.015s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">sessionManagerLoginStoresTokenOnlyInVaultAndRestores</td>
+<td class="success">0.244s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">unknownFieldsAndMissingOptionalsDecode</td>
+<td class="success">0.014s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">unreachableServerReportsFriendlyError</td>
+<td class="success">0.012s</td>
+<td class="success">passed</td>
+</tr>
+</table>
+</div>
+<div class="tab">
+<h2>Standard output</h2>
+<span class="code">
+<pre>[INFO] Session: Found Jellyfin 10.10.7 at http://jf.local:8096
+[WARN] JellyfinApi: HTTP 404 for GET http://jf.local:8096/Items/missing?userId=u1
+[WARN] JellyfinApi: HTTP 500 for GET http://jf.local:8096/Items/boom?userId=u1
+[WARN] JellyfinApi: HTTP 401 for POST http://jf.local:8096/Users/AuthenticateByName
+[INFO] Session: Found Jellyfin 10.10.7 at http://jf.local:8096
+[WARN] JellyfinApi: HTTP 401 for GET http://jf.local:8096/Users/Me
+[INFO] Session: Server redirected http://zaxifin.com → https://zaxifin.com
+[INFO] Session: Found Jellyfin 10.10.7 at https://zaxifin.com
+[WARN] JellyfinApi: HTTP 401 for GET http://jf.local:8096/UserViews?userId=u1
+[DEBUG] Session: No server at http://192.168.1.50:8096: Unknown
+[DEBUG] Session: No server at https://192.168.1.50:8920: Unknown
+[DEBUG] Session: No server at http://192.168.1.50: Unknown
+[WARN] JellyfinApi: Failed to decode /Items/x (JsonConvertException: Illegal input: Unexpected JSON token at offset 5: Expected colon ':', but had 'j' instead at path: $
+JSON input: {not json)
+</pre>
+</span>
+</div>
+<div class="tab">
+<h2>Standard error</h2>
+<span class="code">
+<pre>SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+</pre>
+</span>
+</div>
+</div>
+<div id="footer">
+<p>
+<div>
+<label class="hidden" id="label-for-line-wrapping-toggle" for="line-wrapping-toggle">Wrap lines
+<input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
+</label>
+</div>Generated by 
+<a href="https://www.gradle.org">Gradle 8.14.3</a> at Nov 13, 2026, 2:42:48 AM</p>
+</div>
+</div>
+</body>
+</html>
