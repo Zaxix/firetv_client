@@ -1,0 +1,382 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Tests + Android APK/AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (shared logic + keyboard/remote navigation UI tests)
+        run: ./gradlew --no-daemon --stacktrace :shared:desktopTest :shared:testDebugUnitTest
+
+      - name: Prepare release signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.AURORA_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AURORA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AURORA_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "AURORA_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNING=repository secret" >> "$GITHUB_ENV"
+          else
+            # No secret configured: sign with a throwaway key so the APK installs. Updates between
+            # builds signed with different throwaway keys require uninstalling first (see README).
+            PASS=$(openssl rand -hex 16)
+            echo "::add-mask::$PASS"
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.jks" -alias aurora -keyalg RSA -keysize 4096 \
+              -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Aurora TV CI, O=Aurora TV" >/dev/null 2>&1
+            echo "AURORA_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=aurora" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "SIGNING=ephemeral CI key" >> "$GITHUB_ENV"
+          fi
+          echo "AURORA_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build debug APK, release APK and release AAB
+        run: ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
+
+      - name: Verify APK signatures and contents
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          for apk in androidApp/build/outputs/apk/*/*.apk; do
+            echo "== $apk ($(du -h "$apk" | cut -f1))"
+            $BT/apksigner verify --print-certs "$apk" | head -3
+            $BT/aapt2 dump badging "$apk" | grep -E "package:|sdkVersion|leanback|native-code" || true
+            unzip -l "$apk" | grep -E "libass|ffmpeg" | head -10 || true
+          done
+          echo "Release signed with: $SIGNING"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp androidApp/build/outputs/apk/debug/*.apk dist/AuroraTV-debug.apk
+          cp androidApp/build/outputs/apk/release/*.apk dist/AuroraTV-release.apk
+          cp androidApp/build/outputs/bundle/release/*.aab dist/AuroraTV-release.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: shared/build/reports/tests/
+
+  e2e:
+    name: Real Jellyfin server — integration tests + desktop screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install tools (FFmpeg, Xvfb, libmpv)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb xdotool imagemagick libmpv-dev xcompmgr fonts-dejavu-core libgl1-mesa-dri jq python3-pil >/dev/null
+
+      - name: Generate test media + artwork
+        run: |
+          ffmpeg -hide_banner -version | head -1
+          ci/make_samples.sh "$RUNNER_TEMP/media"
+          python3 ci/make_artwork.py "$RUNNER_TEMP/media"
+          for f in "$RUNNER_TEMP"/media/movies/*/*.mkv; do echo "== $f"; ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,pix_fmt,color_transfer,color_primaries,color_space -of compact "$f"; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samples
+          path: ${{ runner.temp }}/media/
+          retention-days: 3
+
+      - name: Start Jellyfin
+        run: |
+          docker run -d --name jellyfin -p 8096:8096 -v "$RUNNER_TEMP/media:/media:ro" jellyfin/jellyfin:latest
+          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Integration tests against the real server
+        env:
+          AURORA_IT_URL: http://localhost:8096
+          AURORA_IT_REPORT: ${{ github.workspace }}/dist/integration-report.md
+        run: |
+          mkdir -p dist
+          ./gradlew --no-daemon :shared:desktopTest --tests 'com.auroratv.JellyfinIntegrationTest' -i | grep -E "^\| |FAILED|PASSED" || true
+          test -f dist/integration-report.md && cat dist/integration-report.md
+          ! grep -q "❌" dist/integration-report.md
+
+      - name: Build Linux desktop app (for screenshots)
+        if: ${{ !cancelled() }}
+        run: ./gradlew --no-daemon :desktopApp:createDistributable
+
+      - name: Capture UI screenshots
+        if: ${{ !cancelled() }}
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 +extension GLX +render -noreset >/dev/null 2>&1 &
+          export DISPLAY=:99
+          sleep 2
+          xcompmgr -n >/dev/null 2>&1 &
+          APP=$(find desktopApp/build/compose/binaries/main/app -type f -path '*/bin/*' | head -1)
+          echo "Launcher: $APP"
+          ci/screenshots.sh "$APP" dist/screenshots "$JF_TOKEN"
+          docker logs jellyfin 2>&1 | tail -20
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e
+          path: dist/
+
+  windows:
+    name: Windows EXE/MSI + libmpv self-test
+    runs-on: windows-2022
+    needs: e2e
+    if: ${{ !cancelled() }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch libmpv (shinchiro mpv-winbuild-cmake, x86_64)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R shinchiro/mpv-winbuild-cmake --pattern 'mpv-dev-x86_64-2*.7z' --dir mpv
+          ls -la mpv
+          mkdir -p desktopApp/native/windows
+          7z e mpv/*.7z -odesktopApp/native/windows libmpv-2.dll -r -y
+          ls -la desktopApp/native/windows
+          echo "$(ls mpv)" > desktopApp/native/windows/LIBMPV_SOURCE.txt
+          echo "--- libmpv imports not satisfied on this machine (before bundling) ---"
+          ldd desktopApp/native/windows/libmpv-2.dll | grep -i "not found" || echo "(none)"
+
+      - name: Bundle the Vulkan loader (libmpv needs vulkan-1.dll; PCs without GPU drivers lack it)
+        shell: bash
+        run: |
+          # Khronos Vulkan loader (Apache-2.0) for win-x64, from the Silk.NET native package on NuGet.
+          curl -sSfL "https://www.nuget.org/api/v2/package/Silk.NET.Vulkan.Loader.Native" -o vkloader.nupkg
+          7z x vkloader.nupkg -ovkloader -y >/dev/null
+          cp vkloader/runtimes/win-x64/native/vulkan-1.dll desktopApp/native/windows/
+          ls -la desktopApp/native/windows
+          echo "--- libmpv imports still not satisfied ---"
+          (cd desktopApp/native/windows && ldd ./libmpv-2.dll | grep -i "not found") || echo "(none)"
+
+      - name: Package (MSI, EXE installer, portable folder)
+        shell: bash
+        run: ./gradlew --no-daemon --stacktrace :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:createDistributable
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: samples
+          path: samples
+
+      - name: Self-test packaged app (libmpv decode of every sample + libass)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Include *.dll,*.cfg | Where-Object { $_.Name -like "*mpv*" -or $_.Extension -eq ".cfg" } | ForEach-Object { $_.FullName }
+          Get-Content (Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Filter *.cfg | Select-Object -First 1).FullName
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          $exe = Join-Path $app.FullName "$($app.Name).exe"
+          $files = @(Get-ChildItem samples -Recurse -Include *.mkv,*.avi -ErrorAction SilentlyContinue | ForEach-Object { '"' + $_.FullName + '"' })
+          $argLine = '--self-test "' + "$PWD\selftest.txt" + '" ' + ($files -join ' ')
+          Write-Host "Running $exe $argLine"
+          $p = Start-Process -FilePath $exe -ArgumentList $argLine -PassThru -Wait
+          Get-Content selftest.txt
+          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
+
+      - name: Launch smoke test + screenshot
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          $exe = Join-Path $app.FullName "$($app.Name).exe"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue; throw "App exited early (code $($p.ExitCode))" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force screenshots | Out-Null
+          $bmp.Save("screenshots/windows-first-launch.png")
+          Stop-Process -Id $p.Id -Force
+          Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue
+
+      - name: Playback screenshots against the public Jellyfin demo server (best effort)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
+          ./ci/windows_playback.ps1 -Exe (Join-Path $app.FullName "$($app.Name).exe") -Out screenshots
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp desktopApp/build/compose/binaries/main/msi/*.msi dist/
+          cp desktopApp/build/compose/binaries/main/exe/*.exe dist/
+          (cd desktopApp/build/compose/binaries/main/app && 7z a -tzip "$GITHUB_WORKSPACE/dist/AuroraTV-windows-x64-portable.zip" . >/dev/null)
+          cp selftest.txt dist/windows-selftest.txt
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-screenshots
+          path: screenshots/
+
+  android-e2e:
+    name: Android TV emulator — sign-in, D-pad navigation, playback
+    runs-on: ubuntu-latest
+    needs: [android, e2e]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: samples
+          path: media
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Jellyfin
+        run: |
+          sudo apt-get install -y -qq jq >/dev/null
+          docker run -d --name jellyfin -p 8096:8096 -v "$PWD/media:/media:ro" jellyfin/jellyfin:latest
+          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run on Android TV emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN" && bash ci/android_release_smoke.sh apk/AuroraTV-release.apk dist/android-screenshots "$JF_TOKEN"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-e2e
+          path: dist/
+
+  publish:
+    name: Publish downloads + CI results
+    runs-on: ubuntu-latest
+    needs: [android, e2e, windows, android-e2e]
+    if: ${{ !cancelled() && needs.android.result == 'success' }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Push screenshots and reports to the ci-results branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p results/screenshots/desktop results/screenshots/android results/screenshots/windows results/reports
+          cp artifacts/e2e/screenshots/*.png results/screenshots/desktop/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/*.png results/screenshots/android/ 2>/dev/null || true
+          cp artifacts/windows-screenshots/*.png results/screenshots/windows/ 2>/dev/null || true
+          cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
+          cp artifacts/windows/windows-selftest.txt results/reports/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
+          grep -E "ExoEngine|Negotiator|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/jellyfin-transcodes.txt results/reports/ 2>/dev/null || true
+          cp artifacts/e2e/screenshots/aurora.log results/reports/desktop-aurora.log 2>/dev/null || true
+          cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true
+          cat > results/README.md <<MD
+          CI results for ${GITHUB_SHA} (run ${GITHUB_RUN_ID}).
+          Jobs: android=${{ needs.android.result }} e2e=${{ needs.e2e.result }} windows=${{ needs.windows.result }} android-e2e=${{ needs.android-e2e.result }}
+          MD
+          cd results
+          git init -q -b ci-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "CI results for ${GITHUB_SHA::7} [skip ci]"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
+
+      - name: Publish rolling pre-release with APK/AAB and Windows installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p upload
+          cp artifacts/android/* upload/
+          cp artifacts/windows/*.msi artifacts/windows/*.exe artifacts/windows/*.zip upload/ 2>/dev/null || true
+          for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
+          ls -la upload
+          gh release delete latest-build --yes --cleanup-tag -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          cat > notes.md <<MD
+          Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
+
+          * **Fire TV / Android TV:** install \`AuroraTV-release.apk\` (sideload). \`AuroraTV-debug.apk\` is a debuggable build; the AAB is for store uploads.
+          * **Windows 10/11 x64:** \`.msi\` or \`.exe\` installer, or the portable ZIP.
+
+          CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Windows ${{ needs.windows.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
+          MD
+          gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Aurora TV — latest build (${GITHUB_SHA::7})" --notes-file notes.md
