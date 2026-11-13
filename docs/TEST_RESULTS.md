@@ -27,6 +27,8 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Navigation state | back stack keeps screen data and the last-focused card; Back at root doesn't pop; side-nav selection resets the stack |
 | Logging | `api_key`, `Token="…"`, `X-Emby-Token`, `AccessToken` and passwords are redacted |
 | Artwork | BlurHash average colour, accent extraction (skips near-grey art), placeholder decode |
+| Transcoding profile | H.264 is listed first (fast server encodes), HEVC second for stream copy |
+| Trickplay | Jellyfin `Trickplay` sheets parsed; the smallest set ≥ 320 px is used; tile URL format |
 
 **Result: all passing.**
 
@@ -115,6 +117,9 @@ server. Debug builds log every remote key the activity receives, so the run prov
   lines in the styled sample (see screenshots) ✅
 * player controls (progress bar, elapsed/remaining, transport, audio/subtitle/info, next episode) ✅
 * no crashes (`FATAL EXCEPTION` check on logcat) ✅
+* **R8-shrunk release APK** (13 MB): fresh install, sign-in with the remote, Home, then playback of
+  the anime ASS episode and the HEVC Main10 movie through Media3 + libass + FFmpeg. The run fails on
+  any crash, missing class or native-library error, or if the player never reaches the READY state ✅
 
 The emulator runs found and fixed three real bugs:
 
