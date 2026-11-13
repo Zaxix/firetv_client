@@ -68,6 +68,10 @@ class ImageUrls(private val baseUrl: String) {
     fun person(personId: String?, tag: String?, width: Int): String? =
         if (personId == null || tag == null) null else url(personId, "Primary", tag, maxWidth = width)
 
+    /** One trickplay sprite sheet. Unlike other images this endpoint needs the access token (sent as a header). */
+    fun trickplayTile(itemId: String, mediaSourceId: String, width: Int, sheetIndex: Int): String =
+        "${baseUrl.trimEnd('/')}/Videos/$itemId/Trickplay/$width/$sheetIndex.jpg?mediaSourceId=$mediaSourceId"
+
     fun chapter(itemId: String, index: Int, tag: String?, width: Int): String? =
         tag?.let { url(itemId, "Chapter", it, maxWidth = width, index = index) }
 }

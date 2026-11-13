@@ -34,8 +34,11 @@ can only be confirmed on that device; CI can't test them.
 * **Release signing:** without the `AURORA_KEYSTORE_*` repository secrets, CI signs each release APK
   with a new throwaway key, so installing a newer build over an older one fails until you uninstall the
   old one. Add the secrets (see README) for upgrade-in-place.
-* **No R8 shrinking** in release builds (deliberate, to protect JNI-heavy libraries), so the APK is
-  larger than strictly necessary.
+* **Release builds are shrunk with R8.** Native-backed libraries (libass, FFmpeg) and Aurora's own
+  classes are kept explicitly, and CI installs and plays the release APK on an emulator. If a release
+  build ever misbehaves where the debug build doesn't, the debug APK is the fallback.
+* **Scrub thumbnails need trickplay on the server.** Turn on "Enable trickplay image extraction" in
+  the library settings (Jellyfin 10.9 or newer); without it, scrubbing shows only the time.
 
 ## Windows
 

@@ -16,7 +16,9 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -81,8 +83,28 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
         setParameters(buildUponParameters().setTunnelingEnabled(false).build())
     }
 
+    /**
+     * Deeper buffering than Media3's defaults (50 s max): keeps up to 2 minutes / ~160 MB ahead so
+     * network hiccups and slow server transcodes don't stall playback, starts after 1.5 s, and keeps
+     * 15 s behind the playhead so short rewinds (and "skip back") don't re-fetch.
+     */
+    private val loadControl = DefaultLoadControl.Builder()
+        .setBufferDurationsMs(
+            /* minBufferMs = */ 30_000,
+            /* maxBufferMs = */ 120_000,
+            /* bufferForPlaybackMs = */ 1_500,
+            /* bufferForPlaybackAfterRebufferMs = */ 4_000,
+        )
+        .setTargetBufferBytes(160 * 1024 * 1024)
+        .setPrioritizeTimeOverSizeThresholds(false)
+        .setBackBuffer(15_000, /* retainBackBufferFromKeyframe = */ true)
+        .build()
+
     private val player: ExoPlayer = ExoPlayer.Builder(context)
         .setTrackSelector(trackSelector)
+        .setLoadControl(loadControl)
+        .setSeekBackIncrementMs(10_000)
+        .setSeekForwardIncrementMs(10_000)
         .setAudioAttributes(
             AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
             /* handleAudioFocus = */ true,
@@ -115,6 +137,8 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
 
     init {
         view.player = player
+        // Scrubbing jumps to the nearest keyframe: near-instant instead of decoding up to the exact frame.
+        player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) = publish()
 
@@ -152,6 +176,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
 
     private fun publish() {
         val size = player.videoSize
+        // StateFlow drops equal values, so an idle/paused player doesn't wake the UI at all.
         _state.value = EngineState(
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.takeIf { it != C.TIME_UNSET } ?: 0,

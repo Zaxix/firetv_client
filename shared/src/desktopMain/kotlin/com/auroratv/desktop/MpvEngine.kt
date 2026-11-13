@@ -76,10 +76,19 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         opt("cursor-autohide", "no")
         opt("osc", "no")
         opt("osd-level", "0")
+        // Buffering: a deep forward cache, a modest back cache for quick rewinds, and a short
+        // cache-pause wait so playback resumes as soon as ~2 s are buffered instead of stalling longer.
         opt("cache", "yes")
-        opt("demuxer-max-bytes", "300MiB")
-        opt("demuxer-readahead-secs", "30")
+        opt("demuxer-max-bytes", "400MiB")
+        opt("demuxer-max-back-bytes", "100MiB")
+        opt("demuxer-readahead-secs", "60")
+        opt("cache-pause-initial", "no")
+        opt("cache-pause-wait", "2")
+        opt("stream-buffer-size", "4MiB")
         opt("network-timeout", "30")
+        opt("hr-seek", "no") // seek to keyframes: near-instant, no decode-ahead
+        opt("video-sync", "audio")
+        opt("vd-lavc-threads", "0")
         opt("user-agent", "AuroraTV/${AppInfo.VERSION} (Windows)")
         opt("sub-auto", "no")
         opt("embeddedfonts", "yes")
@@ -107,8 +116,9 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
     private fun startEventLoop(handle: Pointer) = thread(name = "mpv-events", isDaemon = true) {
         val l = lib ?: return@thread
         while (!released) {
-            val ev = l.mpv_wait_event(handle, 1.0)
+            val ev = l.mpv_wait_event(handle, 0.1)
             if (released) break
+            flushProgress()
             when (ev.getInt(0)) {
                 LibMpv.EVENT_NONE -> Unit
                 LibMpv.EVENT_SHUTDOWN -> break
@@ -144,9 +154,11 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         fun flag() = if (format == LibMpv.FORMAT_FLAG && data != null) data.getInt(0) != 0 else null
         fun int64() = if (format == LibMpv.FORMAT_INT64 && data != null) data.getLong(0) else null
         when (name) {
-            "time-pos" -> dbl()?.let { v -> _state.update { it.copy(positionMs = (v * 1000).toLong()) } }
+            // Position/cache change at frame rate; they are coalesced and published at ~4 Hz by
+            // flushProgress so the UI (and the transparent overlay window) isn't repainted per frame.
+            "time-pos" -> dbl()?.let { v -> latestPos = (v * 1000).toLong() }
             "duration" -> dbl()?.let { v -> _state.update { it.copy(durationMs = (v * 1000).toLong()) } }
-            "demuxer-cache-time" -> dbl()?.let { v -> _state.update { it.copy(bufferedMs = (v * 1000).toLong()) } }
+            "demuxer-cache-time" -> dbl()?.let { v -> latestBuffered = (v * 1000).toLong() }
             "pause" -> flag()?.let { paused = it; publish() }
             "paused-for-cache" -> flag()?.let { pausedForCache = it; publish() }
             "seeking" -> flag()?.let { seeking = it; publish() }
@@ -155,7 +167,26 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         }
     }
 
+    @Volatile private var latestPos = -1L
+    @Volatile private var latestBuffered = -1L
+    private var lastFlush = 0L
+
+    private fun flushProgress(force: Boolean = false) {
+        val now = System.nanoTime()
+        if (!force && now - lastFlush < 250_000_000L) return
+        lastFlush = now
+        val pos = latestPos; val buf = latestBuffered
+        if (pos < 0 && buf < 0) return
+        _state.update { s ->
+            val np = if (pos >= 0) pos else s.positionMs
+            val nb = if (buf >= 0) buf else s.bufferedMs
+            // Skip no-op updates (paused, idle) so collectors aren't woken at all.
+            if (np / 250 == s.positionMs / 250 && nb / 1000 == s.bufferedMs / 1000) s else s.copy(positionMs = np, bufferedMs = nb)
+        }
+    }
+
     private fun publish(buffering: Boolean? = null) {
+        flushProgress(force = true)
         _state.update {
             it.copy(
                 isPlaying = fileLoaded && !paused && !pausedForCache && !it.isEnded,
@@ -206,7 +237,8 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         pendingAudio = source.audioOrdinal
         pendingSubtitle = source.subtitle
         fileLoaded = false
-        _state.value = EngineState(isBuffering = true)
+        latestPos = -1L; latestBuffered = -1L
+        _state.value = EngineState(isBuffering = true, positionMs = source.startPositionMs)
         // Only the token header: mpv splits list options on commas, and the full MediaBrowser header has commas.
         source.headers["X-Emby-Token"]?.let { set("http-header-fields", "X-Emby-Token: $it") }
         set("start", String.format(Locale.ROOT, "%.3f", source.startPositionMs / 1000.0))
@@ -216,7 +248,12 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
 
     override fun play() = set("pause", "no")
     override fun pause() = set("pause", "yes")
-    override fun seekTo(positionMs: Long) = command("seek", String.format(Locale.ROOT, "%.3f", positionMs / 1000.0), "absolute+keyframes")
+    override fun seekTo(positionMs: Long) {
+        // Reflect the target immediately so the scrubber doesn't snap back while mpv seeks.
+        latestPos = positionMs
+        _state.update { it.copy(positionMs = positionMs) }
+        command("seek", String.format(Locale.ROOT, "%.3f", positionMs / 1000.0), "absolute+keyframes")
+    }
 
     override fun selectAudio(ordinal: Int) {
         pendingAudio = ordinal

@@ -53,6 +53,8 @@ import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.ui.LocalContainer
 import com.auroratv.ui.LocalSession
 import com.auroratv.ui.components.ArtworkImage
+import com.auroratv.ui.components.artworkPx
+import com.auroratv.ui.components.screenArtworkPx
 import com.auroratv.ui.components.AuroraButton
 import com.auroratv.ui.components.AuroraChip
 import com.auroratv.ui.components.CardStyle
@@ -160,7 +162,7 @@ fun DetailScreen(route: Route.Detail) {
         val headerHeight = maxHeight * 0.86f
         // Full-screen backdrop like the tvOS TV app; shade only where text sits (lower left).
         Box(Modifier.fillMaxSize()) {
-            ArtworkImage(api.images.backdrop(item, 1920), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
+            ArtworkImage(api.images.backdrop(item, screenArtworkPx()), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to colors.background.copy(alpha = 0.88f), 0.5f to colors.background.copy(alpha = 0.3f), 1f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.8f to colors.background.copy(alpha = 0.92f), 1f to colors.background)))
         }
@@ -231,7 +233,7 @@ private fun DetailHeader(
     val colors = Aurora.colors
     val api = LocalSession.current.api
     Column(Modifier.padding(horizontal = ScreenPadding).widthIn(max = 760.dp)) {
-        val logo = api.images.logo(item, 800)
+        val logo = api.images.logo(item, artworkPx(480.dp, 1f))
         if (logo != null && !item.isEpisode) {
             ArtworkImage(logo, item.name, Modifier.height(140.dp).widthIn(max = 520.dp), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
         } else {
@@ -325,6 +327,7 @@ private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Un
 @Composable
 private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: com.auroratv.jellyfin.ImageUrls) {
     val colors = Aurora.colors
+    val personPx = artworkPx(104.dp)
     Column {
         Text("Cast", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenPadding, bottom = 14.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -333,7 +336,7 @@ private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: c
                     FocusSurface(onClick = {}, shape = CircleShape, modifier = Modifier.size(104.dp)) {
                         Box(Modifier.fillMaxSize().clip(CircleShape).background(colors.surfaceRaised), contentAlignment = Alignment.Center) {
                             Text(person.name.split(' ').mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), style = AuroraType.section, color = colors.onSurfaceMuted)
-                            images.person(person.id, person.primaryImageTag, 220)?.let {
+                            images.person(person.id, person.primaryImageTag, personPx)?.let {
                                 ArtworkImage(Artwork(it, null), person.name, Modifier.fillMaxSize(), showPlaceholder = false)
                             }
                         }

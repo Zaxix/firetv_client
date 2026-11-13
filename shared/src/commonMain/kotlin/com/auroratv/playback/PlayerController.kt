@@ -5,6 +5,7 @@ import com.auroratv.core.Log
 import com.auroratv.core.appResult
 import com.auroratv.core.toAppError
 import com.auroratv.jellyfin.JellyfinApi
+import com.auroratv.jellyfin.model.TrickplayInfo
 import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.jellyfin.model.ChapterInfo
 import com.auroratv.jellyfin.model.MediaSegmentDto
@@ -50,16 +51,16 @@ data class PlayerUiState(
     val seasons: List<BaseItemDto> = emptyList(),
     val episodesBySeason: Map<String, List<BaseItemDto>> = emptyMap(),
 ) {
-    /** Intro/recap/credits ranges from server media segments, or chapter names as a fallback. */
-    val skipRanges: List<SkipRange>
-        get() {
+    /** Intro/recap/credits ranges from server media segments, or chapter names as a fallback. Computed once per state. */
+    val skipRanges: List<SkipRange> by lazy {
+        run {
             val fromSegments = segments.mapNotNull { seg ->
                 val kind = when (seg.type) { "Intro" -> SkipRange.Kind.Intro; "Recap" -> SkipRange.Kind.Recap; "Outro" -> SkipRange.Kind.Credits; else -> null }
                 kind?.let { SkipRange(it, seg.startTicks.ticksToMs(), seg.endTicks.ticksToMs()) }
             }.filter { it.endMs > it.startMs }
-            if (fromSegments.isNotEmpty()) return fromSegments
-            val runtime = item?.runtimeMs ?: return emptyList()
-            return chapters.mapIndexedNotNull { i, ch ->
+            if (fromSegments.isNotEmpty()) return@run fromSegments
+            val runtime = item?.runtimeMs ?: return@run emptyList()
+            chapters.mapIndexedNotNull { i, ch ->
                 val name = ch.name?.lowercase()?.trim() ?: return@mapIndexedNotNull null
                 val kind = when {
                     CREDITS.containsMatchIn(name) -> SkipRange.Kind.Credits
@@ -72,6 +73,19 @@ data class PlayerUiState(
                 SkipRange(kind, start, end).takeIf { end > start }
             }
         }
+    }
+
+    /**
+     * Scrub-preview sheets for the playing source: the smallest set at least 320 px wide (sharp
+     * enough for the preview, cheap to download). Null if the server hasn't generated trickplay.
+     */
+    val trickplay: Pair<String, TrickplayInfo>? by lazy {
+        val sets = item?.trickplay ?: return@lazy null
+        val sourceId = plan?.mediaSource?.id?.takeIf { it in sets } ?: sets.keys.firstOrNull() ?: return@lazy null
+        val infos = sets[sourceId]?.values?.filter { it.interval > 0 && it.tileWidth > 0 && it.tileHeight > 0 }.orEmpty()
+        val pick = infos.filter { it.width >= 320 }.minByOrNull { it.width } ?: infos.maxByOrNull { it.width } ?: return@lazy null
+        sourceId to pick
+    }
 
     fun activeSkip(positionMs: Long): SkipRange? = skipRanges.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
 

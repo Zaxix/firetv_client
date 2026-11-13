@@ -40,8 +40,12 @@ enum class CardStyle(val width: Dp, val aspect: Float) {
     Square(160.dp, 1f),
 }
 
-/** Pixel width to request from the server for a card (2x for crisp scaling on 1080p/4K panels). */
-fun CardStyle.requestWidth() = (width.value * 2).toInt()
+/**
+ * Pixel width to request from the server for a card: the card's real on-screen size at this
+ * display's density, including the focus zoom, so artwork stays sharp on 4K panels and when focused.
+ */
+@Composable
+fun CardStyle.requestWidth(): Int = artworkPx(width)
 
 @Composable
 fun MediaCard(

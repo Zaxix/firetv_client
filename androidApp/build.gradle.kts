@@ -40,9 +40,12 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            // R8 is left off deliberately: media3 extensions and libass are JNI-heavy and an
-            // over-eager shrink breaks them at runtime on devices we cannot test from CI.
-            isMinifyEnabled = false
+            // R8 makes Compose markedly faster (inlining, dead-code removal) and the APK smaller,
+            // which matters on Fire TV sticks. JNI-backed libraries (libass, FFmpeg) and our own
+            // serialized models are kept explicitly; CI runs the release APK on an emulator.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (releaseKeystore != null) {
                 signingConfigs.getByName("release")
             } else {

@@ -33,9 +33,12 @@ object DeviceProfileBuilder {
             add(DirectPlayProfile(container = "mp3,flac,aac,m4a,ogg,opus,wav", type = "Audio"))
         }
 
+        // H.264 first: the server encodes to the FIRST codec, and HEVC encodes are several times
+        // slower (often CPU-bound on home servers), which shows up as constant buffering. HEVC stays
+        // in the list so an HEVC source that only needs its audio converted is copied, not re-encoded.
         val transcodeVideo = buildList {
-            if (caps.videoSupport(Codecs.HEVC)?.hardware == true) add(Codecs.HEVC)
             add(Codecs.H264)
+            if (caps.videoSupport(Codecs.HEVC)?.hardware == true) add(Codecs.HEVC)
         }
         // AAC is the universal fallback; add surround codecs the device can decode or pass through.
         val transcodeAudio = buildList {

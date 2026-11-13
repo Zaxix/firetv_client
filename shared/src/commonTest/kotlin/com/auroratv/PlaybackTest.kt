@@ -32,10 +32,10 @@ class DeviceProfileTest {
         assertTrue("HDR10" in ranges && "HLG" in ranges && "SDR" in ranges)
         assertFalse("DOVI" in ranges, "No Dolby Vision display → full DOVI must be transcoded/tone-mapped")
         assertTrue("DOVIWithHDR10" in ranges, "DV with HDR10 base layer can play as HDR10")
-        // HEVC transcodes use fMP4 HLS when the device decodes HEVC in hardware.
+        // fMP4 HLS so HEVC sources can be stream-copied; H.264 first so real encodes are fast.
         val t = p.transcodingProfiles.first { it.type == "Video" }
         assertEquals("mp4", t.container)
-        assertTrue(t.videoCodec.startsWith("hevc"))
+        assertEquals(listOf("h264", "hevc"), t.videoCodec.split(','))
     }
 
     @Test
@@ -190,6 +190,26 @@ class NegotiationTest {
         assertEquals(2, r.size)
         assertEquals(com.auroratv.playback.SkipRange(com.auroratv.playback.SkipRange.Kind.Intro, 90_000, 180_000), r[0])
         assertEquals(com.auroratv.playback.SkipRange(com.auroratv.playback.SkipRange.Kind.Credits, 1_300_000, 1_400_000), r[1])
+    }
+
+    // ---- Trickplay scrub previews -----------------------------------------------------------
+
+    @Test
+    fun trickplayParsesAndPicksSmallestSharpSheet() {
+        val json = """{"Id":"m1","Type":"Movie","Trickplay":{"src1":{
+            "160":{"Width":160,"Height":90,"TileWidth":10,"TileHeight":10,"ThumbnailCount":300,"Interval":10000,"Bandwidth":1},
+            "320":{"Width":320,"Height":180,"TileWidth":10,"TileHeight":10,"ThumbnailCount":300,"Interval":10000,"Bandwidth":2},
+            "640":{"Width":640,"Height":360,"TileWidth":5,"TileHeight":5,"ThumbnailCount":300,"Interval":10000,"Bandwidth":3}}}}"""
+        val item = com.auroratv.core.AuroraJson.decodeFromString(com.auroratv.jellyfin.model.BaseItemDto.serializer(), json)
+        val (source, info) = assertNotNull(com.auroratv.playback.PlayerUiState(item = item).trickplay)
+        assertEquals("src1", source)
+        assertEquals(320, info.width)
+        assertEquals(10_000, info.interval)
+        assertNull(com.auroratv.playback.PlayerUiState(item = item.copy(trickplay = null)).trickplay)
+        assertEquals(
+            "https://jf.example/Videos/m1/Trickplay/320/2.jpg?mediaSourceId=src1",
+            com.auroratv.jellyfin.ImageUrls("https://jf.example/").trickplayTile("m1", "src1", 320, 2),
+        )
     }
 
     // ---- Address handling -------------------------------------------------------------------

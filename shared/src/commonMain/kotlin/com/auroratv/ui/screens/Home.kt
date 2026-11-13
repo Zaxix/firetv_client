@@ -55,6 +55,8 @@ import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.ui.LocalContainer
 import com.auroratv.ui.LocalSession
 import com.auroratv.ui.components.ArtworkImage
+import com.auroratv.ui.components.artworkPx
+import com.auroratv.ui.components.screenArtworkPx
 import com.auroratv.ui.components.AuroraButton
 import com.auroratv.ui.components.CardStyle
 import com.auroratv.ui.components.ContentRail
@@ -213,10 +215,11 @@ fun openItem(navigator: com.auroratv.ui.nav.Navigator, item: BaseItemDto) {
 private fun HomeBackdrop(item: BaseItemDto?, accent: Color) {
     val api = LocalSession.current.api
     val colors = Aurora.colors
+    val backdropPx = screenArtworkPx()
     Box(Modifier.fillMaxSize()) {
         Crossfade(targetState = item?.id, animationSpec = tween(Aurora.motion.duration(500))) { id ->
             val target = if (id == item?.id) item else null
-            ArtworkImage(target?.let { api.images.backdrop(it, 1920) }, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
+            ArtworkImage(target?.let { api.images.backdrop(it, backdropPx) }, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
         }
         // Left and bottom scrims keep text readable; the accent tints the shadow side like ambient light.
         // tvOS keeps artwork bright; only the lower-left, where text sits, is shaded.
@@ -259,7 +262,7 @@ private fun Hero(
             }
             return@Column
         }
-        val logo = api.images.logo(item, 800)
+        val logo = api.images.logo(item, artworkPx(480.dp, 1f))
         Box(Modifier.height(170.dp).widthIn(max = 560.dp), contentAlignment = Alignment.BottomStart) {
             if (logo != null) ArtworkImage(logo, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
             else Text(item.seriesName ?: item.name ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)

@@ -129,6 +129,8 @@ data class BaseItemDto(
     @SerialName("MediaStreams") val mediaStreams: List<MediaStream> = emptyList(),
     @SerialName("Chapters") val chapters: List<ChapterInfo> = emptyList(),
     @SerialName("LocationType") val locationType: String? = null,
+    /** Trickplay (scrub preview) sheets: media source id -> thumbnail width -> sheet layout. Jellyfin 10.9+. */
+    @SerialName("Trickplay") val trickplay: Map<String, Map<String, TrickplayInfo>>? = null,
 ) {
     val isSeries get() = type == "Series"
     val isSeason get() = type == "Season"
@@ -169,4 +171,17 @@ data class MediaSegmentDto(
     @SerialName("Type") val type: String,
     @SerialName("StartTicks") val startTicks: Long,
     @SerialName("EndTicks") val endTicks: Long,
+)
+
+/** Layout of a Jellyfin trickplay sprite sheet set: [tileWidth]x[tileHeight] thumbnails per JPEG. */
+@Serializable
+data class TrickplayInfo(
+    @SerialName("Width") val width: Int,
+    @SerialName("Height") val height: Int,
+    @SerialName("TileWidth") val tileWidth: Int,
+    @SerialName("TileHeight") val tileHeight: Int,
+    @SerialName("ThumbnailCount") val thumbnailCount: Int,
+    /** Milliseconds between thumbnails. */
+    @SerialName("Interval") val interval: Int,
+    @SerialName("Bandwidth") val bandwidth: Int = 0,
 )

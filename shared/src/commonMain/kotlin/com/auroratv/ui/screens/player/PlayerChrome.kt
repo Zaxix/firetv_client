@@ -1,6 +1,22 @@
 package com.auroratv.ui.screens.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import com.auroratv.jellyfin.model.TrickplayInfo
+import com.auroratv.playback.EngineState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -106,9 +122,20 @@ private enum class Panel(val title: String) { None(""), Episodes("Episodes"), Ch
 /** Intro / recap / credits highlight colour on the timeline. */
 private val SkipYellow = Color(0xFFFFD60A)
 
+/** How long a Skip Intro / Skip Credits / Next Episode prompt stays up before getting out of the way. */
+private const val SKIP_PROMPT_MS = 8_000L
+
+/** D-pad scrubbing commits this long after the last press (holding keeps accumulating). */
+private const val SCRUB_COMMIT_MS = 450L
+
 /**
- * tvOS-style playback UI drawn over the native video surface. Only opacity/offset animate — the
- * decoder is never touched by UI work. Back/Esc closes an open panel, otherwise leaves the player.
+ * tvOS-style playback UI drawn over the native video surface.
+ *
+ * Performance: the engine publishes position a few times a second. Only the leaf composables that
+ * show time (timeline, clocks) read it, and everything else reads [derivedStateOf] values that
+ * change rarely (playing, buffering, active skip range), so the overlay isn't re-laid-out while
+ * video plays and, with the controls hidden, nothing redraws at all. On Windows the overlay is a
+ * separate transparent window, so this directly frees the GPU for video.
  */
 @Composable
 fun PlayerChrome(
@@ -117,10 +144,15 @@ fun PlayerChrome(
     onExit: () -> Unit,
     onError: (Throwable) -> Unit,
 ) {
-    val ui by controller.state.collectAsState()
-    val es by controller.engineState.collectAsState()
+    val uiState = controller.state.collectAsState()
+    val ui by uiState
+    val esState = controller.engineState.collectAsState()
     val s by settings.collectAsState()
     val scope = rememberCoroutineScope()
+
+    val isPlaying by remember { derivedStateOf { esState.value.isPlaying } }
+    val isBuffering by remember { derivedStateOf { esState.value.isBuffering && !esState.value.isEnded } }
+    val activeSkip by remember { derivedStateOf { uiState.value.activeSkip(esState.value.positionMs) } }
 
     var controlsVisible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf(Panel.None) }
@@ -135,9 +167,18 @@ fun PlayerChrome(
     val skipFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
 
-    val skip = ui.activeSkip(es.positionMs)?.takeIf { s.skipIntro != SkipIntroMode.Off }
     val showUpNext = ui.ended && ui.nextEpisode != null
     val isEpisode = ui.item?.isEpisode == true
+    val skip = activeSkip?.takeIf { s.skipIntro != SkipIntroMode.Off }
+
+    // Skip / Next Episode prompts hide themselves after a few seconds (like tvOS) and come back
+    // whenever the controls are shown, instead of sitting over the credits.
+    var skipExpired by remember { mutableStateOf(false) }
+    LaunchedEffect(skip) {
+        skipExpired = false
+        if (skip != null) { delay(SKIP_PROMPT_MS); skipExpired = true }
+    }
+    val showSkip = skip != null && !showUpNext && ui.error == null && panel == Panel.None && (!skipExpired || controlsVisible)
 
     fun exit() { controller.stop(); onExit() }
     fun poke() { interaction++ }
@@ -145,40 +186,54 @@ fun PlayerChrome(
     fun showControls() { controlsVisible = true; poke(); focusLater(scrubFocus) }
     fun hideControls() { controlsVisible = false; panel = Panel.None; runCatching { rootFocus.requestFocus() } }
     fun togglePlay() {
-        flash = if (es.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
+        flash = if (esState.value.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
         controller.togglePlayPause(); poke()
     }
     fun openPanel(p: Panel) {
         if (p == Panel.Episodes) controller.loadEpisodes()
         panel = p; poke()
     }
+    fun commitScrub() {
+        scrubJob?.cancel()
+        scrubTarget?.let { controller.seekTo(it) }
+        scrubTarget = null
+        repeatCount = 0
+    }
 
     /** Accumulates repeated seek presses (hold to accelerate) and commits once the user pauses. */
     fun scrubBy(deltaMs: Long) {
+        val es = esState.value
         val base = scrubTarget ?: es.positionMs
         val target = (base + deltaMs).coerceIn(0, if (es.durationMs > 0) es.durationMs else Long.MAX_VALUE)
         scrubTarget = target
         poke()
         scrubJob?.cancel()
-        scrubJob = scope.launch {
-            delay(700)
-            controller.seekTo(target)
-            scrubTarget = null
-            repeatCount = 0
-        }
+        scrubJob = scope.launch { delay(SCRUB_COMMIT_MS); commitScrub() }
+    }
+
+    /** Mouse/touch: dragging previews (no seeking until release), so the decoder isn't flooded. */
+    fun pointerScrub(fraction: Float) {
+        val d = esState.value.durationMs
+        if (d <= 0) return
+        scrubJob?.cancel()
+        scrubTarget = (d * fraction.coerceIn(0f, 1f)).toLong()
+        poke()
     }
 
     LaunchedEffect(flash) { if (flash != null) { delay(650); flash = null } }
-    LaunchedEffect(interaction, controlsVisible, es.isPlaying, panel) {
-        if (controlsVisible && es.isPlaying && panel == Panel.None && ui.error == null) {
+    LaunchedEffect(interaction, controlsVisible, isPlaying, panel, scrubTarget == null) {
+        if (controlsVisible && isPlaying && panel == Panel.None && scrubTarget == null && ui.error == null) {
             delay(5_000)
             hideControls()
         }
     }
     LaunchedEffect(Unit) { focusLater(scrubFocus) }
     LaunchedEffect(panel) { if (panel != Panel.None) { delay(80); runCatching { panelFocus.requestFocus() } } }
-    LaunchedEffect(skip?.startMs, controlsVisible) {
-        if (skip != null && !controlsVisible) { delay(50); runCatching { skipFocus.requestFocus() } }
+    LaunchedEffect(showSkip, controlsVisible) {
+        if (controlsVisible || panel != Panel.None) return@LaunchedEffect
+        delay(50)
+        // Focus the prompt while it's up; when it hides, hand focus back so the remote keeps working.
+        runCatching { if (showSkip) skipFocus.requestFocus() else rootFocus.requestFocus() }
     }
 
     var countdown by remember { mutableIntStateOf(10) }
@@ -222,7 +277,7 @@ fun PlayerChrome(
                     controlsVisible = true; openPanel(if (isEpisode) Panel.Episodes else Panel.Info); return true
                 }
                 Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                    if (skip != null) return false // the focused Skip button handles it
+                    if (showSkip) return false // the focused Skip button handles it
                     togglePlay(); showControls(); return true
                 }
             }
@@ -254,8 +309,14 @@ fun PlayerChrome(
                 detectTapGestures(onTap = { if (panel != Panel.None) panel = Panel.None else togglePlay() })
             }
     ) {
-        if (ui.loading || (es.isBuffering && !es.isEnded && ui.error == null)) {
-            Box(Modifier.fillMaxSize()) { LoadingState() }
+        // Spinner only if buffering lasts a moment, so quick seeks don't flash it.
+        var showSpinner by remember { mutableStateOf(false) }
+        val wantSpinner = ui.loading || (isBuffering && ui.error == null)
+        LaunchedEffect(wantSpinner) { if (wantSpinner) { delay(250); showSpinner = true } else showSpinner = false }
+        if (showSpinner) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(46.dp))
+            }
         }
 
         // Brief centred play/pause glyph when toggling, like tvOS.
@@ -288,9 +349,9 @@ fun PlayerChrome(
                     Spacer(Modifier.height(18.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        GlassIcon(if (es.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (es.isPlaying) "Pause" else "Play", ::togglePlay)
-                        GlassIcon(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { controller.seekBy(-s.seekBackSeconds * 1000L); poke() })
-                        GlassIcon(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { controller.seekBy(s.seekForwardSeconds * 1000L); poke() })
+                        GlassIcon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (isPlaying) "Pause" else "Play", ::togglePlay)
+                        GlassIcon(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { scrubBy(-s.seekBackSeconds * 1000L) })
+                        GlassIcon(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { scrubBy(s.seekForwardSeconds * 1000L) })
                         Spacer(Modifier.width(14.dp))
                         if (isEpisode) GlassPill(text = "Episodes", onClick = { openPanel(Panel.Episodes) })
                         if (ui.chapters.size > 1) GlassPill(text = "Chapters", onClick = { openPanel(Panel.Chapters) })
@@ -303,54 +364,50 @@ fun PlayerChrome(
                     Spacer(Modifier.height(22.dp))
 
                     Scrubber(
-                        positionMs = scrubTarget ?: es.positionMs,
-                        durationMs = es.durationMs,
-                        bufferedMs = es.bufferedMs,
-                        chapters = ui.chapters.map { it.startPositionTicks.ticksToMs() },
+                        engine = esState,
+                        scrubTarget = scrubTarget,
+                        chapters = remember(ui.chapters) { ui.chapters.map { it.startPositionTicks.ticksToMs() } },
                         skipRanges = ui.skipRanges,
-                        scrubbing = scrubTarget != null,
+                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
                         focusRequester = scrubFocus,
                         onScrub = { delta -> scrubBy(delta) },
-                        onSelect = {
-                            if (scrubTarget != null) { scrubJob?.cancel(); scrubTarget?.let { controller.seekTo(it) }; scrubTarget = null } else togglePlay()
-                        },
+                        onSelect = { if (scrubTarget != null) commitScrub() else togglePlay() },
                         onDown = { openPanel(if (isEpisode) Panel.Episodes else Panel.Info) },
+                        onPointerScrub = ::pointerScrub,
+                        onPointerRelease = ::commitScrub,
                         seekStepMs = s.seekForwardSeconds * 1000L,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(formatTime(scrubTarget ?: es.positionMs), style = AuroraType.label, color = Color.White)
-                        if (ui.skipRanges.isNotEmpty()) {
-                            Spacer(Modifier.width(18.dp))
-                            Box(Modifier.size(10.dp).clip(CircleShape).background(SkipYellow))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                ui.skipRanges.map { when (it.kind) { SkipRange.Kind.Credits -> "Credits"; SkipRange.Kind.Recap -> "Recap"; SkipRange.Kind.Intro -> "Intro" } }.distinct().joinToString(" · "),
-                                style = AuroraType.caption, color = Color.White.copy(alpha = 0.75f),
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Text("-" + formatTime((es.durationMs - (scrubTarget ?: es.positionMs)).coerceAtLeast(0)), style = AuroraType.label, color = Color.White.copy(alpha = 0.8f))
-                    }
+                    TimeRow(esState, scrubTarget, ui.skipRanges)
                 }
             }
         }
 
         // ---- Scrub-only bar when seeking with controls hidden ----
-        if (!controlsVisible && scrubTarget != null) {
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))).padding(horizontal = 64.dp, vertical = 40.dp)) {
-                Track(scrubTarget!!, es.durationMs, es.bufferedMs, focused = true, chapters = emptyList(), skipRanges = ui.skipRanges, showBubble = true)
+        scrubTarget?.let { target ->
+            if (!controlsVisible) {
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))).padding(horizontal = 64.dp, vertical = 40.dp)) {
+                    val duration by remember { derivedStateOf { esState.value.durationMs } }
+                    Track(
+                        target, duration, bufferedMs = 0, focused = true, chapters = emptyList(), skipRanges = ui.skipRanges, showBubble = true,
+                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
+                    )
+                }
             }
         }
 
-        // ---- Skip intro / recap / credits ----
-        if (skip != null && !showUpNext && ui.error == null && panel == Panel.None) {
-            val label = if (skip.kind == SkipRange.Kind.Credits && ui.nextEpisode != null) "Next Episode" else skip.kind.label
-            Box(Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = if (controlsVisible) 230.dp else 64.dp)) {
-                AuroraButton(label, {
-                    if (skip.kind == SkipRange.Kind.Credits && ui.nextEpisode != null) controller.playNext() else controller.skipSegment()
-                }, primary = true, focusRequester = skipFocus)
-            }
+        // ---- Skip intro / recap / credits (auto-hides; returns with the controls) ----
+        AnimatedVisibility(
+            showSkip,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = if (controlsVisible) 230.dp else 64.dp),
+            enter = fadeIn(tween(Aurora.motion.duration(200))),
+            exit = fadeOut(tween(Aurora.motion.duration(300))),
+        ) {
+            val shown = skip ?: return@AnimatedVisibility
+            val next = shown.kind == SkipRange.Kind.Credits && ui.nextEpisode != null
+            AuroraButton(if (next) "Next Episode" else shown.kind.label, {
+                if (next) controller.playNext() else controller.skipSegment()
+            }, primary = true, focusRequester = skipFocus)
         }
 
         if (showUpNext) UpNextCard(ui.nextEpisode!!, controller, if (s.autoPlayNext) countdown else null, onExit = ::exit)
@@ -393,7 +450,7 @@ fun PlayerChrome(
                 Spacer(Modifier.height(14.dp))
                 when (panel) {
                     Panel.Episodes -> EpisodesPanel(controller, panelFocus) { panel = Panel.None }
-                    Panel.Chapters -> ChaptersPanel(controller, es.positionMs, panelFocus) { panel = Panel.None }
+                    Panel.Chapters -> ChaptersPanel(controller, remember { esState.value.positionMs }, panelFocus) { panel = Panel.None }
                     Panel.Audio -> OptionRow(
                         options = ui.audioStreams.map { it.index to TrackSelector.label(it) },
                         selected = ui.audioIndex, firstFocus = panelFocus,
@@ -423,6 +480,27 @@ fun PlayerChrome(
                 }
             }
         }
+    }
+}
+
+/** Elapsed / remaining clocks. Reads the engine position itself so only this row recomposes as time passes. */
+@Composable
+private fun TimeRow(engine: State<EngineState>, scrubTarget: Long?, skipRanges: List<SkipRange>) {
+    val es by engine
+    val pos = scrubTarget ?: es.positionMs
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(formatTime(pos), style = AuroraType.label, color = Color.White)
+        if (skipRanges.isNotEmpty()) {
+            Spacer(Modifier.width(18.dp))
+            Box(Modifier.size(10.dp).clip(CircleShape).background(SkipYellow))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                skipRanges.map { when (it.kind) { SkipRange.Kind.Credits -> "Credits"; SkipRange.Kind.Recap -> "Recap"; SkipRange.Kind.Intro -> "Intro" } }.distinct().joinToString(" · "),
+                style = AuroraType.caption, color = Color.White.copy(alpha = 0.75f),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Text("-" + formatTime((es.durationMs - pos).coerceAtLeast(0)), style = AuroraType.label, color = Color.White.copy(alpha = 0.8f))
     }
 }
 
@@ -627,26 +705,38 @@ private fun UpNextCard(next: BaseItemDto, controller: PlayerController, countdow
     }
 }
 
+/** Which trickplay sheet set to draw scrub previews from. */
+private data class TrickplayRef(val itemId: String, val mediaSourceId: String, val info: TrickplayInfo)
+
 /**
- * tvOS scrubber: thin track that thickens on focus, a time bubble over the playhead while scrubbing,
- * chapter ticks, and intro/recap/credits ranges highlighted in yellow.
+ * tvOS scrubber: thin track that thickens on focus, a time bubble (and a trickplay thumbnail when
+ * the server has them) over the playhead while scrubbing, chapter ticks, and intro/recap/credits
+ * ranges highlighted in yellow. Works with the D-pad (hold to accelerate), and with a mouse:
+ * click to jump, drag to scrub, hover to preview.
  */
 @Composable
 private fun Scrubber(
-    positionMs: Long,
-    durationMs: Long,
-    bufferedMs: Long,
+    engine: State<EngineState>,
+    scrubTarget: Long?,
     chapters: List<Long>,
     skipRanges: List<SkipRange>,
-    scrubbing: Boolean,
+    preview: TrickplayRef?,
     focusRequester: FocusRequester,
     onScrub: (Long) -> Unit,
     onSelect: () -> Unit,
     onDown: () -> Unit,
+    onPointerScrub: (Float) -> Unit,
+    onPointerRelease: () -> Unit,
     seekStepMs: Long,
 ) {
+    val es by engine
     var focused by remember { mutableStateOf(false) }
     var held by remember { mutableIntStateOf(0) }
+    var hover by remember { mutableStateOf<Float?>(null) }
+    val scrub by rememberUpdatedState(onPointerScrub)
+    val release by rememberUpdatedState(onPointerRelease)
+    val duration = es.durationMs
+    val hoverMs = hover?.takeIf { scrubTarget == null && duration > 0 }?.let { (it * duration).toLong() }
     Box(
         Modifier.fillMaxWidth().height(44.dp)
             .focusRequester(focusRequester)
@@ -664,10 +754,36 @@ private fun Scrubber(
                     else -> false
                 }
             }
-            .focusable(),
+            .focusable()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val e = awaitPointerEvent()
+                        hover = when (e.type) {
+                            PointerEventType.Exit -> null
+                            else -> (e.changes.first().position.x / size.width).coerceIn(0f, 1f)
+                        }
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { o -> scrub(o.x / size.width); release() })
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { o -> scrub(o.x / size.width) },
+                    onHorizontalDrag = { change, _ -> change.consume(); scrub(change.position.x / size.width) },
+                    onDragEnd = { release() },
+                    onDragCancel = { release() },
+                )
+            },
         contentAlignment = Alignment.BottomStart,
     ) {
-        Track(positionMs, durationMs, bufferedMs, focused, chapters, skipRanges, showBubble = focused || scrubbing)
+        Track(
+            positionMs = scrubTarget ?: es.positionMs, durationMs = duration, bufferedMs = es.bufferedMs, focused = focused,
+            chapters = chapters, skipRanges = skipRanges, showBubble = focused || scrubTarget != null,
+            preview = preview, hoverMs = hoverMs,
+        )
     }
 }
 
@@ -680,6 +796,8 @@ private fun Track(
     chapters: List<Long>,
     skipRanges: List<SkipRange>,
     showBubble: Boolean,
+    preview: TrickplayRef? = null,
+    hoverMs: Long? = null,
 ) {
     val height by animateDpAsState(if (focused) 10.dp else 5.dp, tween(Aurora.motion.duration(150)))
     fun frac(ms: Long) = if (durationMs > 0) (ms.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
@@ -699,11 +817,58 @@ private fun Track(
         if (focused || showBubble) {
             Box(Modifier.padding(bottom = 6.dp - (16.dp - height) / 2).offset(x = w * frac(positionMs) - 8.dp).size(16.dp).clip(CircleShape).background(Color.White))
         }
-        if (showBubble) {
-            val x = (w * frac(positionMs) - 36.dp).coerceIn(0.dp, w - 72.dp)
+        // The bubble follows the mouse when hovering, otherwise the playhead while scrubbing.
+        val bubbleMs = hoverMs ?: positionMs.takeIf { showBubble }
+        if (bubbleMs != null) {
+            val thumbW = 256.dp
+            val x = (w * frac(bubbleMs) - 36.dp).coerceAtMost(w - 72.dp).coerceAtLeast(0.dp)
+            if (preview != null && durationMs > 0) {
+                val thumbH = thumbW * preview.info.height / preview.info.width
+                val tx = (w * frac(bubbleMs) - thumbW / 2).coerceAtMost(w - thumbW).coerceAtLeast(0.dp)
+                TrickplayThumb(preview, bubbleMs, thumbW, Modifier.offset(x = tx, y = -(thumbH + 34.dp)))
+            }
             Text(
-                formatTime(positionMs), style = AuroraType.caption, color = Color.Black, textAlign = TextAlign.Center,
+                formatTime(bubbleMs), style = AuroraType.caption, color = Color.Black, textAlign = TextAlign.Center,
                 modifier = Modifier.offset(x = x, y = (-20).dp).width(72.dp).clip(RoundedCornerShape(8.dp)).background(Color.White).padding(vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/**
+ * One frame from a Jellyfin trickplay sprite sheet. The sheet is decoded once at its native size
+ * and the wanted cell is selected with an alignment offset, so moving the playhead within a sheet
+ * costs no network or decode work.
+ */
+@Composable
+private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modifier: Modifier = Modifier) {
+    val api = LocalSession.current.api
+    val info = ref.info
+    val perSheet = info.tileWidth * info.tileHeight
+    val n = (positionMs / info.interval).toInt().coerceIn(0, (info.thumbnailCount - 1).coerceAtLeast(0))
+    val sheet = n / perSheet
+    val cell = n % perSheet
+    val col = cell % info.tileWidth
+    val row = cell / info.tileWidth
+    val density = LocalDensity.current
+    val scale = with(density) { width.toPx() / info.width }
+    val height = width * info.height / info.width
+    val headers = remember(api) { api.mediaHeaders() }
+    val url = remember(ref, sheet) { api.images.trickplayTile(ref.itemId, ref.mediaSourceId, info.width, sheet) }
+    val cellAlign = remember(col, row) {
+        Alignment { _, _, _ -> IntOffset(-col * info.width, -row * info.height) }
+    }
+    Box(modifier.size(width, height).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
+        Box(
+            Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
+                .requiredSize(with(density) { info.width.toDp() }, with(density) { info.height.toDp() })
+                .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }
+                .clipToBounds()
+        ) {
+            ArtworkImage(
+                Artwork(url, null), null, Modifier.fillMaxSize(),
+                contentScale = ContentScale.None, alignment = cellAlign, showPlaceholder = false,
+                headers = headers, crossfade = false,
             )
         }
     }

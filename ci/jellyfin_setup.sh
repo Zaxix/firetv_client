@@ -41,7 +41,7 @@ curl -sf -X POST "$URL/System/Configuration" -H "$A" -H "$J" -d @/tmp/jf_config.
 # Local NFO + images only: no internet metadata or image providers, so nothing third-party appears in screenshots.
 NOFETCH='{"MetadataFetchers":[],"ImageFetchers":[],"MetadataFetcherOrder":[],"ImageFetcherOrder":[]}'
 TYPES=$(for t in Movie Series Season Episode Person; do echo "$NOFETCH" | jq -c --arg t "$t" '. + {Type:$t}'; done | jq -sc .)
-opts=$(jq -nc --argjson types "$TYPES" '{LibraryOptions:{EnableRealtimeMonitor:false,EnableChapterImageExtraction:false,EnableTrickplayImageExtraction:false,SaveLocalMetadata:false,EnableInternetProviders:false,TypeOptions:$types}}')
+opts=$(jq -nc --argjson types "$TYPES" '{LibraryOptions:{EnableRealtimeMonitor:false,EnableChapterImageExtraction:false,EnableTrickplayImageExtraction:true,SaveLocalMetadata:false,EnableInternetProviders:false,TypeOptions:$types}}')
 curl -sf -X POST "$URL/Library/VirtualFolders?name=Movies&collectionType=movies&paths=%2Fmedia%2Fmovies&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"
 curl -sf -X POST "$URL/Library/VirtualFolders?name=TV%20Shows&collectionType=tvshows&paths=%2Fmedia%2Ftv&refreshLibrary=false" -H "$A" -H "$J" -d "$opts"
 curl -sf -X POST "$URL/Library/Refresh" -H "$A"
@@ -55,6 +55,17 @@ for i in $(seq 1 120); do
   sleep 3
 done
 sleep 10 # let image/metadata providers settle
-curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Movie,Series,Episode&fields=MediaStreams" -H "$A" \
-  | jq -r '.Items[] | "\(.Type)\t\(.Name)\t\(.ProductionYear)\timages=\(.ImageTags|keys|join(","))"' >&2
+# Generate trickplay (scrub preview) sheets so the player's thumbnail previews are exercised.
+TP=$(curl -sf "$URL/ScheduledTasks" -H "$A" | jq -r '.[] | select(.Key=="RefreshTrickplayImages") | .Id')
+if [ -n "$TP" ]; then
+  curl -sf -X POST "$URL/ScheduledTasks/Running/$TP" -H "$A" || true
+  for i in $(seq 1 60); do
+    sleep 3
+    ST=$(curl -sf "$URL/ScheduledTasks/$TP" -H "$A" | jq -r '.State + " " + (.LastExecutionResult.Status // "-")')
+    echo "trickplay: $ST" >&2
+    case "$ST" in Idle\ Completed*|Idle\ Failed*) break;; esac
+  done
+fi
+curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Movie,Series,Episode&fields=MediaStreams,Trickplay" -H "$A" \
+  | jq -r '.Items[] | "\(.Type)\t\(.Name)\t\(.ProductionYear)\timages=\(.ImageTags|keys|join(","))\ttrickplay=\((.Trickplay // {}) | [.[] | keys[]] | join(","))"' >&2
 echo "$TOKEN"
