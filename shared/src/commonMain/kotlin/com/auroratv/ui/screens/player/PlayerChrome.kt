@@ -178,7 +178,10 @@ fun PlayerChrome(
         skipExpired = false
         if (skip != null) { delay(SKIP_PROMPT_MS); skipExpired = true }
     }
-    val showSkip = skip != null && !showUpNext && ui.error == null && panel == Panel.None && (!skipExpired || controlsVisible)
+    // With the controls up, credits don't need a second "Next Episode" button: the controls row has one.
+    val skipIsNextEpisode = skip?.kind == SkipRange.Kind.Credits && ui.nextEpisode != null
+    val showSkip = skip != null && !showUpNext && ui.error == null && panel == Panel.None &&
+        (if (controlsVisible) !skipIsNextEpisode else !skipExpired)
 
     fun exit() { controller.stop(); onExit() }
     fun poke() { interaction++ }
@@ -782,7 +785,7 @@ private fun Scrubber(
         Track(
             positionMs = scrubTarget ?: es.positionMs, durationMs = duration, bufferedMs = es.bufferedMs, focused = focused,
             chapters = chapters, skipRanges = skipRanges, showBubble = focused || scrubTarget != null,
-            preview = preview, hoverMs = hoverMs,
+            preview = preview.takeIf { scrubTarget != null || hoverMs != null }, hoverMs = hoverMs,
         )
     }
 }

@@ -13,6 +13,10 @@ UID_=$(curl -sf "$URL/Users/Me" -H "$A" | jq -r .Id)
 EP1=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[0].Id')
 GLASS=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Glass%20Meridian" -H "$A" | jq -r '.Items[0].Id')
 
+# The debug run left EP1 with a resume point inside its trailing (subtitle-only) section of the
+# synthetic file; start it from the beginning so the release build is judged on real playback.
+curl -sf -X POST "$URL/UserItems/$EP1/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":0}' >/dev/null || true
+
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 key() { for k in "$@"; do adb shell input keyevent "$k"; sleep 1.2; done; }
 
@@ -28,10 +32,13 @@ adb shell input text "aurora-ci"; key KEYCODE_ENTER
 sleep 15; shot release-02-home
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
 open "player:$EP1"; sleep 20; shot release-03-player-ass
-key KEYCODE_DPAD_UP; sleep 1; key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 0.4; shot release-04-scrub
+adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'
+adb pull -q /sdcard/scrub.png "$OUT/release-04-scrub.png" >/dev/null && echo "captured release-04-scrub"
 open "player:$GLASS"; sleep 20; shot release-05-player-hevc
 
 adb logcat -d > "$OUT/logcat-release.txt"
+# The player must reach READY (actually playing) at least once.
+grep -q "ExoEngine: state=ready" "$OUT/logcat-release.txt" || { echo "Release build never started playback"; FAIL=1; }
 if grep -qE "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchMethodError|SerializationException" "$OUT/logcat-release.txt"; then
   echo "Release build failed at runtime:"
   grep -E -A25 "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchMethodError|SerializationException" "$OUT/logcat-release.txt" | head -80
@@ -41,4 +48,5 @@ grep -E "ExoEngine|Negotiator|PlayerController" "$OUT/logcat-release.txt" | tail
 # Server-side view of the transcodes (helps tell a client stall from a server failure).
 docker exec jellyfin sh -c 'ls -t /config/log/FFmpeg.Transcode-*.log 2>/dev/null | head -3 | while read f; do echo "== $f"; head -c 600 "$f" | tr -d "\r" | grep -E "^/|-ss|ffmpeg" | sed -E "s/(api_key|ApiKey)=[^& ]+/\1=REDACTED/g" | head -3; tail -5 "$f"; done' > "$OUT/jellyfin-transcodes.txt" 2>&1 || true
 cat "$OUT/jellyfin-transcodes.txt" | head -60
+[ "${FAIL:-0}" = 1 ] && exit 1
 echo "Release smoke test passed"
