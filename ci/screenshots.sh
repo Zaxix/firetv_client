@@ -33,7 +33,12 @@ shoot() { # name route seconds [keys...]
   sleep "$wait"
   local win; win=$(xdotool search --name "Aurora TV" 2>/dev/null | head -1)
   [ -n "$win" ] && xdotool windowfocus "$win" 2>/dev/null
-  for k in "$@"; do xdotool key --delay 150 "$k"; sleep 1.2; done
+  for k in "$@"; do
+    case "$k" in
+      mouse:*) xy=${k#mouse:}; xdotool mousemove "${xy%,*}" "${xy#*,}"; sleep 0.3; xdotool mousemove_relative 4 0; sleep 1.2;;
+      *) xdotool key --delay 150 "$k"; sleep 1.2;;
+    esac
+  done
   sleep 1
   import -window root "$OUT/$name.png"
   kill "$pid" 2>/dev/null; sleep 1; kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
@@ -51,6 +56,8 @@ shoot 07-settings "section:Settings" 10 Down
 shoot 08-about-capabilities "section:Settings" 12 Down Down Down Down
 shoot 09-player-ass-typesetting "player:$EP1" 14
 shoot 10-player-controls "player:$SEVEN" 12 Up
+# Hovering the timeline with a mouse shows the time and the trickplay thumbnail at that point.
+shoot 10b-player-scrub-preview "player:$SEVEN" 12 Up mouse:1150,978
 theme Light
 shoot 11-home-light "" 25
 shoot 12-detail-light "detail:$SERIES" 15
