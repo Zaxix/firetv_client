@@ -37,7 +37,15 @@ function Shot([string]$name) {
 function Run([string]$name, [string[]]$appArgs, [int]$wait, [string[]]$keys = @()) {
   $p = if ($appArgs.Count -gt 0) { Start-Process -FilePath $Exe -ArgumentList $appArgs -PassThru } else { Start-Process -FilePath $Exe -PassThru }
   Start-Sleep -Seconds $wait
-  foreach ($k in $keys) { [System.Windows.Forms.SendKeys]::SendWait($k); Start-Sleep -Milliseconds 900 }
+  foreach ($k in $keys) {
+    if ($k.StartsWith("MOUSE:")) {
+      $xy = $k.Substring(6).Split(",")
+      [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]$xy[0] - 6), ([int]$xy[1])
+      Start-Sleep -Milliseconds 300
+      [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]$xy[0]), ([int]$xy[1])
+      Start-Sleep -Milliseconds 1200
+    } else { [System.Windows.Forms.SendKeys]::SendWait($k); Start-Sleep -Milliseconds 900 }
+  }
   Shot $name
   Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
   Start-Sleep -Seconds 2
@@ -46,4 +54,6 @@ function Run([string]$name, [string[]]$appArgs, [int]$wait, [string[]]$keys = @(
 Run "windows-home-demo-server" @() 25
 Run "windows-player" @("--route", "player:$($movie.Id)") 30
 Run "windows-player-controls" @("--route", "player:$($movie.Id)") 30 @("{UP}")
+# Mouse hover over the timeline: time bubble + trickplay thumbnail from the server.
+Run "windows-player-scrub-preview" @("--route", "player:$($movie.Id)") 30 @("{UP}", "MOUSE:600,641")
 Get-Content (Join-Path $dir "aurora.log") -Tail 40 -ErrorAction SilentlyContinue
