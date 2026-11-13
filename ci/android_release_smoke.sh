@@ -37,5 +37,8 @@ if grep -qE "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchM
   grep -E -A25 "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchMethodError|SerializationException" "$OUT/logcat-release.txt" | head -80
   exit 1
 fi
-grep -E "ExoEngine|Negotiator|libass" "$OUT/logcat-release.txt" | tail -20 || true
+grep -E "ExoEngine|Negotiator|PlayerController" "$OUT/logcat-release.txt" | tail -40 || true
+# Server-side view of the transcodes (helps tell a client stall from a server failure).
+docker exec jellyfin sh -c 'ls -t /config/log/FFmpeg.Transcode-*.log 2>/dev/null | head -3 | while read f; do echo "== $f"; head -c 600 "$f" | tr -d "\r" | grep -E "^/|-ss|ffmpeg" | sed -E "s/(api_key|ApiKey)=[^& ]+/\1=REDACTED/g" | head -3; tail -5 "$f"; done' > "$OUT/jellyfin-transcodes.txt" 2>&1 || true
+cat "$OUT/jellyfin-transcodes.txt" | head -60
 echo "Release smoke test passed"

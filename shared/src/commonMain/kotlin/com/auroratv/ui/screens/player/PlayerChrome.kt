@@ -823,9 +823,10 @@ private fun Track(
             val thumbW = 256.dp
             val x = (w * frac(bubbleMs) - 36.dp).coerceAtMost(w - 72.dp).coerceAtLeast(0.dp)
             if (preview != null && durationMs > 0) {
-                val thumbH = thumbW * preview.info.height / preview.info.width
                 val tx = (w * frac(bubbleMs) - thumbW / 2).coerceAtMost(w - thumbW).coerceAtLeast(0.dp)
-                TrickplayThumb(preview, bubbleMs, thumbW, Modifier.offset(x = tx, y = -(thumbH + 34.dp)))
+                // The thumbnail is taller than this 44dp track, so measure it unbounded and hang it
+                // bottom-aligned just above the time bubble.
+                TrickplayThumb(preview, bubbleMs, thumbW, Modifier.offset(x = tx, y = (-54).dp).wrapContentSize(Alignment.BottomStart, unbounded = true))
             }
             Text(
                 formatTime(bubbleMs), style = AuroraType.caption, color = Color.Black, textAlign = TextAlign.Center,

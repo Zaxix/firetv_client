@@ -142,6 +142,11 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) = publish()
 
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val name = when (playbackState) { Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; else -> "ended" }
+                Log.i(tag, "state=$name pos=${player.currentPosition} buffered=${player.bufferedPosition}")
+            }
+
             override fun onTracksChanged(tracks: Tracks) {
                 if (!pendingApplied && !tracks.isEmpty) {
                     pendingApplied = true
@@ -161,6 +166,18 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
             }
             override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
                 audioDecoder = decoderName
+            }
+            override fun onLoadError(
+                eventTime: AnalyticsListener.EventTime,
+                loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
+                mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
+                error: java.io.IOException,
+                wasCanceled: Boolean,
+            ) {
+                // ExoPlayer retries failed loads silently, which looks like endless buffering; log the
+                // path (never the query string, which can carry an api key) and the cause.
+                val status = (error as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode
+                Log.w(tag, "Load error ${loadEventInfo.uri.path} status=${status ?: "-"} ${error.javaClass.simpleName}: ${error.message?.take(120)}")
             }
             override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
                 this@ExoPlayerEngine.droppedFrames += droppedFrames

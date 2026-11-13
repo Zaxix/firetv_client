@@ -344,6 +344,8 @@ jobs:
           cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
           cp artifacts/windows/windows-selftest.txt results/reports/ 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
+          grep -E "ExoEngine|Negotiator|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/jellyfin-transcodes.txt results/reports/ 2>/dev/null || true
           cp artifacts/e2e/screenshots/aurora.log results/reports/desktop-aurora.log 2>/dev/null || true
           cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true
           cat > results/README.md <<MD
