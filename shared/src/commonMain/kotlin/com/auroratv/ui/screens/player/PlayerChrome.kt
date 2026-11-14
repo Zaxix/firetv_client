@@ -100,6 +100,7 @@ import com.auroratv.playback.TrackSelector
 import com.auroratv.settings.Settings
 import com.auroratv.settings.SkipIntroMode
 import com.auroratv.ui.LocalSession
+import coil3.network.httpHeaders
 import com.auroratv.ui.components.ArtworkImage
 import com.auroratv.ui.components.AuroraButton
 import com.auroratv.ui.components.CardStyle
@@ -153,6 +154,13 @@ fun PlayerChrome(
     val isPlaying by remember { derivedStateOf { esState.value.isPlaying } }
     val isBuffering by remember { derivedStateOf { esState.value.isBuffering && !esState.value.isEnded } }
     val activeSkip by remember { derivedStateOf { uiState.value.activeSkip(esState.value.positionMs) } }
+    // Next Episode only appears once the credits start (or the last two minutes without a marker).
+    val nextAvailable by remember {
+        derivedStateOf {
+            val from = uiState.value.nextEpisodeFromMs
+            from != null && (esState.value.positionMs >= from || esState.value.isEnded)
+        }
+    }
 
     var controlsVisible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf(Panel.None) }
@@ -179,7 +187,7 @@ fun PlayerChrome(
         if (skip != null) { delay(SKIP_PROMPT_MS); skipExpired = true }
     }
     // With the controls up, credits don't need a second "Next Episode" button: the controls row has one.
-    val skipIsNextEpisode = skip?.kind == SkipRange.Kind.Credits && ui.nextEpisode != null
+    val skipIsNextEpisode = skip?.kind == SkipRange.Kind.Credits && nextAvailable
     val showSkip = skip != null && !showUpNext && ui.error == null && panel == Panel.None &&
         (if (controlsVisible) !skipIsNextEpisode else !skipExpired)
 
@@ -221,6 +229,28 @@ fun PlayerChrome(
         scrubJob?.cancel()
         scrubTarget = (d * fraction.coerceIn(0f, 1f)).toLong()
         poke()
+    }
+
+    // Like Wholphin: download every trickplay sheet into the disk cache shortly after playback
+    // starts, so scrub previews appear instantly instead of loading while you scrub.
+    val platformContext = coil3.compose.LocalPlatformContext.current
+    val sessionApi = com.auroratv.ui.LocalSession.current.api
+    LaunchedEffect(ui.item?.id, ui.trickplay) {
+        val id = ui.item?.id ?: return@LaunchedEffect
+        val (sourceId, info) = ui.trickplay ?: return@LaunchedEffect
+        delay(8_000) // after the initial buffer has filled
+        val loader = coil3.SingletonImageLoader.get(platformContext)
+        val headers = coil3.network.NetworkHeaders.Builder().apply { sessionApi.mediaHeaders().forEach { (k, v) -> set(k, v) } }.build()
+        val sheets = (info.thumbnailCount + info.tileWidth * info.tileHeight - 1) / (info.tileWidth * info.tileHeight)
+        for (sheet in 0 until sheets.coerceAtMost(40)) {
+            val request = coil3.request.ImageRequest.Builder(platformContext)
+                .data(sessionApi.images.trickplayTile(id, sourceId, info.width, sheet))
+                .httpHeaders(headers)
+                .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
+                .size(64, 36)
+                .build()
+            loader.execute(request)
+        }
     }
 
     LaunchedEffect(flash) { if (flash != null) { delay(650); flash = null } }
@@ -362,7 +392,7 @@ fun PlayerChrome(
                         GlassPill(text = "Subtitles", onClick = { openPanel(Panel.Subtitles) })
                         GlassPill(text = "Info", onClick = { openPanel(Panel.Info) })
                         Spacer(Modifier.weight(1f))
-                        if (ui.nextEpisode != null) GlassPill(text = "Next Episode", onClick = { controller.playNext() }, icon = Icons.Filled.SkipNext)
+                        if (nextAvailable) GlassPill(text = "Next Episode", onClick = { controller.playNext() }, icon = Icons.Filled.SkipNext)
                     }
                     Spacer(Modifier.height(22.dp))
 
@@ -407,7 +437,7 @@ fun PlayerChrome(
             exit = fadeOut(tween(Aurora.motion.duration(300))),
         ) {
             val shown = skip ?: return@AnimatedVisibility
-            val next = shown.kind == SkipRange.Kind.Credits && ui.nextEpisode != null
+            val next = shown.kind == SkipRange.Kind.Credits && nextAvailable
             AuroraButton(if (next) "Next Episode" else shown.kind.label, {
                 if (next) controller.playNext() else controller.skipSegment()
             }, primary = true, focusRequester = skipFocus)
@@ -663,6 +693,11 @@ private fun InfoPanel(controller: PlayerController, focus: FocusRequester) {
             }
             p.audioStreams.firstOrNull { it.index == ui.audioIndex }?.let { a -> add("Audio" to (a.displayTitle ?: a.codec.orEmpty())) }
             p.subtitleStreams.firstOrNull { it.index == ui.subtitleIndex }?.let { st -> add("Subtitles" to "${st.displayTitle ?: st.codec} (${st.deliveryMethod ?: "?"})") }
+        }
+        if (ui.skipRanges.isNotEmpty()) {
+            val src = if (ui.detectedSkips.isEmpty()) (if (ui.segments.isNotEmpty()) "server" else "chapters")
+                else if (ui.serverSkipRanges.isEmpty()) "detected (${ui.detectedSource})" else "server + ${ui.detectedSource}"
+            add("Skip markers" to "${ui.skipRanges.joinToString { it.kind.name.lowercase() }} · $src")
         }
         if (tick >= 0) addAll(controller.engineStats())
     }

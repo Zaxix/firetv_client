@@ -77,4 +77,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    // Installs the baseline profiles that ship inside Compose/Media3 even for sideloaded APKs,
+    // so the first launches and first scrolls are AOT-compiled instead of interpreted.
+    implementation(libs.androidx.profileinstaller)
 }

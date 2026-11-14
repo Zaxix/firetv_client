@@ -102,6 +102,8 @@ data class BaseItemDto(
     @SerialName("OfficialRating") val officialRating: String? = null,
     @SerialName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerialName("Genres") val genres: List<String> = emptyList(),
+    /** External ids, e.g. "Tmdb", "Tvdb", "AniList", "MyAnimeList" (plugin dependent). */
+    @SerialName("ProviderIds") val providerIds: Map<String, String> = emptyMap(),
     @SerialName("Studios") val studios: List<NameIdPair> = emptyList(),
     @SerialName("People") val people: List<PersonDto> = emptyList(),
     @SerialName("SeriesName") val seriesName: String? = null,

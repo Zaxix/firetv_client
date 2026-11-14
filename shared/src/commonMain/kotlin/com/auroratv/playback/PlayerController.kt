@@ -44,6 +44,10 @@ data class PlayerUiState(
     val subtitleDelayMs: Long = 0,
     val subtitleScale: Float = 1f,
     val segments: List<MediaSegmentDto> = emptyList(),
+    /** Ranges found by [SkipDetector] for kinds the server didn't mark. */
+    val detectedSkips: List<SkipRange> = emptyList(),
+    /** Where [detectedSkips] came from, shown in the Info panel. */
+    val detectedSource: String? = null,
     val chapters: List<ChapterInfo> = emptyList(),
     val nextEpisode: BaseItemDto? = null,
     val ended: Boolean = false,
@@ -51,8 +55,18 @@ data class PlayerUiState(
     val seasons: List<BaseItemDto> = emptyList(),
     val episodesBySeason: Map<String, List<BaseItemDto>> = emptyMap(),
 ) {
-    /** Intro/recap/credits ranges from server media segments, or chapter names as a fallback. Computed once per state. */
+    /**
+     * Intro/recap/credits ranges: server media segments, else chapter names; then anything the
+     * [SkipDetector] found for kinds still missing. Computed once per state.
+     */
     val skipRanges: List<SkipRange> by lazy {
+        val server = serverSkipRanges
+        val have = server.map { it.kind }.toSet()
+        (server + detectedSkips.filter { it.kind !in have }).sortedBy { it.startMs }
+    }
+
+    /** Ranges the server provides (segments or chapter names), without client-side detection. */
+    val serverSkipRanges: List<SkipRange> by lazy {
         run {
             val fromSegments = segments.mapNotNull { seg ->
                 val kind = when (seg.type) { "Intro" -> SkipRange.Kind.Intro; "Recap" -> SkipRange.Kind.Recap; "Outro" -> SkipRange.Kind.Credits; else -> null }
@@ -87,6 +101,17 @@ data class PlayerUiState(
         sourceId to pick
     }
 
+    /**
+     * When "Next Episode" becomes available: the start of the credits (from media segments or a
+     * credits chapter) or, when the server has no credits marker, the final two minutes.
+     * Null when there is no next episode.
+     */
+    val nextEpisodeFromMs: Long? by lazy {
+        if (nextEpisode == null) return@lazy null
+        skipRanges.filter { it.kind == SkipRange.Kind.Credits }.minOfOrNull { it.startMs }
+            ?: item?.runtimeMs?.takeIf { it > 0 }?.let { (it - 120_000).coerceAtLeast(it / 2) }
+    }
+
     fun activeSkip(positionMs: Long): SkipRange? = skipRanges.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
 
     val audioStreams: List<MediaStream> get() = plan?.audioStreams.orEmpty()
@@ -105,6 +130,7 @@ data class PlayerUiState(
  */
 class PlayerController(
     private val api: JellyfinApi,
+    private val skipDetector: SkipDetector?,
     private val engine: PlaybackEngine,
     private val capabilities: DeviceCapabilities,
     private val settings: () -> Settings,
@@ -145,7 +171,15 @@ class PlayerController(
                 _state.update { it.copy(item = item, plan = plan, audioIndex = audio, subtitleIndex = subtitle, chapters = item.chapters) }
                 loadEngine(plan, startMs)
                 // Secondary lookups never block playback.
-                launch { _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) } }
+                launch {
+                    _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
+                    // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
+                    val detector = skipDetector ?: return@launch
+                    val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
+                    if (have.containsAll(listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits))) return@launch
+                    val found = runCatching { detector.detect(item, have) }.getOrNull() ?: return@launch
+                    if (currentItemId == itemId) _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
+                }
                 launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }
             }
             result.onFailure { e ->

@@ -263,6 +263,16 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
         }.read<QueryResult<BaseItemDto>>().items
 
+    /** A season's episodes with their chapter lists (used to spot recurring openings/endings). */
+    suspend fun episodesWithChapters(seriesId: String, seasonId: String?): List<BaseItemDto> =
+        http.get(url("/Shows/$seriesId/Episodes")) {
+            auth()
+            parameter("userId", requireUser())
+            seasonId?.let { parameter("seasonId", it) }
+            parameter("fields", "Chapters")
+            parameter("enableImages", false)
+        }.read<QueryResult<BaseItemDto>>().items
+
     suspend fun similar(itemId: String, limit: Int = 16): List<BaseItemDto> =
         http.get(url("/Items/$itemId/Similar")) {
             auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", Fields.CARD)

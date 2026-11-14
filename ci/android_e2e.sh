@@ -37,7 +37,10 @@ sleep 20; shot android-03-home
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-04-rail-focus
 key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 8; shot android-05-detail
 key KEYCODE_BACK; sleep 3; shot android-06-back-focus-restored
-key KEYCODE_BACK; sleep 2; shot android-07-back-to-tab-bar
+key KEYCODE_BACK; sleep 2; shot android-07-back-to-sidebar
+# Sidebar: Down to "Up Next", Select switches section and hands focus to its content.
+key KEYCODE_DPAD_DOWN; sleep 1; shot android-07b-sidebar-down
+key KEYCODE_DPAD_CENTER; sleep 6; shot android-07c-sidebar-select
 
 # Deep links (session is restored from the Keystore vault on relaunch).
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }

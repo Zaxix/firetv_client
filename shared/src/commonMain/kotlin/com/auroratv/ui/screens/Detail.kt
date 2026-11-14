@@ -64,6 +64,7 @@ import com.auroratv.ui.components.FocusSurface
 import com.auroratv.ui.components.LoadingState
 import com.auroratv.ui.components.MediaCard
 import com.auroratv.ui.components.ScreenPadding
+import com.auroratv.ui.components.ScreenStart
 import com.auroratv.ui.components.formatRating
 import com.auroratv.ui.components.formatRuntime
 import com.auroratv.ui.components.formatTime
@@ -157,7 +158,6 @@ fun DetailScreen(route: Route.Detail) {
         }
     }
 
-    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val headerHeight = maxHeight * 0.86f
         // Full-screen backdrop like the tvOS TV app; shade only where text sits (lower left).
@@ -232,7 +232,7 @@ private fun DetailHeader(
 ) {
     val colors = Aurora.colors
     val api = LocalSession.current.api
-    Column(Modifier.padding(horizontal = ScreenPadding).widthIn(max = 760.dp)) {
+    Column(Modifier.padding(start = ScreenStart, end = ScreenPadding).widthIn(max = 760.dp)) {
         val logo = api.images.logo(item, artworkPx(480.dp, 1f))
         if (logo != null && !item.isEpisode) {
             ArtworkImage(logo, item.name, Modifier.height(140.dp).widthIn(max = 520.dp), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
@@ -292,7 +292,7 @@ private fun DetailHeader(
 
 @Composable
 private fun SeasonPicker(seasons: List<BaseItemDto>, selected: String?, onSelect: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(seasons, key = { it.id }) { season ->
             AuroraChip(season.name ?: "Season ${season.indexNumber}", season.id == selected, onClick = { onSelect(season.id) }, focusKey = "season/${season.id}")
         }
@@ -305,11 +305,11 @@ private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Un
     val api = LocalSession.current.api
     val colors = Aurora.colors
     if (episodes.isEmpty()) {
-        Text("No episodes in this season yet.", style = AuroraType.body, color = colors.onSurfaceMuted, modifier = Modifier.padding(horizontal = ScreenPadding))
+        Text("No episodes in this season yet.", style = AuroraType.body, color = colors.onSurfaceMuted, modifier = Modifier.padding(start = ScreenStart, end = ScreenPadding))
         return
     }
     LazyRow(
-        contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 12.dp),
+        contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(22.dp),
         modifier = Modifier.focusRestorer(),
     ) {
@@ -329,8 +329,8 @@ private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: c
     val colors = Aurora.colors
     val personPx = artworkPx(104.dp)
     Column {
-        Text("Cast", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenPadding, bottom = 14.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+        Text("Cast", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
+        LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
             items(cast, key = { (it.id ?: it.name) + it.role }) { person ->
                 Column(Modifier.width(120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     FocusSurface(onClick = {}, shape = CircleShape, modifier = Modifier.size(104.dp)) {
@@ -361,7 +361,7 @@ private fun TechnicalInfo(item: BaseItemDto) {
         source.subtitleStreams.takeIf { it.isNotEmpty() }?.let { add("Subtitles" to it.joinToString("\n") { s -> s.displayTitle ?: s.codec.orEmpty() }) }
         source.container?.let { add("Container" to it.uppercase()) }
     }
-    Column(Modifier.padding(horizontal = ScreenPadding)) {
+    Column(Modifier.padding(start = ScreenStart, end = ScreenPadding)) {
         Text("Media Info", style = AuroraType.section, color = colors.onBackground)
         Spacer(Modifier.height(12.dp))
         lines.forEach { (k, v) ->

@@ -32,10 +32,14 @@ data class Settings(
     val audioPassthrough: Boolean = false,
     val preferredAudioLanguage: String = "",
     val autoPlayNext: Boolean = true,
+    /** Android TV: switch the display to the video's frame rate (removes 24p judder; screen may blank briefly). */
+    val matchFrameRate: Boolean = false,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,
     val seekForwardSeconds: Int = 30,
     val seekBackSeconds: Int = 10,
     val skipIntro: SkipIntroMode = SkipIntroMode.ShowButton,
+    /** Look up anime opening/ending times on AniSkip when the server has none (sends title + episode number). */
+    val onlineSkipTimes: Boolean = true,
     // Subtitles
     val subtitleMode: SubtitleMode = SubtitleMode.Default,
     val preferredSubtitleLanguage: String = "",

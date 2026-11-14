@@ -45,6 +45,7 @@ import com.auroratv.ui.AppContainer
 import com.auroratv.ui.LocalSession
 import com.auroratv.ui.components.FocusSurface
 import com.auroratv.ui.components.ScreenPadding
+import com.auroratv.ui.components.ScreenStart
 import com.auroratv.ui.nav.LocalEntry
 import com.auroratv.ui.nav.LocalNavigator
 import com.auroratv.ui.nav.ScreenFocus
@@ -71,7 +72,7 @@ fun SettingsScreen(container: AppContainer) {
     val colors = Aurora.colors
     ScreenFocus(entry, navigator, first)
 
-    Row(Modifier.fillMaxSize().padding(start = ScreenPadding, top = com.auroratv.ui.TopBarSpace, end = ScreenPadding)) {
+    Row(Modifier.fillMaxSize().padding(start = ScreenStart, top = com.auroratv.ui.ScreenTop, end = ScreenPadding)) {
         Column(Modifier.width(260.dp).focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Settings", style = AuroraType.title, color = colors.onBackground, modifier = Modifier.padding(bottom = 24.dp))
             SettingsPage.entries.forEachIndexed { i, p ->
@@ -169,13 +170,17 @@ private fun PlaybackPage(container: AppContainer) {
             item { SettingRow("Hardware decoding", onOff(s.hardwareDecoding), "Use the GPU (D3D11) to decode video") { set { it.copy(hardwareDecoding = !it.hardwareDecoding) } } }
             item { SettingRow("Audio passthrough", onOff(s.audioPassthrough), "Send AC3/E-AC3/DTS/TrueHD bitstream to a receiver (S/PDIF or HDMI)") { set { it.copy(audioPassthrough = !it.audioPassthrough) } } }
         }
+        if (!isDesktop) {
+            item { SettingRow("Match frame rate", onOff(s.matchFrameRate), "Switch the TV to the video's frame rate (e.g. 24 Hz for films) for smoother motion. The screen may go black for a moment when it switches.") { set { it.copy(matchFrameRate = !it.matchFrameRate) } } }
+        }
         item { Header("Behaviour") }
         item { SettingRow("Audio language", languageName(s.preferredAudioLanguage)) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
         item { SettingRow("Auto-play next episode", onOff(s.autoPlayNext)) { set { it.copy(autoPlayNext = !it.autoPlayNext) } } }
         item { SettingRow("When starting a partly watched item", if (s.resumeBehavior == ResumeBehavior.Resume) "Resume" else "Start over") { set { it.copy(resumeBehavior = ResumeBehavior.entries.after(it.resumeBehavior)) } } }
         item { SettingRow("Skip forward", "${s.seekForwardSeconds}s") { set { it.copy(seekForwardSeconds = listOf(10, 15, 30, 60).after(it.seekForwardSeconds)) } } }
         item { SettingRow("Skip back", "${s.seekBackSeconds}s") { set { it.copy(seekBackSeconds = listOf(5, 10, 15, 30).after(it.seekBackSeconds)) } } }
-        item { SettingRow("Intros and recaps", when (s.skipIntro) { SkipIntroMode.ShowButton -> "Show Skip button"; SkipIntroMode.Auto -> "Skip automatically"; SkipIntroMode.Off -> "Off" }, "Requires media segments on the server (Jellyfin 10.10+)") { set { it.copy(skipIntro = SkipIntroMode.entries.after(it.skipIntro)) } } }
+        item { SettingRow("Intros and recaps", when (s.skipIntro) { SkipIntroMode.ShowButton -> "Show Skip button"; SkipIntroMode.Auto -> "Skip automatically"; SkipIntroMode.Off -> "Off" }, "Uses the server's media segments or chapters, otherwise detects recurring openings and endings") { set { it.copy(skipIntro = SkipIntroMode.entries.after(it.skipIntro)) } } }
+        item { SettingRow("Find anime openings online", onOff(s.onlineSkipTimes), "When the server has no markers, look up opening/ending times on AniSkip (sends the show's title and episode number)") { set { it.copy(onlineSkipTimes = !it.onlineSkipTimes) } } }
     }
 }
 

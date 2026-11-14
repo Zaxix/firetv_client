@@ -62,7 +62,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     override suspend fun probeCapabilities(): DeviceCapabilities = AndroidCapabilities.probe(activity)
 
-    override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine = ExoPlayerEngine(activity, settings.assRenderMode)
+    override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine = ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
 
     @Composable
     override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {

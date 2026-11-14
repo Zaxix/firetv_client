@@ -62,6 +62,7 @@ import com.auroratv.ui.components.CardStyle
 import com.auroratv.ui.components.ContentRail
 import com.auroratv.ui.components.ErrorState
 import com.auroratv.ui.components.ScreenPadding
+import com.auroratv.ui.components.ScreenStart
 import com.auroratv.ui.components.SkeletonRail
 import com.auroratv.ui.components.formatRating
 import com.auroratv.ui.components.formatRuntime
@@ -160,7 +161,6 @@ fun HomeScreen() {
     } else null
     val accent by animateColorAsState(accentTarget ?: Aurora.colors.accent, tween(Aurora.motion.duration(600)))
 
-    com.auroratv.ui.ReportScrollToTopBar { model.listState.firstVisibleItemIndex == 0 && model.listState.firstVisibleItemScrollOffset < 40 }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val heroHeight = maxHeight * 0.80f
         if (settings.showBackdrops) {
@@ -252,7 +252,7 @@ private fun Hero(
     LaunchedEffect(heroFocused) { if (heroFocused) model.focused = null }
 
     Column(
-        Modifier.fillMaxWidth().height(height).padding(start = ScreenPadding, end = ScreenPadding, bottom = 36.dp)
+        Modifier.fillMaxWidth().height(height).padding(start = ScreenStart, end = ScreenPadding, bottom = 36.dp)
             .onFocusChanged { heroFocused = it.hasFocus },
         verticalArrangement = Arrangement.Bottom,
     ) {
@@ -287,11 +287,14 @@ private fun Hero(
         )
         Spacer(Modifier.height(26.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Left on Play / Right on More Info pages through the featured titles, like swiping on tvOS.
+            // Right on More Info pages to the next featured title (wrapping), like swiping on tvOS.
+            // Left on Play goes back a title, except on the first one, where it opens the sidebar.
             val count = model.hero.size.coerceAtLeast(1)
             AuroraButton("Play", { onPlay(item) }, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus, focusKey = "hero/play",
                 modifier = Modifier.onPreviewKeyEvent { ev ->
-                    if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft && model.hero.size > 1) { model.heroIndex = (model.heroIndex - 1 + count) % count; true } else false
+                    if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft && model.hero.size > 1 && model.heroIndex % count != 0) {
+                        model.heroIndex = (model.heroIndex - 1 + count) % count; true
+                    } else false
                 })
             AuroraButton("More Info", { onInfo(item) }, icon = Icons.Filled.Info, focusKey = "hero/info",
                 modifier = Modifier.onPreviewKeyEvent { ev ->

@@ -49,6 +49,9 @@ import com.auroratv.ui.theme.AuroraType
 /** Horizontal padding used by every screen so rails, headers and hero text align. */
 val ScreenPadding = 64.dp
 
+/** Left inset for screen content: clears the collapsed sidebar rail (see `SideBar`). */
+val ScreenStart = 124.dp
+
 /** Pill button used for primary actions (Play, Resume, Favorite...). */
 @Composable
 fun AuroraButton(
@@ -149,11 +152,14 @@ fun ContentRail(
 ) {
     val colors = Aurora.colors
     Column(modifier.fillMaxWidth()) {
-        Text(title, style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenPadding, bottom = 14.dp))
-        val state = rememberLazyListState()
+        Text(title, style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
+        // Compose a viewport's worth of cards ahead (and half behind), so their artwork is already
+        // loading before the D-pad reaches them.
+        @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+        val state = rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
         LazyRow(
             state = state,
-            contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 12.dp),
+            contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp),
             modifier = Modifier.focusRestorer(),
         ) {
@@ -178,8 +184,8 @@ fun SkeletonRail(style: CardStyle, count: Int = 7, modifier: Modifier = Modifier
     val colors = Aurora.colors
     val alpha = shimmerAlpha()
     Column(modifier.fillMaxWidth()) {
-        Box(Modifier.padding(start = ScreenPadding, bottom = 14.dp).width(180.dp).height(22.dp).clip(RoundedCornerShape(6.dp)).background(colors.skeleton))
-        Row(Modifier.padding(horizontal = ScreenPadding, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+        Box(Modifier.padding(start = ScreenStart, bottom = 14.dp).width(180.dp).height(22.dp).clip(RoundedCornerShape(6.dp)).background(colors.skeleton))
+        Row(Modifier.padding(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
             repeat(count) {
                 Box(
                     Modifier.width(style.width).aspectRatio(style.aspect).clip(RoundedCornerShape(12.dp))

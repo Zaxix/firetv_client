@@ -1,11 +1,14 @@
 package com.auroratv
 
 import com.auroratv.jellyfin.ServerAddress
+import com.auroratv.jellyfin.model.BaseItemDto
+import com.auroratv.jellyfin.model.ChapterInfo
 import com.auroratv.jellyfin.model.MediaSourceInfo
 import com.auroratv.jellyfin.model.MediaStream
 import com.auroratv.playback.Codecs
 import com.auroratv.playback.DeviceProfileBuilder
 import com.auroratv.playback.PlayMethod
+import com.auroratv.playback.PlayerUiState
 import com.auroratv.playback.PlaybackNegotiator
 import com.auroratv.playback.TrackSelector
 import com.auroratv.settings.SubtitleMode
@@ -162,6 +165,43 @@ class NegotiationTest {
         // Smart: English audio → forced only.
         assertEquals(4, TrackSelector.pickSubtitle(streams, SubtitleMode.Smart, "eng", "eng", null))
         assertEquals(5, TrackSelector.pickSubtitle(streams, SubtitleMode.Always, "es", "eng", null), "ISO 639-1 'es' matches 'spa'")
+    }
+
+    @Test
+    fun signsAndSongsNeverDefaultWithJapaneseAudio() {
+        // Typical anime release: S&S track listed first AND flagged default, full subs second.
+        val anime = listOf(
+            MediaStream(0, "Video", codec = "hevc"),
+            MediaStream(1, "Audio", codec = "flac", language = "jpn", isDefault = true),
+            MediaStream(2, "Audio", codec = "aac", language = "eng"),
+            MediaStream(3, "Subtitle", codec = "ass", language = "eng", title = "Signs & Songs [Group]", isDefault = true),
+            MediaStream(4, "Subtitle", codec = "ass", language = "eng", title = "Full Subtitles [Group]"),
+            MediaStream(5, "Subtitle", codec = "ass", language = "eng", title = "Honorifics"),
+        )
+        for (mode in listOf(SubtitleMode.Default, SubtitleMode.Always, SubtitleMode.Smart)) {
+            assertEquals(4, TrackSelector.pickSubtitle(anime, mode, "eng", "jpn", null), "$mode with Japanese audio")
+        }
+        // English dub: Smart shows only signs/songs, which is exactly what a dub needs.
+        assertEquals(3, TrackSelector.pickSubtitle(anime, SubtitleMode.Smart, "eng", "eng", null))
+        // Only an S&S track exists: still used rather than nothing.
+        assertEquals(3, TrackSelector.pickSubtitle(anime.take(4), SubtitleMode.Always, "eng", "jpn", null))
+        listOf("Signs and Songs", "Songs/Signs", "S&S", "Signs", "English (Signs) - ASS", "Songs Only").forEach {
+            assertTrue(TrackSelector.isSignsAndSongs(MediaStream(9, "Subtitle", title = it)), it)
+        }
+        listOf("Full Subtitles", "Dialogue + Signs", "Sign Language", "English - ASS - Default", "Designs").forEach {
+            assertFalse(TrackSelector.isSignsAndSongs(MediaStream(9, "Subtitle", title = it)), it)
+        }
+    }
+
+    @Test
+    fun nextEpisodeOnlyFromCreditsStart() {
+        val item = BaseItemDto(id = "e1", name = "Ep", type = "Episode", runTimeTicks = 24 * 60 * 10_000_000L,
+            chapters = listOf(ChapterInfo(0, "Part A"), ChapterInfo(21 * 60 * 10_000_000L, "Ending"), ChapterInfo(23 * 60 * 10_000_000L, "Preview")))
+        val next = BaseItemDto(id = "e2", name = "Next", type = "Episode")
+        assertEquals(21 * 60_000L, PlayerUiState(item = item, nextEpisode = next).nextEpisodeFromMs)
+        // No credits marker: the final two minutes.
+        assertEquals(22 * 60_000L, PlayerUiState(item = item.copy(chapters = emptyList()), nextEpisode = next).nextEpisodeFromMs)
+        assertNull(PlayerUiState(item = item).nextEpisodeFromMs)
     }
 
     // ---- Intro / credits ranges (yellow timeline markers) -----------------------------------

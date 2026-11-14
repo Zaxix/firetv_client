@@ -28,6 +28,20 @@ object TrackSelector {
         return (audio.firstOrNull { it.isDefault } ?: audio.first()).index
     }
 
+    /**
+     * True for "Signs & Songs" style tracks (anime releases): they only translate on-screen text
+     * and song lyrics, not dialogue. Matches "Signs & Songs", "Signs and Songs", "Songs/Signs",
+     * "S&S", "Signs", "Signs Only", "Songs Only" in the track title (but not "sign language").
+     */
+    fun isSignsAndSongs(stream: MediaStream): Boolean {
+        val text = listOfNotNull(stream.title, stream.displayTitle).joinToString(" ")
+        return text.isNotBlank() && SIGNS_SONGS.containsMatchIn(text) && !FULL_DIALOGUE.containsMatchIn(text)
+    }
+
+    /** Dialogue tracks first: not forced, not Signs & Songs. Order is otherwise kept. */
+    private fun List<MediaStream>.dialogueFirst() =
+        sortedBy { (if (isSignsAndSongs(it)) 2 else 0) + (if (it.isForced) 1 else 0) }
+
     /** Returns the subtitle stream index to show, or null for none. */
     fun pickSubtitle(
         streams: List<MediaStream>,
@@ -40,28 +54,50 @@ object TrackSelector {
         if (subs.isEmpty() || mode == SubtitleMode.Off) return null
         val inPreferred = subs.filter { languageMatches(it.language, preferredLanguage) }
         val forced = subs.filter { it.isForced }
-        fun forcedPreferred() = (forced.firstOrNull { languageMatches(it.language, preferredLanguage) }
+        // Audio already in the user's language (e.g. an English dub): only on-screen text needs translating.
+        val audioIsPreferred = preferredLanguage.isNotBlank() && languageMatches(audioLanguage, preferredLanguage)
+
+        /** Forced track, or for dubs a Signs & Songs track, which does the same job. */
+        fun forcedPreferred(): Int? = (forced.firstOrNull { languageMatches(it.language, preferredLanguage) }
             ?: forced.firstOrNull { languageMatches(it.language, audioLanguage ?: "") }
+            ?: inPreferred.firstOrNull { audioIsPreferred && isSignsAndSongs(it) }
             ?: forced.firstOrNull())?.index
+
+        /** A track with the dialogue: never Signs & Songs or forced while a full track exists. */
+        fun fullTrack(candidates: List<MediaStream>): MediaStream? = candidates.dialogueFirst().firstOrNull()
 
         return when (mode) {
             SubtitleMode.Off -> null
             SubtitleMode.OnlyForced -> forcedPreferred()
-            SubtitleMode.Always -> (inPreferred.firstOrNull { !it.isForced } ?: inPreferred.firstOrNull()
-                ?: subs.firstOrNull { it.isDefault } ?: subs.first()).index
+            SubtitleMode.Always -> (fullTrack(inPreferred)
+                ?: fullTrack(subs.filter { it.isDefault }) ?: fullTrack(subs))?.index
             SubtitleMode.Smart -> {
                 // Show full subtitles only when the audio isn't in the user's language.
-                val audioIsPreferred = preferredLanguage.isNotBlank() && languageMatches(audioLanguage, preferredLanguage)
                 if (audioIsPreferred) forcedPreferred()
-                else (inPreferred.firstOrNull { !it.isForced } ?: inPreferred.firstOrNull())?.index ?: forcedPreferred()
+                else fullTrack(inPreferred)?.index ?: forcedPreferred()
             }
             SubtitleMode.Default -> {
                 val def = subs.firstOrNull { it.isDefault && (preferredLanguage.isBlank() || languageMatches(it.language, preferredLanguage)) }
                     ?: subs.firstOrNull { it.isDefault }
-                def?.index ?: forcedPreferred() ?: serverDefault?.takeIf { idx -> subs.any { it.index == idx } }
+                when {
+                    def == null -> forcedPreferred() ?: serverDefault?.takeIf { idx -> subs.any { it.index == idx } }
+                    // Release groups often flag Signs & Songs as default; with foreign audio that hides
+                    // the dialogue, so use a full track in the same language instead when there is one.
+                    !audioIsPreferred && (isSignsAndSongs(def) || def.isForced) ->
+                        (fullTrack(subs.filter { languageMatches(it.language, def.language ?: "") }) ?: def).index
+                    else -> def.index
+                }
             }
         }
     }
+
+    /** "Full Subtitles (incl. signs)", "Dialogue + Signs": complete tracks that merely mention signs. */
+    private val FULL_DIALOGUE = Regex("""\b(full|dialog(ue)?|complete)\b""", RegexOption.IGNORE_CASE)
+
+    private val SIGNS_SONGS = Regex(
+        """\bsigns?\s*(?:&|and|\+|/|,|-)?\s*songs?\b|\bsongs?\s*(?:&|and|\+|/|,|-)?\s*signs?\b|\bs\s*&\s*s\b|\bsigns?\b(?!\s*language)|\bsongs?\s+only\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     private val ISO1_TO_2 = mapOf(
         "en" to "eng", "fr" to "fra", "de" to "deu", "es" to "spa", "it" to "ita", "ja" to "jpn", "ko" to "kor",

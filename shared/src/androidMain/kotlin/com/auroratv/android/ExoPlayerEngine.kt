@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
  * full styling, positioning, karaoke and animation.
  */
 @OptIn(UnstableApi::class)
-class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine {
+class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: Boolean = false) : PlaybackEngine {
     private val tag = "ExoEngine"
     override val name = "Media3 ExoPlayer + libass"
 
@@ -134,6 +134,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
     private var videoDecoder: String? = null
     private var audioDecoder: String? = null
     private var droppedFrames = 0
+    private val frameRate = if (matchFrameRate) (context as? android.app.Activity)?.let { FrameRateMatcher(it) } else null
 
     init {
         view.player = player
@@ -148,6 +149,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
             }
 
             override fun onTracksChanged(tracks: Tracks) {
+                frameRate?.let { m -> player.videoFormat?.frameRate?.takeIf { it > 0f }?.let(m::match) }
                 if (!pendingApplied && !tracks.isEmpty) {
                     pendingApplied = true
                     pendingAudio?.let { selectAudio(it) }
@@ -319,6 +321,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode) : PlaybackEngine
     }
 
     override fun release() {
+        frameRate?.restore()
         scope.cancel()
         view.player = null
         player.release()

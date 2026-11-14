@@ -3,9 +3,11 @@ package com.auroratv.ui
 import com.auroratv.core.AppError
 import com.auroratv.core.Log
 import com.auroratv.data.SessionManager
+import com.auroratv.jellyfin.JellyfinApi
 import com.auroratv.jellyfin.createJellyfinHttpClient
 import com.auroratv.platform.Platform
 import com.auroratv.playback.DeviceCapabilities
+import com.auroratv.playback.SkipDetector
 import com.auroratv.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,13 @@ class AppContainer(val platform: Platform) {
     val http = createJellyfinHttpClient()
     val settings = SettingsRepository(platform.files)
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
+
+    private var detector: Pair<JellyfinApi, SkipDetector>? = null
+
+    /** One detector per signed-in server, so its AniList/MAL lookups stay cached between episodes. */
+    fun skipDetector(api: JellyfinApi): SkipDetector =
+        detector?.takeIf { it.first === api }?.second
+            ?: SkipDetector(api, http) { settings.current.onlineSkipTimes }.also { detector = api to it }
 
     private val capsLock = Mutex()
     private var caps: DeviceCapabilities? = null

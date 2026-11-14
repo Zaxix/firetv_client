@@ -2,6 +2,7 @@
 agp = "8.13.1"
 kotlin = "2.2.20"
 compose-multiplatform = "1.9.0"
+profileinstaller = "1.4.1"
 coroutines = "1.10.2"
 serialization = "1.9.0"
 ktor = "3.3.0"
@@ -40,6 +41,7 @@ jellyfin-media3-ffmpeg = { module = "org.jellyfin.media3:media3-ffmpeg-decoder",
 
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }

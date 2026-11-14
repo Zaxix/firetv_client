@@ -74,7 +74,9 @@ fun MediaCard(
             modifier = Modifier.fillMaxWidth().aspectRatio(style.aspect),
         ) {
             Box(Modifier.fillMaxSize()) {
-                ArtworkImage(artwork, item.name, Modifier.fillMaxSize())
+                // No crossfade on cards (as Wholphin does): the BlurHash placeholder already softens the swap and
+                // fast D-pad scrolling stays cheaper without per-image fade animations.
+                ArtworkImage(artwork, item.name, Modifier.fillMaxSize(), crossfade = false)
                 if (artwork == null) {
                     Text(
                         item.name ?: "",
