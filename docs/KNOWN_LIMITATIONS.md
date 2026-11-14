@@ -62,8 +62,15 @@ can only be confirmed on that device; CI can't test them.
   so in that case the server would neither tone-map nor flag it as HDR. If HDR titles look washed out,
   refresh their metadata on the server.
 
-* **Skip Intro** needs Jellyfin 10.10+ media segments, produced by a segment provider plugin (e.g.
-  *Intro Skipper*). Without one, no Skip button appears.
+* **Intro/credits markers, in order of reliability:** server media segments (Jellyfin 10.10+ with a
+  provider plugin; *Intro Skipper* fingerprints audio and covers every TV show, so it's the best
+  option), then chapter names, then Aurora's own detection. The detection only works when (a) the
+  files have chapters and an opening/ending chapter of the same length recurs in other episodes of
+  the season, or (b) the show is anime that AniSkip knows. AniSkip times are crowd-sourced, and
+  mapping a Jellyfin season onto a MyAnimeList entry (via provider ids, or an AniList title search
+  that must match the show's title or year) can still pick the wrong entry for unusually split
+  seasons, so markers can occasionally be off. Online lookups send only the show title or MAL id and
+  the episode number; they can be turned off in Settings → Playback.
 * Requires **Jellyfin 10.9 or newer** (uses the 10.9+ routes such as `/UserViews`, `/UserItems/Resume`,
   `/UserFavoriteItems`).
 * Live TV, music libraries, photos, SyncPlay and Quick Connect aren't implemented; Aurora focuses on

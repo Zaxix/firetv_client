@@ -29,6 +29,9 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Artwork | BlurHash average colour, accent extraction (skips near-grey art), placeholder decode |
 | Transcoding profile | H.264 is listed first (fast server encodes), HEVC second for stream copy |
 | Trickplay | Jellyfin `Trickplay` sheets parsed; the smallest set ≥ 320 px is used; tile URL format |
+| Signs & Songs | never the default dialogue track with Japanese audio (Default/Always/Smart); used as the forced track for dubs; title variants recognised, "Sign Language"/"Full" excluded |
+| Next Episode | offered from the credits start (chapters, segments or detection), else the final two minutes |
+| Intro/credits detection | recurring chapter lengths across a season → opening/ending; periodic chapters ignored; AniSkip via AniList title search + sequel walk, only for anime, only for missing kinds, title/year must match, Jellyfin token never sent to third parties, nothing sent when the setting is off |
 
 **Result: all passing.**
 
@@ -106,7 +109,8 @@ server. Debug builds log every remote key the activity receives, so the run prov
 
 * typed the server address and pressed Enter → login; typed credentials → Home ✅
 * **D-pad Down** moved focus from the hero into the first rail; **Right + Select** opened that movie's
-  detail page; **Back** returned Home with focus restored to the same card; **Left** expanded the side menu ✅
+  detail page; **Back** returned Home with focus restored to the same card; **Back** again opened the
+  sidebar; **Down + Select** in the sidebar switched to Up Next ✅
 * **D-pad Down ×4** in Settings reached the About page, which lists the detected decoders and
   capabilities (Media3 1.8.0, software H.264/HEVC on the emulator, Keystore token storage) ✅
 * played video through Media3. The emulator's decoders were probed (software, ≤1080p) and the

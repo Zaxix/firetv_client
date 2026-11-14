@@ -94,8 +94,12 @@ class Navigator(initial: Route) {
 
     fun focusRestored() { restoringFocus = false }
 
+    /** Reads [current] so composables showing the selected section (the sidebar) update when it changes. */
     val currentSection: Section
-        get() = (stack.first().route as? Route.Root)?.section ?: Section.Home
+        get() {
+            current // snapshot read: stack changes always replace `current`
+            return (stack.first().route as? Route.Root)?.section ?: Section.Home
+        }
 }
 
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("No navigator") }

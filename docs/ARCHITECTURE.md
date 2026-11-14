@@ -70,7 +70,16 @@ touch the platform are native: video decoding and rendering, secure storage, and
    and hover. When the server has trickplay sheets (Jellyfin 10.9+), the bubble shows a thumbnail:
    each sprite sheet is decoded once and the frame is picked with an offset, so moving within a sheet
    costs no network or decode work.
-9. **Errors**: an engine error offers "Try with transcoding", which renegotiates with Direct Play
+9. **Skip markers** (`SkipDetector`): server media segments → chapter names → detection, merged per
+   kind so detection only fills what the server lacks. Detection first looks for an unnamed chapter
+   whose length (±1.5 s) recurs in other episodes of the season near the start (opening) or end
+   (ending), ignoring files with periodic chapters. For anime it then asks AniSkip by MyAnimeList id
+   (from provider ids, or AniList: title search checked against the series title/year, then SEQUEL
+   relations for later seasons and split cours). It runs after playback starts, with an 8 s real-time
+   timeout, over a plain HTTP client that never carries the Jellyfin token.
+10. **Next Episode** is offered from the start of the credits range (or the final two minutes when
+   there's no credits marker), not throughout the episode.
+11. **Errors**: an engine error offers "Try with transcoding", which renegotiates with Direct Play
    disabled. That's the right fallback for decoder or container failures.
 
 ## UI and focus
