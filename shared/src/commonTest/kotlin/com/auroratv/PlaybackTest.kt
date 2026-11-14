@@ -10,6 +10,7 @@ import com.auroratv.playback.DeviceProfileBuilder
 import com.auroratv.playback.PlayMethod
 import com.auroratv.playback.PlayerUiState
 import com.auroratv.playback.PlaybackNegotiator
+import com.auroratv.playback.SkipRange
 import com.auroratv.playback.TrackSelector
 import com.auroratv.settings.SubtitleMode
 import io.ktor.http.HttpStatusCode
@@ -198,9 +199,12 @@ class NegotiationTest {
         val item = BaseItemDto(id = "e1", name = "Ep", type = "Episode", runTimeTicks = 24 * 60 * 10_000_000L,
             chapters = listOf(ChapterInfo(0, "Part A"), ChapterInfo(21 * 60 * 10_000_000L, "Ending"), ChapterInfo(23 * 60 * 10_000_000L, "Preview")))
         val next = BaseItemDto(id = "e2", name = "Next", type = "Episode")
-        assertEquals(21 * 60_000L, PlayerUiState(item = item, nextEpisode = next).nextEpisodeFromMs)
+        assertEquals(21 * 60_000L, PlayerUiState(item = item, chapters = item.chapters, nextEpisode = next).nextEpisodeFromMs)
         // No credits marker: the final two minutes.
-        assertEquals(22 * 60_000L, PlayerUiState(item = item.copy(chapters = emptyList()), nextEpisode = next).nextEpisodeFromMs)
+        assertEquals(22 * 60_000L, PlayerUiState(item = item, nextEpisode = next).nextEpisodeFromMs)
+        // A credits range found by detection counts too.
+        val detected = SkipRange(SkipRange.Kind.Credits, 20 * 60_000L, 21 * 60_000L)
+        assertEquals(20 * 60_000L, PlayerUiState(item = item, nextEpisode = next, detectedSkips = listOf(detected)).nextEpisodeFromMs)
         assertNull(PlayerUiState(item = item).nextEpisodeFromMs)
     }
 

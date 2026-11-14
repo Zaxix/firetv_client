@@ -15,6 +15,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -58,7 +60,8 @@ class SkipDetector(
             .getOrNull()?.let { found += it }
         val covered = alreadyHave + found.flatMap { r -> r.ranges.map { it.kind } }
         if (onlineAllowed() && !covered.containsAll(listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits))) {
-            runCatching { withTimeoutOrNull(8_000) { fromAniSkip(item, runtime) } }
+            // Real-time timeout (Dispatchers.Default), so a slow third-party API never holds anything up.
+            runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(8_000) { fromAniSkip(item, runtime) } } }
                 .onFailure { Log.w(tag, "AniSkip lookup failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
         }
