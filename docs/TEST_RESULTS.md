@@ -98,7 +98,7 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 
 ## 3. Windows: packaged app self-test (every push)
 
-The MSI/EXE/portable build is packaged on `windows-2022`, then the **packaged** `Nameless.exe
+The MSI/EXE/portable build is packaged on `windows-2022`, then the **packaged** `Sharkfin.exe
 --self-test` loads the bundled `libmpv-2.dll` (mpv 0.42) and decodes every sample headlessly.
 
 | Sample | Result |
@@ -123,7 +123,7 @@ lack, so the Khronos Vulkan loader is now bundled.
 
 A launch smoke test then starts the installed-layout app, confirms it stays running and captures a
 screenshot. A best-effort step signs in to the public Jellyfin demo server and captures Home and the player:
-real video plays through mpv in its own window, with Nameless's transparent controls drawn on top.
+real video plays through mpv in its own window, with Sharkfin's transparent controls drawn on top.
 
 ## 4. Android TV emulator (every push)
 
@@ -164,7 +164,7 @@ server. Debug builds log every remote key the activity receives, so the run prov
 The emulator runs found and fixed three real bugs:
 
 1. **The on-screen keyboard stayed active after sign-in and swallowed the remote's D-pad** (Select
-   typed "q"). Nameless now dismisses the keyboard on connect, on sign-in and when the main app opens.
+   typed "q"). Sharkfin now dismisses the keyboard on connect, on sign-in and when the main app opens.
 2. Android TV's default pivot scrolling clipped the top of Home; replaced with minimal scroll-into-view.
 3. The shared arrow-key handler is now desktop-only; Android uses its native D-pad focus search.
 

@@ -1,10 +1,12 @@
 # Logo
 
-`logo-source.png` is the artwork supplied for the app (black mark on a baked-in checkerboard). It was
-traced to a vector (`logo-white.svg`, `logo-black.svg`) with potrace; the same path is in
-`shared/src/commonMain/kotlin/com/auroratv/ui/components/Logo.kt` for in-app use. `icon.svg` is the
-launcher icon (logo on the app's dark gradient); the Android mipmaps, TV banner and the Windows
-`.ico`/window icon are rendered from these files.
+Sharkfin's mark is original artwork made for the app: a fin cutting through a wave, filled with a
+purple-to-blue gradient chosen to sit comfortably next to Jellyfin. `make_logo.py` holds the paths and
+writes `logo.svg` (gradient mark), `logo-white.svg` (one colour), `icon.svg` (launcher icon on the dark
+background) and `banner.svg` (Android TV banner, 16:9). The Android mipmaps, TV banner and the Windows
+`.ico`/window icon are rendered from these with `rsvg-convert`, and the same paths are in
+`shared/src/commonMain/kotlin/com/auroratv/ui/components/Logo.kt` for in-app use. The colours echo
+Jellyfin's palette; the mark itself doesn't use any Jellyfin artwork.
 
 # Brand tile artwork
 

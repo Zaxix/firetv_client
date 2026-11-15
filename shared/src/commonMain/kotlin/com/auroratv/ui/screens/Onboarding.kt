@@ -98,7 +98,7 @@ private fun OnboardingFrame(title: String, subtitle: String, content: @Composabl
             Modifier.widthIn(max = 620.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            com.auroratv.ui.components.AppLogoImage(colors.onBackground, Modifier.size(96.dp))
+            com.auroratv.ui.components.AppLogoImage(Modifier.size(96.dp))
             Spacer(Modifier.height(12.dp))
             Text(com.auroratv.AppInfo.NAME, style = AuroraType.hero, color = colors.onBackground)
             Spacer(Modifier.height(32.dp))

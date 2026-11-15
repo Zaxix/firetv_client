@@ -75,7 +75,8 @@ fun createJellyfinHttpClient(base: HttpClient? = null): HttpClient {
 
 /** Common item fields requested for cards and detail pages. */
 object Fields {
-    const val CARD = "PrimaryImageAspectRatio,Overview,Genres,ParentId,SeriesPrimaryImageTag,ChildCount,RecursiveItemCount"
+    /** Card + hero text. No ChildCount/RecursiveItemCount: nothing draws them and the server counts every episode of every series for them. */
+    const val CARD = "PrimaryImageAspectRatio,Overview,Genres,ParentId,SeriesPrimaryImageTag"
     const val DETAIL = "Overview,Genres,Studios,People,Taglines,MediaSources,MediaStreams,Chapters,PrimaryImageAspectRatio,ChildCount,RecursiveItemCount,OriginalTitle,ParentId"
     const val IMAGE_TYPES = "Primary,Backdrop,Logo,Thumb"
     /** Just what a poster card draws: no overview/genres/child counts (child counts are costly for series). */

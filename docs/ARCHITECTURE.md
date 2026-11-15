@@ -1,6 +1,6 @@
 # Architecture
 
-Nameless is one Kotlin Multiplatform codebase with two thin native shells. Nearly everything — the
+Sharkfin is one Kotlin Multiplatform codebase with two thin native shells. Nearly everything — the
 Jellyfin client, state, the UI and the player controls — is shared. Only the parts that have to
 touch the platform are native: video decoding and rendering, secure storage, and capability probing.
 
@@ -61,7 +61,7 @@ key typed on a PC appears on the TV.
    for anything else, so unsupported subtitles get burned in rather than dropped).
 3. **Negotiate** (`PlaybackNegotiator`): `POST /Items/{id}/PlaybackInfo` with the profile, start
    position and chosen streams. The server answers Direct Play (static file URL), Direct Stream
-   (remux) or Transcode (HLS URL plus reasons). The token goes in request headers, never in URLs Nameless builds.
+   (remux) or Transcode (HLS URL plus reasons). The token goes in request headers, never in URLs Sharkfin builds.
 4. **Play** (`PlayerController` → `PlaybackEngine`): loads the URL, selects the audio/subtitle track by
    container ordinal (embedded) or registers sidecar files (external), seeks to the resume point, and
    reports start, progress (every 10 s and on pause) and stop to Jellyfin.

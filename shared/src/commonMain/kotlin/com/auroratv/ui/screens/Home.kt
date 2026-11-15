@@ -74,20 +74,44 @@ import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
 import com.auroratv.ui.theme.BlurHash
 import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
-/** A rail whose items load lazily the first time it scrolls into view. */
+/**
+ * A rail whose items load lazily the first time it scrolls into view. Callers share one load (the
+ * hero and the rail both want "Recently Added"), failures are retried twice with a short pause, and
+ * a rail that still failed tries again the next time Home shows it.
+ */
 class RailState(val key: String, val title: String, val style: CardStyle, val loader: suspend () -> List<BaseItemDto>) {
     var items by mutableStateOf<List<BaseItemDto>?>(null)
     var failed by mutableStateOf(false)
-    suspend fun ensureLoaded() {
-        if (items != null) return
-        runCatching { loader() }.onSuccess { items = it; failed = false }.onFailure { failed = true; items = emptyList() }
+    private val lock = kotlinx.coroutines.sync.Mutex()
+    suspend fun ensureLoaded(): List<BaseItemDto> = lock.withLock {
+        items?.takeIf { !failed }?.let { return@withLock it }
+        failed = false
+        if (items?.isEmpty() == true) items = null // show the skeleton again while retrying
+        repeat(RAIL_ATTEMPTS) { attempt ->
+            try {
+                val loaded = loader()
+                items = loaded
+                return@withLock loaded
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                com.auroratv.core.Log.w("Home", "Rail $key failed (attempt ${attempt + 1}): ${t.message}")
+                if (attempt < RAIL_ATTEMPTS - 1) delay(1_500L * (attempt + 1))
+            }
+        }
+        failed = true
+        items = emptyList()
+        emptyList()
     }
 }
+
+private const val RAIL_ATTEMPTS = 3
 
 class HomeModel {
     var hero by mutableStateOf<List<BaseItemDto>>(emptyList())
@@ -110,6 +134,7 @@ fun HomeScreen() {
     val settings = container.settings.current
     val heroFocus = remember { FocusRequester() }
     var reloadKey by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(reloadKey) {
         if (model.rails != null && reloadKey == 0) return@LaunchedEffect
@@ -122,24 +147,35 @@ fun HomeScreen() {
                 val resume = async { runCatching { api.resumeItems() }.getOrDefault(emptyList()) }
                 val nextUp = async { runCatching { api.nextUp() }.getOrDefault(emptyList()) }
                 val libraryViews = views.await().filter { it.collectionType in setOf("movies", "tvshows", "homevideos", "musicvideos", null) }
-                val heroPool = libraryViews.filter { it.collectionType == "movies" || it.collectionType == "tvshows" }.map { view ->
-                    async { runCatching { api.latest(view.id, limit = 8) }.getOrDefault(emptyList()) }
-                }.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
+                val latestRails = libraryViews.associate { view ->
+                    view.id to RailState("latest-${view.id}", "Recently Added in ${view.name}", CardStyle.Poster) { api.latest(view.id, limit = 24) }
+                }
+                // The featured titles come from the same "Recently Added" loads as the rails (one request
+                // per library, not two), and Home doesn't wait more than a few seconds for a slow one.
+                val heroSources = libraryViews.filter { it.collectionType == "movies" || it.collectionType == "tvshows" }.mapNotNull { latestRails[it.id] }
+                val heroLoads = heroSources.map { rail -> async { rail.ensureLoaded() } }
+                val heroPool = kotlinx.coroutines.withTimeoutOrNull(HERO_WAIT_MS) { heroLoads.awaitAll() }
+                    ?.flatten()
+                    ?: heroSources.flatMap { it.items.orEmpty() }
 
                 val rails = buildList {
                     val r = resume.await()
                     if (r.isNotEmpty()) add(RailState("resume", "Continue Watching", CardStyle.Landscape) { r }.also { it.items = r })
                     val n = nextUp.await()
                     if (n.isNotEmpty()) add(RailState("nextup", "Next Up", CardStyle.Landscape) { n }.also { it.items = n })
-                    libraryViews.forEach { view ->
-                        add(RailState("latest-${view.id}", "Recently Added in ${view.name}", CardStyle.Poster) { api.latest(view.id, limit = 24) })
-                    }
+                    libraryViews.forEach { view -> add(latestRails.getValue(view.id)) }
                     add(RailState("favorites", "Favorites", CardStyle.Poster) {
                         api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                     })
                 }
-                model.hero = heroPool.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
+                model.hero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
                 model.rails = rails
+                // A library that was too slow for the hero still joins it once its rail has loaded.
+                if (model.hero.size < 6) launch {
+                    val late = heroLoads.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
+                    val extra = late.filter { l -> model.hero.none { (it.seriesId ?: it.id) == (l.seriesId ?: l.id) } }.distinctBy { it.seriesId ?: it.id }.shuffled()
+                    if (extra.isNotEmpty()) model.hero = (model.hero + extra).take(6)
+                }
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
@@ -194,6 +230,7 @@ fun HomeScreen() {
                     val items = rail.items
                     when {
                         items == null -> SkeletonRail(rail.style)
+                        items.isEmpty() && rail.failed -> RailRetry(rail.title) { scope.launch { rail.ensureLoaded() } }
                         items.isEmpty() -> Unit
                         else -> ContentRail(
                             title = rail.title,
@@ -207,6 +244,21 @@ fun HomeScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+private const val HERO_WAIT_MS = 4_000L
+
+/** A rail that couldn't load (server busy or offline): say so and offer another go instead of vanishing. */
+@Composable
+private fun RailRetry(title: String, onRetry: () -> Unit) {
+    Column(Modifier.padding(start = ScreenStart, end = ScreenPadding)) {
+        Text(title, style = AuroraType.section, color = Aurora.colors.onBackground)
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Couldn't load this row.", style = AuroraType.body, color = Aurora.colors.onSurfaceMuted)
+            AuroraButton("Try again", onRetry)
         }
     }
 }

@@ -90,7 +90,7 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         opt("hr-seek", "no") // seek to keyframes: near-instant, no decode-ahead
         opt("video-sync", "audio")
         opt("vd-lavc-threads", "0")
-        opt("user-agent", "Nameless/${AppInfo.VERSION} (Windows)")
+        opt("user-agent", "${AppInfo.NAME}/${AppInfo.VERSION} (Windows)")
         opt("sub-auto", "no")
         opt("embeddedfonts", "yes")
         opt("sub-ass-override", "scale")

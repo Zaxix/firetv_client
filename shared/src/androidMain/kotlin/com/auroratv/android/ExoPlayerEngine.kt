@@ -83,7 +83,7 @@ class ExoPlayerEngine(
     }
 
     private val httpFactory = DefaultHttpDataSource.Factory()
-        .setUserAgent("Nameless/${AppInfo.VERSION} (Android)")
+        .setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)")
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(15_000)
         .setReadTimeoutMs(30_000)

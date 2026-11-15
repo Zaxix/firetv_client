@@ -118,9 +118,9 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
     }
 
     companion object {
-        const val RELEASE_APK = "Nameless-release.apk"
-        /** Current name first; the old name is still published so builds from before the rename can update. */
-        val RELEASE_APKS = listOf(RELEASE_APK, "AuroraTV-release.apk")
+        const val RELEASE_APK = "Sharkfin-release.apk"
+        /** Current name first; the old names are still published so builds from before each rename can update. */
+        val RELEASE_APKS = listOf(RELEASE_APK, "Nameless-release.apk", "AuroraTV-release.apk")
         private const val TAG = "Updates"
     }
 }

@@ -72,7 +72,9 @@ fun FocusSurface(
         modifier
             .graphicsLayer {
                 scaleX = scale; scaleY = scale
-                shadowElevation = if (active && scaleOnFocus) 40f else 0f
+                // A modest shadow: big elevations are drawn blurred by the GPU every frame the card
+                // animates, which low-end TV GPUs (Fire TV sticks) feel while scrolling.
+                shadowElevation = if (active && scaleOnFocus) 14f else 0f
                 this.shape = shape
                 clip = false
             }

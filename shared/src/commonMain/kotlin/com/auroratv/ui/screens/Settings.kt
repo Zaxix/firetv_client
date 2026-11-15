@@ -153,6 +153,14 @@ private fun AppearancePage(container: AppContainer) {
     fun set(t: (Settings) -> Settings) = container.settings.update(t)
     SettingsList {
         item { SettingRow("Theme", s.theme.name, "Dark, Light, or follow the device") { set { it.copy(theme = ThemeMode.entries.after(it.theme)) } } }
+        item {
+            val isTv = container.platform.info.isTv
+            val label = if (s.interfaceScalePercent == 0) "Automatic (${com.auroratv.settings.automaticInterfaceScale(isTv)}%)" else "${s.interfaceScalePercent}%"
+            SettingRow("Interface size", label, "Make everything on screen smaller or bigger") {
+                val choices = com.auroratv.settings.InterfaceScaleChoices
+                set { it.copy(interfaceScalePercent = choices[(choices.indexOf(it.interfaceScalePercent) + 1) % choices.size]) }
+            }
+        }
         item { SettingRow("Animations", s.animations.name, "Reduce motion on slower devices") { set { it.copy(animations = AnimationLevel.entries.after(it.animations)) } } }
         item { SettingRow("Backdrop artwork", onOff(s.showBackdrops), "Large background art on Home and detail pages") { set { it.copy(showBackdrops = !it.showBackdrops) } } }
         item { SettingRow("Featured carousel", onOff(s.showHeroCarousel), "Rotating featured titles at the top of Home") { set { it.copy(showHeroCarousel = !it.showHeroCarousel) } } }

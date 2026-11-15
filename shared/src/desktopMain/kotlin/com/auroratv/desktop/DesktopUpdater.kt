@@ -41,7 +41,7 @@ class DesktopUpdater(private val exitApp: () -> Unit) : AppUpdater {
             if exist "%~2" (start "" "%~2") else (start "" "%~3")
             """.trimIndent().replace("\n", "\r\n")
         )
-        // If the install folder was renamed by the upgrade (e.g. "Aurora TV" → "Nameless"), start the new one.
+        // If the install folder was renamed by the upgrade (e.g. "Nameless" → "Sharkfin"), start the new one.
         val renamed = File(app.parentFile?.parentFile, "${com.auroratv.AppInfo.NAME}/${com.auroratv.AppInfo.NAME}.exe")
         ProcessBuilder("cmd.exe", "/c", "start", "${com.auroratv.AppInfo.NAME} update", "/min", script.absolutePath, path, app.absolutePath, renamed.absolutePath)
             .redirectErrorStream(true).start()

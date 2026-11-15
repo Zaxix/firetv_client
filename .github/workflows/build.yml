@@ -400,12 +400,13 @@ jobs:
           cp artifacts/android/* upload/
           cp artifacts/windows/*.msi artifacts/windows/*.exe artifacts/windows/*.zip upload/ 2>/dev/null || true
           for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
-          # Published under the app's current name; AuroraTV-release.apk stays so builds from before the
-          # rename can still find their update.
+          # Published under the app's current name; Nameless-release.apk and AuroraTV-release.apk stay (same
+          # file) so builds from before each rename can still find their update.
+          cp upload/AuroraTV-release.apk upload/Sharkfin-release.apk
           cp upload/AuroraTV-release.apk upload/Nameless-release.apk
-          mv upload/AuroraTV-debug.apk upload/Nameless-debug.apk
-          mv upload/AuroraTV-release.aab upload/Nameless-release.aab
-          mv upload/AuroraTV-windows-x64-portable.zip upload/Nameless-windows-x64-portable.zip 2>/dev/null || true
+          mv upload/AuroraTV-debug.apk upload/Sharkfin-debug.apk
+          mv upload/AuroraTV-release.aab upload/Sharkfin-release.aab
+          mv upload/AuroraTV-windows-x64-portable.zip upload/Sharkfin-windows-x64-portable.zip 2>/dev/null || true
           ls -la upload
           # version.json: what the in-app updater reads (build number, SHA-256 of every file, recent changes).
           OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.windows.result == 'success' && needs.android-e2e.result == 'success' }}
@@ -433,10 +434,10 @@ jobs:
           cat > notes.md <<MD
           Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
 
-          * **Fire TV / Android TV:** install \`Nameless-release.apk\` (sideload; \`AuroraTV-release.apk\` is the same file, kept for older builds' updater). \`Nameless-debug.apk\` is a debuggable build; the AAB is for store uploads.
+          * **Fire TV / Android TV:** install \`Sharkfin-release.apk\` (sideload; \`Nameless-release.apk\` and \`AuroraTV-release.apk\` are the same file, kept for older builds' updater). \`Sharkfin-debug.apk\` is a debuggable build; the AAB is for store uploads.
           * **Windows 10/11 x64:** \`.msi\` or \`.exe\` installer, or the portable ZIP.
 
           CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Windows ${{ needs.windows.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
           MD
           gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "Nameless — latest build (${GITHUB_SHA::7})" --notes-file notes.md
+            --title "Sharkfin — latest build (${GITHUB_SHA::7})" --notes-file notes.md

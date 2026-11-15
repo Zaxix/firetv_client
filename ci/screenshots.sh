@@ -31,7 +31,7 @@ shoot() { # name route seconds [keys...]
   if [ -n "$route" ]; then "$APP" --route "$route" >"$OUT/$name.log" 2>&1 & else "$APP" >"$OUT/$name.log" 2>&1 & fi
   local pid=$!
   sleep "$wait"
-  local win; win=$(xdotool search --name "Nameless" 2>/dev/null | head -1)
+  local win; win=$(xdotool search --name "Sharkfin" 2>/dev/null | head -1)
   [ -n "$win" ] && xdotool windowfocus "$win" 2>/dev/null
   for k in "$@"; do
     case "$k" in

@@ -37,6 +37,27 @@ object BlurHash {
         return (s * 255 + 0.5).toInt().coerceIn(0, 255)
     }
 
+    /** linear → sRGB through a lookup table (the pow() per channel was most of the decode time). */
+    private val srgbTable = IntArray(4097) { linearToSrgb(it / 4096.0) }
+    private fun toSrgb(v: Double): Int = srgbTable[(v.coerceIn(0.0, 1.0) * 4096 + 0.5).toInt()]
+
+    private const val CACHE_SIZE = 400
+    private val cache = LinkedHashMap<String, ImageBitmap>()
+
+    /** An already-decoded default-size placeholder, if this hash was seen recently. UI thread only. */
+    fun cached(hash: String?): ImageBitmap? {
+        val bmp = cache.remove(hash ?: return null) ?: return null
+        cache[hash] = bmp // most recently used goes last
+        return bmp
+    }
+
+    /** Remembers a placeholder decoded with [decode] at the default size. UI thread only. */
+    fun store(hash: String, bitmap: ImageBitmap) {
+        cache.remove(hash)
+        cache[hash] = bitmap
+        if (cache.size > CACHE_SIZE) cache.keys.firstOrNull()?.let { cache.remove(it) }
+    }
+
     private fun signPow(v: Double, exp: Double) = kotlin.math.abs(v).pow(exp).withSign(v)
 
     /** Average colour of the image (the DC component), or null for an invalid hash. */
@@ -71,15 +92,21 @@ object BlurHash {
                     )
                 }
             }
+            // Cosines are separable, so compute each axis once instead of twice per pixel per component.
+            val cosX = DoubleArray(width * numX) { k -> cos(PI * (k / numX) * (k % numX) / width) }
+            val cosY = DoubleArray(height * numY) { k -> cos(PI * (k / numY) * (k % numY) / height) }
             val pixels = IntArray(width * height)
             for (y in 0 until height) for (x in 0 until width) {
                 var r = 0.0; var g = 0.0; var b = 0.0
-                for (j in 0 until numY) for (i in 0 until numX) {
-                    val basis = cos(PI * x * i / width) * cos(PI * y * j / height)
-                    val c = colors[i + j * numX]
-                    r += c[0] * basis; g += c[1] * basis; b += c[2] * basis
+                for (j in 0 until numY) {
+                    val cy = cosY[y * numY + j]
+                    for (i in 0 until numX) {
+                        val basis = cosX[x * numX + i] * cy
+                        val c = colors[i + j * numX]
+                        r += c[0] * basis; g += c[1] * basis; b += c[2] * basis
+                    }
                 }
-                pixels[x + y * width] = (0xFF shl 24) or (linearToSrgb(r) shl 16) or (linearToSrgb(g) shl 8) or linearToSrgb(b)
+                pixels[x + y * width] = (0xFF shl 24) or (toSrgb(r) shl 16) or (toSrgb(g) shl 8) or toSrgb(b)
             }
             pixelsToImageBitmap(pixels, width, height)
         }.getOrNull()

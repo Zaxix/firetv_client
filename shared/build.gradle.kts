@@ -28,7 +28,7 @@ val generateAppInfo = tasks.register("generateAppInfo") {
             |
             |object AppInfo {
             |    /** The app's display name (package ids and data folders keep the original "Aurora" names). */
-            |    const val NAME = "Nameless"
+            |    const val NAME = "Sharkfin"
             |    const val VERSION = "$version"
             |}
             """.trimMargin()

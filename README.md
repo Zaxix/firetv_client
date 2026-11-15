@@ -1,4 +1,4 @@
-# Nameless
+# Sharkfin
 
 A Jellyfin client for **Amazon Fire TV / Android TV** and **Windows 10/11**, with an Apple TV-inspired
 interface, native hardware-accelerated playback, and styled ASS/SSA subtitles rendered by libass on
@@ -25,16 +25,16 @@ both platforms.
 * Movies, TV Shows and folder libraries with sort (A–Z, added, release, rating, last watched), filters (unwatched, watched, favorites) and paging
 * Detail pages: backdrop, logo, metadata, resume/restart, favorite, watched, seasons and episodes, cast, More Like This, media info
 * **Brand tiles** under the featured carousel (Netflix, Disney, Pixar, Marvel, Star Wars, Apple TV, Paramount, HBO, Prime Video, Hulu, National Geographic, DreamWorks, A24, Crunchyroll, Studio Ghibli), shown only for brands your library has; each opens a **Brand Hub** with new, movies and series rows and *Browse all*. Apple TV and Prime Video use the logos supplied for the app (see docs/brand); other brands use the studio image your Jellyfin server provides, or their name on the brand's colours. Hubs open instantly when you've rested on the tile (they start loading in the background), rows appear as each one loads, and results are cached for 10 minutes. Toggle in Settings → Appearance
-* **Updates itself:** once a day (or from Settings → About) Nameless checks the `latest-build` release and offers newer builds that passed every CI job. Fire TV/Android downloads the APK, checks its SHA-256, package, signing key and version, then opens Android's install screen (you confirm; the first time Fire OS asks you to allow Nameless to install apps). Windows downloads the MSI, closes Nameless, upgrades and reopens it. The portable ZIP opens the download page instead. Every CI build is numbered (1.0.&lt;run&gt;)
+* **Updates itself:** once a day (or from Settings → About) Sharkfin checks the `latest-build` release and offers newer builds that passed every CI job. Fire TV/Android downloads the APK, checks its SHA-256, package, signing key and version, then opens Android's install screen (you confirm; the first time Fire OS asks you to allow Sharkfin to install apps). Windows downloads the MSI, closes Sharkfin, upgrades and reopens it. The portable ZIP opens the download page instead. Every CI build is numbered (1.0.&lt;run&gt;)
 * **Remembers your tracks per show:** pick Japanese audio and the full subtitles once and every later episode of that series uses the matching tracks (matched by language and kind, so "Signs & Songs" vs full dialogue is kept apart even when track order changes); also for returning to a movie. Settings → Subtitles → Remember my track choices
-* **Faster starts:** while a detail page is open, Nameless fetches the item, asks the server how to play it and downloads any subtitle fonts, so pressing Play goes straight to the video (47 ms to the engine in CI vs 650–900 ms cold); the next episode is prepared from the credits on, and the title's artwork shows instead of a black screen until the first frame
-* **Ratings and reviews** on movie and series pages: the critics score (tomato) from your server, and with free keys (Settings → Ratings) the **audience score** (popcorn bucket), IMDb, Metacritic and Letterboxd via MDBList, plus **spoiler-free reviews** from Trakt showing each reviewer's own score; open one to read it in full. Keys typed once sync to your other Nameless devices through your Jellyfin profile. (IMDb's own user reviews have no API and can't be scraped under IMDb's terms, so Trakt is used.)
+* **Faster starts:** while a detail page is open, Sharkfin fetches the item, asks the server how to play it and downloads any subtitle fonts, so pressing Play goes straight to the video (47 ms to the engine in CI vs 650–900 ms cold); the next episode is prepared from the credits on, and the title's artwork shows instead of a black screen until the first frame
+* **Ratings and reviews** on movie and series pages: the critics score (tomato) from your server, and with free keys (Settings → Ratings) the **audience score** (popcorn bucket), IMDb, Metacritic and Letterboxd via MDBList, plus **spoiler-free reviews** from Trakt showing each reviewer's own score; open one to read it in full. Keys typed once sync to your other Sharkfin devices through your Jellyfin profile. (IMDb's own user reviews have no API and can't be scraped under IMDb's terms, so Trakt is used.)
 * **Dolby Vision, every profile:** native DV where the TV supports it, UHD Blu-ray **profile 7 converted to 8.1 on the fly** for Fire TVs and other profile-8-only decoders (libdovi, no re-encoding), HDR10/HLG base-layer playback otherwise, profile 5 left to the server only when nothing on the device can show it, and HDR10+ masking for the Fire TV models that mishandle DV + HDR10+ streams. Windows/mpv reshapes and tone-maps every profile locally
 * Search, Continue Watching, Favorites, Libraries (including collections)
 * Player (tvOS-style): a scrubber with a time bubble and **trickplay thumbnail previews** (D-pad, or mouse click/drag/hover), chapter ticks, and **intro/recap/credits ranges marked in yellow**: from server media segments, chapter names like "Opening"/"Ending", or, when the server has neither, **detected automatically** (an opening/ending chapter whose length repeats across the season, or for anime the crowd-sourced [AniSkip](https://aniskip.com) database). An **in-player episode browser** (season picker plus episode cards). Chapters, audio and subtitle sheets, and a playback info panel (play method, transcode reasons, decoder). Skip Intro/Recap/Credits prompts that hide after 8 seconds and return with the controls; **Next Episode appears only once the credits start**; Up Next with countdown, resume and progress sync. A visible **Back** button; Back/Esc leaves the player in one press, and on Windows clicking the picture pauses and closing the window exits.
 * Subtitles: Default / Always / Smart / Forced-only modes. Anime "Signs & Songs" tracks are never picked as the main subtitles when the audio is Japanese (the full track is used); with an English dub they act as the forced track
 * Optional **frame-rate matching** on Android TV (24p films at 24 Hz)
-* **Two players on Android TV**: ExoPlayer (default) or MPV (Android 8 / Fire OS 7 and newer), switchable in Settings → Playback. Both render ASS/SSA with libass, including embedded MKV fonts, and when the server has to transcode, Nameless downloads the file's font attachments and gives them to libass, so typesetting keeps its fonts either way. MPV also plays more audio formats and containers directly and supports subtitle delay
+* **Two players on Android TV**: ExoPlayer (default) or MPV (Android 8 / Fire OS 7 and newer), switchable in Settings → Playback. Both render ASS/SSA with libass, including embedded MKV fonts, and when the server has to transcode, Sharkfin downloads the file's font attachments and gives them to libass, so typesetting keeps its fonts either way. MPV also plays more audio formats and containers directly and supports subtitle delay
 * **"Are you still watching?"** before auto-playing the next episode after a long time without any input. *Smart* (default) waits about three episodes' worth, at least 90 minutes; fixed 1/2/3 hours or off are also available. Films are never interrupted
 * tvOS-style navigation: a floating **sidebar** (a slim icon rail that expands with labels when focused; Left or Back opens it), full-screen featured titles (Right on More Info pages to the next one), focus lift with a light sheen, rounded buttons, and the Inter typeface (open-source, in the style of San Francisco)
 * Dark, Light and System themes across the entire app, including the player; artwork-derived accent colours
@@ -49,9 +49,9 @@ successful CI run; the app then updates itself from there):
 
 | File | What it is |
 |---|---|
-| `Nameless-release.apk` | Fire TV / Android TV (sideload this). `AuroraTV-release.apk` is the same file under the old name, for builds from before the rename |
-| `Nameless-1.0.<n>.msi` / `.exe` | Windows installers |
-| `Nameless-windows-x64-portable.zip` | Windows portable copy (doesn't update itself) |
+| `Sharkfin-release.apk` | Fire TV / Android TV (sideload this). `Sharkfin-release.apk` and `AuroraTV-release.apk` are the same file under the old names, for builds from before the renames |
+| `Sharkfin-1.0.<n>.msi` / `.exe` | Windows installers |
+| `Sharkfin-windows-x64-portable.zip` | Windows portable copy (doesn't update itself) |
 
 ### Fire TV (sideload)
 
@@ -60,9 +60,9 @@ successful CI run; the app then updates itself from there):
 2. Either install with **Downloader** from a URL where you've put the APK, or over ADB from a computer on the same network:
    ```
    adb connect <fire-tv-ip>:5555
-   adb install -r Nameless-release.apk
+   adb install -r Sharkfin-release.apk
    ```
-3. Launch **Nameless** from *Your Apps & Games*.
+3. Launch **Sharkfin** from *Your Apps & Games*.
 
 Release builds are signed with the project's permanent key, so a new build installs over the previous
 one (keeping your sign-in and settings). Builds made before the permanent key (before Nov 2026) were
@@ -71,7 +71,7 @@ signed with throwaway keys: uninstall such a build once before installing a new 
 ### Windows
 
 Run the `.msi` or `.exe` installer (per-user, no admin needed), or unzip the portable build and run
-`Nameless.exe`. SmartScreen may warn because the installer isn't code-signed: *More info → Run anyway*.
+`Sharkfin.exe`. SmartScreen may warn because the installer isn't code-signed: *More info → Run anyway*.
 **F11** toggles fullscreen TV mode.
 
 ## Build from source
@@ -140,7 +140,7 @@ About (version, platform, token storage, detected codec/HDR/audio/subtitle capab
 
 ## License
 
-GPL-3.0 (see `LICENSE`). Nameless bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and GPL
+GPL-3.0 (see `LICENSE`). Sharkfin bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and GPL
 builds of libmpv (Windows: shinchiro; Android: `dev.jdtech.mpv:libmpv`, mpv 0.42 with FFmpeg, libplacebo,
 libass, fontconfig, dav1d, GPL-3.0-or-later), so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
 Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
@@ -149,6 +149,6 @@ ExoplayerHdrUtils (MIT) for Dolby Vision profile 7 → 8.1 conversion. See *Sett
 
 Not affiliated with Apple, Amazon or the Jellyfin project. All UI artwork and icons are original.
 
-> **Name:** the app is called **Nameless** for now. Its Android package id (`com.auroratv.android`),
+> **Name:** the app is called **Sharkfin** (it was briefly "Sharkfin", and "Aurora TV" before that). Its Android package id (`com.auroratv.android`),
 > source packages and data folders keep the original "Aurora" names so existing installs update in
 > place and stay signed in.

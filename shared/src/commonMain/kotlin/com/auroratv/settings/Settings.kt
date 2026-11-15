@@ -22,6 +22,8 @@ import kotlinx.serialization.Serializable
 data class Settings(
     // Appearance
     val theme: ThemeMode = ThemeMode.Dark,
+    /** Size of everything on screen in percent; 0 = automatic (80% on TVs, 100% on Windows). */
+    val interfaceScalePercent: Int = 0,
     val animations: AnimationLevel = AnimationLevel.Full,
     val showBackdrops: Boolean = true,
     val artworkAccents: Boolean = true,
@@ -30,7 +32,7 @@ data class Settings(
     val showBrandTiles: Boolean = true,
     /** Reuse audio/subtitle tracks picked by hand for the rest of a series (and for a movie). */
     val rememberTracks: Boolean = true,
-    /** Look for a newer Aurora build once a day (Settings → About → Updates). */
+    /** Look for a newer build once a day (Settings → About → Updates). */
     val autoCheckUpdates: Boolean = true,
     // Playback
     /** 0 = automatic (no client cap). */
@@ -79,3 +81,12 @@ class SettingsRepository(private val files: FileStore) {
             .onFailure { Log.e("Settings", "Failed to save settings", it) }
     }
 }
+
+/** Choices offered for [Settings.interfaceScalePercent] (0 = automatic). */
+val InterfaceScaleChoices = listOf(0, 70, 80, 90, 100, 110)
+
+/** What "automatic" means: TVs get a tighter layout (Android TV's 960dp-wide screen makes the app's 1:1 sizes look zoomed in). */
+fun automaticInterfaceScale(isTv: Boolean): Int = if (isTv) 80 else 100
+
+fun Settings.effectiveInterfaceScale(isTv: Boolean): Int =
+    if (interfaceScalePercent in 50..150) interfaceScalePercent else automaticInterfaceScale(isTv)

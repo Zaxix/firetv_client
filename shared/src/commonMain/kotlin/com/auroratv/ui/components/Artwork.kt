@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -61,12 +62,19 @@ fun ArtworkImage(
     crossfade: Boolean = true,
 ) {
     val colors = Aurora.colors
-    val placeholder = remember(artwork?.blurHash) {
-        artwork?.blurHash?.let { BlurHash.decode(it) }?.let { BitmapPainter(it) }
+    // Placeholders decode off the UI thread (a row of new cards used to decode them all in one frame);
+    // ones seen before come straight from the cache.
+    val hash = artwork?.blurHash?.takeIf { showPlaceholder }
+    val placeholder by androidx.compose.runtime.produceState(BlurHash.cached(hash)?.let { BitmapPainter(it) }, hash) {
+        if (value == null && hash != null) {
+            val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { BlurHash.decode(hash) }
+            if (bmp != null) { BlurHash.store(hash, bmp); value = BitmapPainter(bmp) }
+        }
     }
     Box(modifier.background(if (showPlaceholder) colors.skeleton else androidx.compose.ui.graphics.Color.Transparent)) {
-        if (placeholder != null && showPlaceholder) {
-            Image(placeholder, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        val ph = placeholder
+        if (ph != null && showPlaceholder) {
+            Image(ph, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
         if (artwork != null) {
             val context = LocalPlatformContext.current

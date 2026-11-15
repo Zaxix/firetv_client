@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import com.auroratv.jellyfin.model.TrickplayInfo
@@ -129,6 +130,9 @@ private const val SKIP_PROMPT_MS = 8_000L
 /** D-pad scrubbing commits this long after the last press (holding keeps accumulating). */
 private const val SCRUB_COMMIT_MS = 450L
 
+/** Background image downloads during playback wait for at least this much video buffered ahead. */
+private const val PREFETCH_MIN_BUFFER_MS = 25_000L
+
 /**
  * tvOS-style playback UI drawn over the native video surface.
  *
@@ -235,14 +239,37 @@ fun PlayerChrome(
     // starts, so scrub previews appear instantly instead of loading while you scrub.
     val platformContext = coil3.compose.LocalPlatformContext.current
     val sessionApi = com.auroratv.ui.LocalSession.current.api
+    // Never at the video's expense: wait until playback has a healthy buffer, skip while it's
+    // rebuffering, and fetch one sheet at a time with a pause in between.
+    suspend fun awaitHealthyBuffer() {
+        while (true) {
+            val es = esState.value
+            if (es.isPlaying && !es.isBuffering && es.bufferedMs - es.positionMs >= PREFETCH_MIN_BUFFER_MS) return
+            delay(1_000)
+        }
+    }
+    val chapterPx = chapterImagePx()
+    LaunchedEffect(ui.item?.id, ui.chapters, chapterPx) {
+        val item = ui.item ?: return@LaunchedEffect
+        if (ui.chapters.size < 2) return@LaunchedEffect
+        delay(4_000)
+        awaitHealthyBuffer()
+        val loader = coil3.SingletonImageLoader.get(platformContext)
+        ui.chapters.forEachIndexed { i, ch ->
+            val url = sessionApi.images.chapter(item.id, i, ch.imageTag, chapterPx) ?: return@forEachIndexed
+            // Decoded into the memory cache too: these are small and the panel shows them at once.
+            loader.execute(coil3.request.ImageRequest.Builder(platformContext).data(url).size(coil3.size.Size.ORIGINAL).build())
+        }
+    }
     LaunchedEffect(ui.item?.id, ui.trickplay) {
         val id = ui.item?.id ?: return@LaunchedEffect
         val (sourceId, info) = ui.trickplay ?: return@LaunchedEffect
-        delay(8_000) // after the initial buffer has filled
+        delay(15_000)
         val loader = coil3.SingletonImageLoader.get(platformContext)
         val headers = coil3.network.NetworkHeaders.Builder().apply { sessionApi.mediaHeaders().forEach { (k, v) -> set(k, v) } }.build()
         val sheets = (info.thumbnailCount + info.tileWidth * info.tileHeight - 1) / (info.tileWidth * info.tileHeight)
         for (sheet in 0 until sheets.coerceAtMost(40)) {
+            awaitHealthyBuffer()
             val request = coil3.request.ImageRequest.Builder(platformContext)
                 .data(sessionApi.images.trickplayTile(id, sourceId, info.width, sheet))
                 .httpHeaders(headers)
@@ -250,6 +277,7 @@ fun PlayerChrome(
                 .size(64, 36)
                 .build()
             loader.execute(request)
+            delay(400)
         }
     }
 
@@ -639,6 +667,8 @@ private fun EpisodesPanel(controller: PlayerController, focus: FocusRequester, o
                 FocusSurface(
                     onClick = { controller.playEpisode(ep.id); onClose() },
                     shape = RoundedCornerShape(12.dp),
+                    // Over video: a focus ring instead of zoom + shadow, which is cheaper to draw on TV GPUs.
+                    scaleOnFocus = false, sheen = false, ringWidth = 3.dp,
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (i == currentIndex) Modifier.focusRequester(focus) else Modifier),
                 ) {
                     Box(Modifier.fillMaxSize()) {
@@ -662,29 +692,56 @@ private fun EpisodesPanel(controller: PlayerController, focus: FocusRequester, o
     }
 }
 
+/** Chapter thumbnail width: one size for the panel and the prefetch, so prefetched images are exact cache hits. */
+private val ChapterCardWidth = 208.dp
+
+@Composable
+private fun chapterImagePx(): Int = with(LocalDensity.current) { ChapterCardWidth.roundToPx() }.coerceIn(160, 640)
+
+/**
+ * Chapters as a light strip: flat cards with a focus ring (no zoom, shadow or glare, which made the
+ * row stutter over video on TV), images sized to the card and already in the cache (see the
+ * prefetch in PlayerChrome), and the title over the image so the row stays short.
+ */
 @Composable
 private fun ChaptersPanel(controller: PlayerController, positionMs: Long, focus: FocusRequester, onClose: () -> Unit) {
     val ui by controller.state.collectAsState()
     val api = LocalSession.current.api
     val item = ui.item ?: return
-    val current = ui.chapters.indexOfLast { it.startPositionTicks.ticksToMs() <= positionMs }.coerceAtLeast(0)
-    LazyRow(state = rememberLazyListState((current - 1).coerceAtLeast(0)), horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
-        itemsIndexed(ui.chapters) { i, ch ->
-            Column(Modifier.width(240.dp)) {
-                FocusSurface(
-                    onClick = { controller.seekTo(ch.startPositionTicks.ticksToMs()); onClose() },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (i == current) Modifier.focusRequester(focus) else Modifier),
-                ) {
-                    Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-                        val img = api.images.chapter(item.id, i, ch.imageTag, 480)
-                        if (img != null) ArtworkImage(Artwork(img, null), ch.name, Modifier.fillMaxSize())
-                        else Text("${i + 1}", style = AuroraType.title, color = Color.White.copy(alpha = 0.5f))
+    val chapters = ui.chapters
+    val current = remember(chapters) { chapters.indexOfLast { it.startPositionTicks.ticksToMs() <= positionMs }.coerceAtLeast(0) }
+    val imagePx = chapterImagePx()
+    val listState = rememberLazyListState((current - 1).coerceAtLeast(0))
+    LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp),
+        modifier = Modifier.focusRestorer(focus),
+    ) {
+        itemsIndexed(chapters, key = { i, _ -> i }) { i, ch ->
+            val startMs = ch.startPositionTicks.ticksToMs()
+            val img = remember(item.id, i, ch.imageTag, imagePx) { api.images.chapter(item.id, i, ch.imageTag, imagePx) }
+            FocusSurface(
+                onClick = { controller.seekTo(startMs); onClose() },
+                shape = RoundedCornerShape(10.dp),
+                scaleOnFocus = false, sheen = false, ringWidth = 3.dp,
+                modifier = Modifier.width(ChapterCardWidth).aspectRatio(16f / 9f).then(if (i == current) Modifier.focusRequester(focus) else Modifier),
+            ) { focused ->
+                Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f))) {
+                    if (img != null) ArtworkImage(Artwork(img, null), null, Modifier.fillMaxSize(), showPlaceholder = false, crossfade = false)
+                    else Text("${i + 1}", style = AuroraType.title, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.align(Alignment.Center))
+                    Column(
+                        Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = if (focused) 0.85f else 0.7f))))
+                            .padding(start = 10.dp, end = 10.dp, top = 18.dp, bottom = 8.dp)
+                    ) {
+                        Text(ch.name ?: "Chapter ${i + 1}", style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(formatTime(startMs), style = AuroraType.caption, color = Color.White.copy(alpha = 0.75f))
+                    }
+                    if (i == current) Box(Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(Color.White).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("Now", style = AuroraType.caption, color = Color.Black)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(formatTime(ch.startPositionTicks.ticksToMs()), style = AuroraType.caption, color = Color.White.copy(alpha = 0.6f))
-                Text(ch.name ?: "Chapter ${i + 1}", style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

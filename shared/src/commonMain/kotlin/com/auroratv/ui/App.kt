@@ -90,6 +90,7 @@ import com.auroratv.ui.screens.SettingsScreen
 import com.auroratv.ui.screens.player.PlayerScreen
 import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraTheme
+import com.auroratv.settings.effectiveInterfaceScale
 import com.auroratv.ui.theme.AuroraType
 import io.ktor.client.HttpClient
 import okio.Path.Companion.toPath
@@ -112,8 +113,13 @@ fun AuroraApp(container: AppContainer) {
             .build()
     }
 
+    // One scale for the whole UI (cards, text, spacing), so the layout keeps its proportions at any size.
+    val platformDensity = androidx.compose.ui.platform.LocalDensity.current
+    val scale = settings.effectiveInterfaceScale(container.platform.info.isTv) / 100f
+    val density = remember(platformDensity, scale) { androidx.compose.ui.unit.Density(platformDensity.density * scale, platformDensity.fontScale) }
     AuroraTheme(settings.theme, settings.animations) {
         CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalDensity provides density,
             LocalContainer provides container,
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.auroratv.ui.components.MinimalBringIntoViewSpec,
         ) {
@@ -137,7 +143,7 @@ fun AuroraApp(container: AppContainer) {
 private fun Splash() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            com.auroratv.ui.components.AppLogoImage(Aurora.colors.onBackground, Modifier.size(120.dp))
+            com.auroratv.ui.components.AppLogoImage(Modifier.size(120.dp))
             Spacer(Modifier.height(16.dp))
             Text(com.auroratv.AppInfo.NAME, style = AuroraType.hero, color = Aurora.colors.onBackground)
             Spacer(Modifier.height(24.dp))
