@@ -34,7 +34,8 @@ can only be confirmed on that device; CI can't test them.
 * **Release signing:** releases are signed with a permanent key (see README). Builds from before it
   existed used throwaway keys, so uninstall such a build once; after that, updates install in place.
   The debug APK is still signed with a per-build key.
-* **MPV on Android TV** is opt-in and newer than the ExoPlayer path. Video decoding is limited to what
+* **MPV on Android TV** is opt-in, needs Android 8 / Fire OS 7 or newer (libmpv's minimum; older
+  devices only see ExoPlayer), and is newer than the ExoPlayer path. Video decoding is limited to what
   the device's MediaCodec decodes in hardware (the same as ExoPlayer), because software HEVC/4K is too
   slow on TV boxes. Its renderer (gpu-next on OpenGL ES 3) has been tested on the Android TV emulator
   only; if video stays black on a device, switch back to ExoPlayer. The first time MPV shows subtitles

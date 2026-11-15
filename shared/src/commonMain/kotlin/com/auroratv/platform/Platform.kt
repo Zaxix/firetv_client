@@ -45,6 +45,9 @@ interface Platform {
 
     fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine
 
+    /** Whether the user can pick between players (Android 8+ offers ExoPlayer and MPV). */
+    val offersPlayerChoice: Boolean get() = false
+
     /**
      * What the engine chosen in [settings] can play, given the probed device [base]. The default is
      * [base]; Android widens it when mpv is selected (FFmpeg decodes more audio and containers).

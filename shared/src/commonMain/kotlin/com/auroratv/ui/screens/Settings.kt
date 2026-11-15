@@ -172,7 +172,7 @@ private fun PlaybackPage(container: AppContainer) {
             item { SettingRow("Hardware decoding", onOff(s.hardwareDecoding), "Use the GPU (D3D11) to decode video") { set { it.copy(hardwareDecoding = !it.hardwareDecoding) } } }
             item { SettingRow("Audio passthrough", onOff(s.audioPassthrough), "Send AC3/E-AC3/DTS/TrueHD bitstream to a receiver (S/PDIF or HDMI)") { set { it.copy(audioPassthrough = !it.audioPassthrough) } } }
         }
-        if (!isDesktop) {
+        if (container.platform.offersPlayerChoice) {
             item {
                 SettingRow(
                     "Video player",

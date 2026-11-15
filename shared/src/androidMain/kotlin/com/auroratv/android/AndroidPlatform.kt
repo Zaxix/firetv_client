@@ -64,18 +64,19 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     private var lastCaps: DeviceCapabilities? = null
 
+    /** libmpv for Android needs API 26 (Android 8 / Fire OS 7+); older devices always use ExoPlayer. */
+    override val offersPlayerChoice: Boolean = Build.VERSION.SDK_INT >= 26
+    private fun useMpv(settings: com.auroratv.settings.Settings) =
+        offersPlayerChoice && settings.playerEngine == com.auroratv.settings.PlayerEngineChoice.Mpv
+
     override fun capabilitiesFor(base: DeviceCapabilities, settings: com.auroratv.settings.Settings): DeviceCapabilities {
         lastCaps = base
-        return if (settings.playerEngine == com.auroratv.settings.PlayerEngineChoice.Mpv) AndroidCapabilities.forMpv(base) else base
+        return if (useMpv(settings)) AndroidCapabilities.forMpv(base) else base
     }
 
     override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine =
-        when (settings.playerEngine) {
-            com.auroratv.settings.PlayerEngineChoice.Mpv ->
-                MpvAndroidEngine(activity, settings, passthrough = lastCaps?.audioPassthrough.orEmpty())
-            com.auroratv.settings.PlayerEngineChoice.ExoPlayer ->
-                ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
-        }
+        if (useMpv(settings)) MpvAndroidEngine(activity, settings, passthrough = lastCaps?.audioPassthrough.orEmpty())
+        else ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
 
     @Composable
     override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {
