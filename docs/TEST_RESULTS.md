@@ -36,6 +36,8 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Intro/credits detection | recurring chapter lengths across a season → opening/ending; periodic chapters ignored; AniSkip via AniList title search + sequel walk, only for anime, only for missing kinds, title/year must match, Jellyfin token never sent to third parties, nothing sent when the setting is off |
 | Dolby Vision routing | per device type (DV TV with/without libdovi, Shield, HDR10 TV with a DV decoder, SDR TV, Windows/mpv): which `VideoRangeType`s go to the server for HEVC/AV1/VP9 and which path each profile takes (native, 7 → 8.1, base layer, server); DV codec strings |
 | Dolby Vision bitstream edits | enhancement-layer (NAL 63) removal keeps every other unit byte-for-byte; start-code scan across emulation-prevention bytes; HDR10+ SEI masking changes exactly one byte per message, leaves A/53 captions and suffix SEI alone and walks emulation-prevention bytes; non-Annex-B data untouched |
+| Faster starts | preparation fetches item + PlaybackInfo with the resume point and pre-downloads ASS fonts only for transcodes; a prepared result is used once and only for the same title, session, settings and device capabilities; repeated prewarm of the same page does no duplicate requests |
+| Brand tiles | studio names matched case/punctuation-insensitively ("Apple TV+", "NETFLIX", "Lucasfilm Ltd."), grouped into brands in catalog order, server studio logo preferred when present |
 | Ratings and reviews | MDBList parsing (critics, audience, IMDb + votes, Metacritic, Letterboxd); Trakt comments: spoiler-flagged, spoiler-tagged and one-line comments dropped, reviewer score from either field, private profiles show the username; no keys → server critic score only and no network calls; keys go only to their own service, no Jellyfin credentials leave; session cache and failure back-off; key sync through DisplayPreferences keeps other prefs |
 | Ratings UI (rendered) | ratings strip (fresh/rotten tomato, full/empty popcorn, IMDb, Metascore, Letterboxd), review cards with star scores, full-review overlay opened by click and closed by Back; screenshots saved with the test reports (`ui-shots/`) |
 
@@ -79,6 +81,7 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 | ✅ | Dolby Vision 8.1 (`DOVIWithHDR10`) | DV TV = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
 | ✅ | Dolby Vision 5 (`DOVI`) | DV TV = Direct Play, HDR10 TV = server converts, SDR TV = server converts, Windows = Direct Play |
 | ✅ | Dolby Vision 7 FEL (`DOVIWithEL`) | DV TV (profile 8 decoder + libdovi) = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
+| ✅ | Brand tiles from studio metadata | brands = netflix, disney, appletv, paramount, hbo, hulu, natgeo, a24, crunchyroll; Netflix hub → Glass Meridian |
 | ✅ | Critic score from server metadata | `CriticRating` 93 → tomatometer 93% |
 | ✅ | Rating keys typed on one device reach another | written to the user's DisplayPreferences by one key store, read into another device's vault |
 | ✅ | MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv | Fire TV = Transcode (ContainerNotSupported, VideoCodecNotSupported, AudioCodecNotSupported); Windows = DirectPlay |
@@ -141,6 +144,8 @@ server. Debug builds log every remote key the activity receives, so the run prov
   transform, karaoke romaji and overlapping dialogue, plus colours, `\pos` and simultaneous top/bottom
   lines in the styled sample (see screenshots) ✅
 * player controls (progress bar, elapsed/remaining, transport, audio/subtitle/info, next episode) ✅
+* **Play from a detail page** with the remote: playback had been prepared while the page was open,
+  so the engine started **47 ms** after Select, against 650–900 ms for the same server when opened cold ✅
 * no crashes (`FATAL EXCEPTION` check on logcat) ✅; every ExoPlayer playback above already runs
   through the new Dolby Vision-aware video renderer. The emulator reports no DV decoder and no HDR
   display (`Dolby Vision: display=false decoderProfiles=[]` in the log), so the DV-specific paths

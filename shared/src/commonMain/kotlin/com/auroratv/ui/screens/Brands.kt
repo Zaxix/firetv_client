@@ -78,8 +78,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
 /** Tile size: landscape and well under a poster's height (posters are 150 × 225 dp). */
-private val TileWidth = 212.dp
-private val TileHeight = 119.dp
+private val TileWidth = 172.dp
+private val TileHeight = 97.dp
 
 private fun ResolvedBrand.gradient(): List<Color> = brand.colors.map { Color(it) }
 
@@ -89,7 +89,7 @@ private fun ResolvedBrand.gradient(): List<Color> = brand.colors.map { Color(it)
 fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.focusRestorer(),
     ) {
         items(brands, key = { it.brand.id }) { b -> BrandTile(b) { onOpen(b) } }
@@ -104,7 +104,7 @@ fun BrandTile(brand: ResolvedBrand, onClick: () -> Unit) {
         focusKey = "brand/${brand.brand.id}",
         modifier = Modifier.width(TileWidth).height(TileHeight),
     ) { focused ->
-        BrandArt(brand, focused, Modifier.fillMaxSize(), wordmarkSize = 21.sp, imagePadding = 22.dp)
+        BrandArt(brand, focused, Modifier.fillMaxSize(), wordmarkSize = 18.sp, imagePadding = 18.dp)
     }
 }
 
@@ -216,7 +216,7 @@ fun BrandHubScreen(route: Route.Brand) {
                     Text(brand?.brand?.name ?: route.name, style = AuroraType.hero, color = Aurora.colors.onBackground)
                     model.total?.let {
                         Spacer(Modifier.height(6.dp))
-                        Text("$it titles in your library", style = AuroraType.bodyStrong, color = Aurora.colors.onSurfaceMuted)
+                        Text(if (it == 1) "1 title in your library" else "$it titles in your library", style = AuroraType.bodyStrong, color = Aurora.colors.onSurfaceMuted)
                     }
                     Spacer(Modifier.height(20.dp))
                     AuroraButton(
