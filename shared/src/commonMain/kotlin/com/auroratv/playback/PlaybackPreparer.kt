@@ -42,13 +42,20 @@ object PlaybackPreparer {
         itemId: String,
         startFromBeginning: Boolean,
         knownItem: BaseItemDto? = null,
+        trackMemory: TrackMemory? = null,
     ): PreparedPlayback = coroutineScope {
         val item = knownItem ?: api.item(itemId)
         val source = item.mediaSources.firstOrNull()
         val streams = source?.mediaStreams ?: item.mediaStreams
-        val audio = TrackSelector.pickAudio(streams, settings.preferredAudioLanguage, source?.defaultAudioStreamIndex)
+        // Tracks picked by hand earlier in this series (or movie) win over the general preferences.
+        val remembered = TrackMemory.apply(trackMemory?.takeIf { settings.rememberTracks }?.get(item), streams)
+        val audio = remembered.audioIndex ?: TrackSelector.pickAudio(streams, settings.preferredAudioLanguage, source?.defaultAudioStreamIndex)
         val audioLang = streams.firstOrNull { it.index == audio }?.language
-        val subtitle = TrackSelector.pickSubtitle(streams, settings.subtitleMode, settings.preferredSubtitleLanguage, audioLang, source?.defaultSubtitleStreamIndex)
+        val subtitle = when (val pick = remembered.subtitle) {
+            RememberedTracks.Off -> null
+            is RememberedTracks.Track -> pick.index
+            null -> TrackSelector.pickSubtitle(streams, settings.subtitleMode, settings.preferredSubtitleLanguage, audioLang, source?.defaultSubtitleStreamIndex)
+        }
         val startMs = if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
         val fonts = source?.takeIf { needsFonts(it) }?.let { s -> async { downloadFonts(api, itemId, s) } }
         val plan = negotiator.negotiate(itemId, source?.id, startMs, audio, subtitle, settings.maxBitrateMbps, settings.enableDirectPlay)
@@ -89,7 +96,7 @@ object PlaybackPreparer {
  * only if it is under 90 seconds old and was made with the same server session, settings and device
  * capabilities. Call from the main thread.
  */
-class PlaybackPrewarmer(private val scope: CoroutineScope) {
+class PlaybackPrewarmer(private val scope: CoroutineScope, private val trackMemory: TrackMemory? = null) {
     private class Entry(
         val itemId: String,
         val api: JellyfinApi,
@@ -107,7 +114,7 @@ class PlaybackPrewarmer(private val scope: CoroutineScope) {
         e?.job?.cancel()
         val job = scope.async {
             try {
-                PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false)
+                PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false, trackMemory = trackMemory)
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {

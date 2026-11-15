@@ -6,6 +6,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- In-app updates of the sideloaded APK (Android always asks the user to confirm each install). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- TV app: no touchscreen, leanback launcher supported but not required (sideload-friendly). -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -36,5 +38,9 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name="com.auroratv.android.UpdateInstallReceiver"
+            android:exported="false" />
     </application>
 </manifest>

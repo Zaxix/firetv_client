@@ -224,6 +224,7 @@ private fun SubtitlePage(container: AppContainer) {
             }, "Smart shows subtitles only when the audio isn't in your language") { set { it.copy(subtitleMode = SubtitleMode.entries.after(it.subtitleMode)) } }
         }
         item { SettingRow("Subtitle language", languageName(s.preferredSubtitleLanguage)) { set { it.copy(preferredSubtitleLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredSubtitleLanguage)) } } }
+        item { SettingRow("Remember my track choices", onOff(s.rememberTracks), "Audio and subtitles you pick in the player are reused for the rest of that series (and when you return to a movie)") { set { it.copy(rememberTracks = !it.rememberTracks) } } }
         item { SettingRow("Text size", "${(s.subtitleScale * 100).toInt()}%", "Applies to SRT/VTT; styled ASS keeps its own sizes unless the engine can scale it") { set { it.copy(subtitleScale = listOf(0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).after(it.subtitleScale)) } } }
         if (caps?.supportsSubtitleDelay == true) {
             item { SettingRow("Default subtitle delay", "${s.subtitleDelayMs} ms", "Adjust per video from the player too") { set { it.copy(subtitleDelayMs = listOf(0L, 100L, 250L, 500L, 1000L, -100L, -250L, -500L, -1000L).after(it.subtitleDelayMs)) } } }
@@ -352,13 +353,39 @@ private fun RatingsPage(container: AppContainer) {
     }
 }
 
+/** Settings → About: update status (select to check / install) and the automatic-check switch. */
+@Composable
+private fun UpdateRows(container: AppContainer) {
+    val updates = container.updates
+    val state by updates.state.collectAsState()
+    val s by container.settings.settings.collectAsState()
+    Column {
+        SettingRow(
+            if (state is com.auroratv.update.UpdateState.Available) "Install update" else "Check for updates",
+            updateStatusText(state, updates.supported),
+            if (updates.supported) "New builds come from the project's latest-build release; only builds that passed every test are offered" else null,
+        ) {
+            when (state) {
+                is com.auroratv.update.UpdateState.Available, is com.auroratv.update.UpdateState.Failed -> updates.install()
+                else -> updates.checkNow()
+            }
+        }
+        if (updates.supported) {
+            SettingRow("Check for updates automatically", onOff(s.autoCheckUpdates), "Once a day when Aurora starts") {
+                container.settings.update { it.copy(autoCheckUpdates = !it.autoCheckUpdates) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AboutPage(container: AppContainer) {
     val caps by produceState<DeviceCapabilities?>(null) { value = container.capabilities() }
     val info = container.platform.info
     val colors = Aurora.colors
     SettingsList {
-        item { Header("Aurora TV ${AppInfo.VERSION}") }
+        item { Header("Aurora TV ${container.platform.updater?.currentVersion?.takeIf { it != "dev" } ?: AppInfo.VERSION}") }
+        item { UpdateRows(container) }
         item { Line("Platform", "${info.platformName} · ${info.osVersion}") }
         item { Line("Device", info.deviceName) }
         item { Line("Token storage", container.platform.vault.description) }

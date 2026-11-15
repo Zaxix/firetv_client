@@ -7,7 +7,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val auroraVersionName = providers.gradleProperty("aurora.versionName").get()
+// See androidApp/build.gradle.kts: CI builds are 1.0.<run number>, which MSI upgrades accept.
+val auroraBuild = providers.environmentVariable("AURORA_BUILD").orNull?.toIntOrNull()
+val auroraBaseVersion = providers.gradleProperty("aurora.versionName").get()
+val auroraVersionName = auroraBuild?.let { auroraBaseVersion.substringBeforeLast('.') + ".$it" } ?: auroraBaseVersion
 
 kotlin {
     jvmToolchain(21)

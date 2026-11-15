@@ -175,6 +175,9 @@ private fun MainShell(container: AppContainer) {
     // Entering the app from sign-in: make sure no on-screen keyboard is left capturing the D-pad.
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide(); container.platform.hideKeyboard() }
+    // Look for a newer build once a day (never during playback: the prompt waits for the player to close).
+    LaunchedEffect(Unit) { container.updates.checkIfDue() }
+    val updatePrompt by container.updates.prompt.collectAsState()
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack
         onDispose { container.backHandler = { false } }
@@ -214,6 +217,14 @@ private fun MainShell(container: AppContainer) {
                 }
             } else {
                 CompositionLocalProvider(LocalEntry provides entry) { RouteContent(container, entry.route) }
+            }
+            val prompt = updatePrompt
+            if (prompt != null && !isPlayer) {
+                com.auroratv.ui.screens.UpdatePrompt(container.updates, prompt)
+                DisposableEffect(prompt.build) {
+                    // Give focus back to the screen once the card closes.
+                    onDispose { shellScope.launch { kotlinx.coroutines.delay(80); runCatching { sideBar.currentItem.requestFocus() } } }
+                }
             }
         }
     }

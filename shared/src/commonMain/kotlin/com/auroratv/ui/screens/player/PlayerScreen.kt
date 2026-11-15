@@ -36,7 +36,7 @@ private fun PlayerSession(container: AppContainer, route: Route.Player, caps: De
     val navigator = LocalNavigator.current
     val engine = remember { container.platform.createEngine(container.settings.current) }
     val controller = remember {
-        PlayerController(session.api, container.skipDetector(session.api), engine, caps, { container.settings.current }, container.appScope, container.prewarmer, route.preview)
+        PlayerController(session.api, container.skipDetector(session.api), engine, caps, { container.settings.current }, container.appScope, container.prewarmer, route.preview, container.trackMemory)
     }
     DisposableEffect(controller) { onDispose { controller.release() } }
     LaunchedEffect(route.itemId) { controller.start(route.itemId, route.startFromBeginning) }

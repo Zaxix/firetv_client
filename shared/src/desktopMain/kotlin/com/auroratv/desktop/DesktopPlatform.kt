@@ -52,6 +52,7 @@ class DesktopPlatform : Platform {
     )
     override val files: FileStore = DesktopFileStore()
     override val vault: SecureVault = DpapiVault(files)
+    override val updater = DesktopUpdater { onExit() }
 
     override suspend fun probeCapabilities(): DeviceCapabilities {
         val lib = LibMpv.load()

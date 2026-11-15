@@ -94,3 +94,11 @@ can only be confirmed on that device; CI can't test them.
   `/UserFavoriteItems`).
 * Live TV, music libraries, photos, SyncPlay and Quick Connect aren't implemented; Aurora focuses on
   movies and TV.
+
+* **In-app updates** need one confirmation on Android/Fire TV per update: sideloaded apps can't install
+  silently, so Android's install screen always appears. On Fire OS the first update also asks you to
+  allow Aurora TV under *Install unknown apps*. Debug APKs, the Windows portable ZIP and Linux builds
+  don't install updates themselves (they open the download page). The update flow is unit-tested
+  with a fake platform; the real Android install screen and the Windows MSI upgrade have not been
+  exercised by CI, which can't confirm an install.
+* **Remembered tracks** are stored on each device, not synced between devices.

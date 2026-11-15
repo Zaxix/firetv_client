@@ -48,6 +48,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     )
     override val files: FileStore = AndroidFileStore(activity.filesDir)
     override val vault: SecureVault = KeystoreVault(activity)
+    override val updater = AndroidUpdater(activity.applicationContext)
 
     init {
         Log.sink = Log.Sink { level, tag, message, error ->

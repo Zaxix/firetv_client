@@ -45,6 +45,9 @@ interface Platform {
 
     fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine
 
+    /** Self-update support (null where the app can't update itself). */
+    val updater: com.auroratv.update.AppUpdater? get() = null
+
     /** Whether the user can pick between players (Android 8+ offers ExoPlayer and MPV). */
     val offersPlayerChoice: Boolean get() = false
 

@@ -28,6 +28,10 @@ data class Settings(
     val showHeroCarousel: Boolean = true,
     /** Studio/network tiles (Disney, Netflix, Apple TV...) under the featured carousel. */
     val showBrandTiles: Boolean = true,
+    /** Reuse audio/subtitle tracks picked by hand for the rest of a series (and for a movie). */
+    val rememberTracks: Boolean = true,
+    /** Look for a newer Aurora build once a day (Settings → About → Updates). */
+    val autoCheckUpdates: Boolean = true,
     // Playback
     /** 0 = automatic (no client cap). */
     val maxBitrateMbps: Int = 0,

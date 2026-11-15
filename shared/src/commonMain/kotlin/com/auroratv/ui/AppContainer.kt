@@ -27,7 +27,11 @@ class AppContainer(val platform: Platform) {
     val ratingsKeys = com.auroratv.ratings.RatingsKeyStore(platform.vault)
     val ratings = com.auroratv.ratings.RatingsService(http) { ratingsKeys.keys.value }
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
-    val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope)
+    /** Audio/subtitle choices remembered per series (on this device). */
+    val trackMemory = com.auroratv.playback.TrackMemory(platform.files, com.auroratv.playback::wallClockMs)
+    val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope, trackMemory)
+    /** In-app updates from the latest-build release. */
+    val updates = com.auroratv.update.UpdateManager(http, platform.updater, platform.files, { settings.current }, appScope, com.auroratv.playback::wallClockMs)
     /** Studio/network brands found in the library (Home's brand tiles). */
     val brands = com.auroratv.brands.BrandService()
     /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */

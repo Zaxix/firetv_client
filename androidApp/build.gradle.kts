@@ -4,8 +4,12 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-val auroraVersionName = providers.gradleProperty("aurora.versionName").get()
-val auroraVersionCode = providers.gradleProperty("aurora.versionCode").get().toInt()
+// CI numbers every build (AURORA_BUILD = run number): versionName 1.0.<n>, versionCode <n>, so the
+// in-app updater and Android both see each build as newer than the last. Local builds use gradle.properties.
+val auroraBuild = providers.environmentVariable("AURORA_BUILD").orNull?.toIntOrNull()
+val auroraBaseVersion = providers.gradleProperty("aurora.versionName").get()
+val auroraVersionName = auroraBuild?.let { auroraBaseVersion.substringBeforeLast('.') + ".$it" } ?: auroraBaseVersion
+val auroraVersionCode = auroraBuild ?: providers.gradleProperty("aurora.versionCode").get().toInt()
 
 // Release signing comes from environment variables so no key material is ever committed.
 // CI sets these (from repository secrets when present, otherwise from a freshly generated key).

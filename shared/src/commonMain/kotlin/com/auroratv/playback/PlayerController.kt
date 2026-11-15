@@ -140,6 +140,8 @@ class PlayerController(
     private val prewarmer: PlaybackPrewarmer? = null,
     /** The item as the previous screen had it, so the player can show its artwork immediately. */
     preview: BaseItemDto? = null,
+    /** Per-series audio/subtitle choices (null: don't remember). */
+    private val trackMemory: TrackMemory? = null,
 ) {
     private val tag = "Player"
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
@@ -181,11 +183,11 @@ class PlayerController(
                 val t0 = kotlin.time.TimeSource.Monotonic.markNow()
                 val warm = prewarmer?.take(api, capabilities, s, itemId)
                 val prepared = when {
-                    warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning)
+                    warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning, trackMemory = trackMemory)
                     !startFromBeginning || warm.startMs == 0L -> warm
                     // Direct Play URLs don't depend on the start point; a transcode does, so ask again.
                     warm.plan.method == PlayMethod.DirectPlay -> PreparedPlayback(warm.item, warm.plan, 0L, warm.audioIndex, warm.subtitleIndex, warm.fonts)
-                    else -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning = true, knownItem = warm.item)
+                    else -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning = true, knownItem = warm.item, trackMemory = trackMemory)
                 }
                 val item = prepared.item
                 val plan = prepared.plan
@@ -429,6 +431,7 @@ class PlayerController(
         if (index == st.audioIndex) return
         val stream = plan.audioStreams.firstOrNull { it.index == index } ?: return
         _state.update { it.copy(audioIndex = index) }
+        if (settings().rememberTracks) st.item?.let { trackMemory?.rememberAudio(it, stream) }
         if (plan.method == PlayMethod.DirectPlay) {
             PlaybackNegotiator.embeddedOrdinal(plan.mediaSource.mediaStreams, stream)?.let { engine.selectAudio(it); return }
         }
@@ -441,6 +444,7 @@ class PlayerController(
         if (index == st.subtitleIndex) return
         val previousBurned = st.subtitleIndex != null && subtitleRefFor(plan, st.subtitleIndex) == null
         _state.update { it.copy(subtitleIndex = index) }
+        if (settings().rememberTracks) st.item?.let { item -> trackMemory?.rememberSubtitle(item, index?.let { i -> plan.subtitleStreams.firstOrNull { it.index == i } }) }
         if (index == null) {
             engine.selectSubtitle(null)
             if (previousBurned) renegotiate(st.audioIndex, null)

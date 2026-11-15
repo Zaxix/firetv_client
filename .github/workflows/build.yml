@@ -8,6 +8,11 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Every CI build gets its own number: versionName 1.0.<n>, Android versionCode <n>, MSI 1.0.<n>.
+  # The in-app updater compares it with version.json on the latest-build release.
+  AURORA_BUILD: ${{ github.run_number }}
+
 jobs:
   android:
     name: Tests + Android APK/AAB
@@ -274,7 +279,8 @@ jobs:
           mkdir -p dist
           cp desktopApp/build/compose/binaries/main/msi/*.msi dist/
           cp desktopApp/build/compose/binaries/main/exe/*.exe dist/
-          (cd desktopApp/build/compose/binaries/main/app && 7z a -tzip "$GITHUB_WORKSPACE/dist/AuroraTV-windows-x64-portable.zip" . >/dev/null)
+          # Marker so the portable copy knows not to run the MSI updater (it opens the download page instead).
+          (cd desktopApp/build/compose/binaries/main/app && for d in */; do echo "Portable build: updates come from the release page." > "${d}portable.txt"; done && 7z a -tzip "$GITHUB_WORKSPACE/dist/AuroraTV-windows-x64-portable.zip" . >/dev/null && rm -f */portable.txt)
           cp selftest.txt dist/windows-selftest.txt
           ls -la dist
 
@@ -353,6 +359,11 @@ jobs:
         with:
           path: artifacts
 
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 40
+
       - name: Push screenshots and reports to the ci-results branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -390,6 +401,28 @@ jobs:
           cp artifacts/windows/*.msi artifacts/windows/*.exe artifacts/windows/*.zip upload/ 2>/dev/null || true
           for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
           ls -la upload
+          # version.json: what the in-app updater reads (build number, SHA-256 of every file, recent changes).
+          OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.windows.result == 'success' && needs.android-e2e.result == 'success' }}
+          python3 - "$OK" <<'PY'
+          import hashlib, json, os, subprocess, sys, datetime
+          ok = sys.argv[1] == "true"
+          assets = {}
+          for name in sorted(os.listdir("upload")):
+              path = os.path.join("upload", name)
+              h = hashlib.sha256()
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              assets[name] = {"sha256": h.hexdigest(), "size": os.path.getsize(path)}
+          subjects = subprocess.run(["git", "-C", "src", "log", "--format=%s", "-12"], capture_output=True, text=True).stdout.splitlines()
+          changes = [s for s in subjects if not s.lower().startswith(("ci", "docs", "build:", "merge"))][:8]
+          build = int(os.environ["AURORA_BUILD"])
+          info = {"build": build, "version": f"1.0.{build}", "commit": os.environ["GITHUB_SHA"][:7],
+                  "publishedAt": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+                  "ok": ok, "changes": changes, "assets": assets}
+          json.dump(info, open("upload/version.json", "w"), indent=1)
+          print(json.dumps(info, indent=1))
+          PY
           gh release delete latest-build --yes --cleanup-tag -R "$GITHUB_REPOSITORY" 2>/dev/null || true
           cat > notes.md <<MD
           Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
