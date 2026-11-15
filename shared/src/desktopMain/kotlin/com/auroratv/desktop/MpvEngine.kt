@@ -246,8 +246,9 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
             fontsDir.listFiles()?.forEach { it.delete() }
             source.fonts.forEach { f -> java.io.File(fontsDir, f.name.replace(Regex("[^A-Za-z0-9._ -]"), "_")).apply { writeBytes(f.data); deleteOnExit() } }
         }.onFailure { Log.w(tag, "Couldn't write subtitle fonts: ${it.message}") }
-        // Only the token header: mpv splits list options on commas, and the full MediaBrowser header has commas.
-        source.headers["X-Emby-Token"]?.let { set("http-header-fields", "X-Emby-Token: $it") }
+        // mpv splits list options on commas, so use the comma-free MediaBrowser form, which Jellyfin
+        // accepts everywhere (X-Emby-Token alone is rejected by its HLS endpoints).
+        source.headers["X-Emby-Token"]?.let { set("http-header-fields", "Authorization: MediaBrowser Token=\"$it\"") }
         set("start", String.format(Locale.ROOT, "%.3f", source.startPositionMs / 1000.0))
         set("pause", "no")
         command("loadfile", source.url, "replace")

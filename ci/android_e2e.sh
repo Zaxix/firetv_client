@@ -77,7 +77,7 @@ adb shell am force-stop "$PKG"; adb shell am start -n "$PKG/$ACT" --es player ex
 adb logcat -d > "$OUT/logcat-full.txt"
 # mpv's own warnings/errors (tag "mpv"), with any credentials redacted, for diagnosing the MPV runs.
 grep -E " [VDIWE] mpv +:" "$OUT/logcat-full.txt" | grep -E ":(error|warn|fatal)\]|Opening|EOF|end of file|HTTP|Server returned|cplayer:info|demux" \
-  | sed -E 's/(api_key|ApiKey|X-Emby-Token)[=:] ?[A-Za-z0-9]+/\1=REDACTED/gI' | head -400 > "$OUT/logcat-mpv.txt" || true
+  | sed -E 's/(api_key|ApiKey|X-Emby-Token)[=:] ?[A-Za-z0-9]+/\1=REDACTED/gI; s/Token=\\?"?[A-Za-z0-9]+/Token=REDACTED/g' | head -400 > "$OUT/logcat-mpv.txt" || true
 grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
 echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40

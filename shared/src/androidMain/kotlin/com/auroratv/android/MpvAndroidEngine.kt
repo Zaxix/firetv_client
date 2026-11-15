@@ -313,9 +313,12 @@ class MpvAndroidEngine(
         fileLoaded = false; eof = false
         latestPos = -1L; latestBuffered = -1L
         _state.value = EngineState(isBuffering = true, positionMs = source.startPositionMs)
-        // Token header as an option (see class docs). mpv splits list options on commas, so only this header.
+        // Token header as an option (see class docs). Jellyfin's HLS endpoints only accept the token
+        // in the URL or an `Authorization: MediaBrowser Token=…` header (not X-Emby-Token), and mpv splits
+        // list options on commas, so this comma-free form is the one that works for every request,
+        // including the playlists and segments FFmpeg's HLS demuxer fetches.
         source.headers["X-Emby-Token"]?.takeIf { it != tokenSet }?.let { token ->
-            l.setOptionString("http-header-fields", "X-Emby-Token: $token")
+            l.setOptionString("http-header-fields", "Authorization: MediaBrowser Token=\"$token\"")
             tokenSet = token
         }
         workHandler.post { writeFonts(source) }
