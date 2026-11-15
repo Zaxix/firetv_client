@@ -99,7 +99,11 @@ fun AuroraTextField(
     var boxFocused by remember { mutableStateOf(false) }
     val fieldFocus = remember { FocusRequester() }
     val boxFocus = remember { FocusRequester() }
-    val latestValue by androidx.compose.runtime.rememberUpdatedState(value)
+    // Keys can arrive faster than the screen recomposes (hardware keyboards, pasted text), so typing
+    // into the highlighted box builds on what we last sent, not on a possibly stale [value].
+    val typed = remember { TypedText(value) }
+    if (value != typed.sent) { typed.text = value; typed.sent = value }
+    fun emit(text: String) { typed.text = text; typed.sent = text; onValueChange(text) }
 
     fun closeKeyboard() { keyboard?.hide(); platform.hideKeyboard() }
     fun startEditing() {
@@ -163,11 +167,11 @@ fun AuroraTextField(
                         val code = ev.utf16CodePoint
                         when {
                             ev.key == Key.Enter || ev.key == Key.NumPadEnter -> {
-                                if (latestValue.isNotBlank()) onIme() else startEditing(); true
+                                if (typed.text.isNotBlank()) onIme() else startEditing(); true
                             }
-                            ev.key == Key.Backspace -> { if (latestValue.isNotEmpty()) onValueChange(latestValue.dropLast(1)); true }
+                            ev.key == Key.Backspace -> { if (typed.text.isNotEmpty()) emit(typed.text.dropLast(1)); true }
                             !ev.isCtrlPressed && !ev.isAltPressed && code >= 32 && code != 127 -> {
-                                onValueChange(latestValue + code.toChar()); true
+                                emit(typed.text + code.toChar()); true
                             }
                             else -> false
                         }
@@ -180,6 +184,12 @@ fun AuroraTextField(
             )
         }
     }
+}
+
+/** What [AuroraTextField] last typed (plain fields: read and written on the UI thread between frames). */
+private class TypedText(initial: String) {
+    var text: String = initial
+    var sent: String = initial
 }
 
 @Composable
