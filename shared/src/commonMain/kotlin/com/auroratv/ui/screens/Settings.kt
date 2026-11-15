@@ -363,7 +363,7 @@ private fun UpdateRows(container: AppContainer) {
         SettingRow(
             if (state is com.auroratv.update.UpdateState.Available) "Install update" else "Check for updates",
             updateStatusText(state, updates.supported),
-            if (updates.supported) "New builds come from the project's latest-build release; only builds that passed every test are offered" else null,
+            if (updates.supported) "Only builds that passed every test are offered" else null,
         ) {
             when (state) {
                 is com.auroratv.update.UpdateState.Available, is com.auroratv.update.UpdateState.Failed -> updates.install()

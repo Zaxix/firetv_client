@@ -131,7 +131,7 @@ class UpdateManager(
                 }
             }.getOrElse {
                 Log.w(TAG, "Update check failed: ${it.message}")
-                _state.value = UpdateState.Failed("Couldn't check for updates (${it.message ?: it::class.simpleName}).")
+                _state.value = UpdateState.Failed("Couldn't check (${it.message ?: it::class.simpleName}). Try again later.")
                 return@launch
             }
             savePrefs(prefs.copy(lastCheckMs = now()))
