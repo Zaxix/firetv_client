@@ -68,4 +68,10 @@ if [ -n "$TP" ]; then
 fi
 curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Movie,Series,Episode&fields=MediaStreams,Trickplay" -H "$A" \
   | jq -r '.Items[] | "\(.Type)\t\(.Name)\t\(.ProductionYear)\timages=\(.ImageTags|keys|join(","))\ttrickplay=\((.Trickplay // {}) | [.[] | keys[]] | join(","))"' >&2
+# Diagnostics: how this server authenticates stream requests (token as header vs. query).
+EPID=$(curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Episode&limit=1" -H "$A" | jq -r '.Items[0].Id')
+code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
+HLS="$URL/Videos/$EPID/master.m3u8?MediaSourceId=$EPID&VideoCodec=h264&AudioCodec=aac&DeviceId=ci-diag&PlaySessionId=ci-diag"
+echo "auth-diag: static stream, no auth=$(code -r 0-1023 "$URL/Videos/$EPID/stream?static=true&mediaSourceId=$EPID") header=$(code -r 0-1023 -H "X-Emby-Token: $TOKEN" "$URL/Videos/$EPID/stream?static=true&mediaSourceId=$EPID")" >&2
+echo "auth-diag: hls master, no auth=$(code "$HLS") header=$(code -H "X-Emby-Token: $TOKEN" "$HLS") query=$(code "$HLS&ApiKey=$TOKEN")" >&2
 echo "$TOKEN"
