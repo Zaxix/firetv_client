@@ -43,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
@@ -176,11 +178,23 @@ private fun MainShell(container: AppContainer) {
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // tvOS behaviour: Back walks up the stack, then to the sidebar, then to Home, then exits.
-    fun handleBack(): Boolean = when {
+    // Back: closes the sidebar if it's open, then walks up the stack, then goes to Home; on Home it
+    // asks for a second press within a couple of seconds before leaving the app.
+    var exitArmed by remember { mutableStateOf(false) }
+    LaunchedEffect(exitArmed) { if (exitArmed) { kotlinx.coroutines.delay(2_500); exitArmed = false } }
+    fun navigateBack(): Boolean = when {
+        sideBar.hasFocus -> {
+            if (runCatching { contentFocus.requestFocus() }.isFailure) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+            true
+        }
         navigator.pop() -> true
-        !sideBar.hasFocus -> runCatching { sideBar.currentItem.requestFocus() }.isSuccess
         navigator.currentSection != Section.Home -> { navigator.selectSection(Section.Home); true }
+        !exitArmed -> { exitArmed = true; true }
         else -> false
+    }
+    fun handleBack(): Boolean {
+        container.platform.hideKeyboard() // Back always puts the on-screen keyboard away
+        return navigateBack()
     }
     // Entering the app from sign-in: make sure no on-screen keyboard is left capturing the D-pad.
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -195,7 +209,12 @@ private fun MainShell(container: AppContainer) {
 
     CompositionLocalProvider(LocalNavigator provides navigator, LocalSideBar provides sideBar) {
         Box(
-            Modifier.fillMaxSize().onKeyEvent { ev ->
+            Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
+                // Holding Left lets focus move into the sidebar (see SideBarState.allowEntry).
+                if (ev.key == Key.DirectionLeft) sideBar.allowEntry = ev.type == KeyEventType.KeyDown
+                else if (ev.type == KeyEventType.KeyDown) sideBar.allowEntry = false
+                false
+            }.onKeyEvent { ev ->
                 // Bubbling handler: screens that need Back (player, dialogs) consume it first.
                 if ((ev.key == Key.Back || ev.key == Key.Escape) && ev.type == KeyEventType.KeyUp) {
                     if (!handleBack()) container.platform.exitApp()
@@ -234,12 +253,23 @@ private fun MainShell(container: AppContainer) {
             } else {
                 CompositionLocalProvider(LocalEntry provides entry) { RouteContent(container, entry.route) }
             }
+            androidx.compose.animation.AnimatedVisibility(
+                exitArmed && !isPlayer,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+                enter = fadeIn(tween(motion.duration(150))), exit = fadeOut(tween(motion.duration(250))),
+            ) {
+                Text(
+                    "Press Back again to exit",
+                    style = AuroraType.bodyStrong, color = Aurora.colors.onBackground,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Aurora.colors.surface.copy(alpha = 0.95f)).padding(horizontal = 22.dp, vertical = 12.dp),
+                )
+            }
             val prompt = updatePrompt
             if (prompt != null && !isPlayer) {
                 com.auroratv.ui.screens.UpdatePrompt(container.updates, prompt)
                 DisposableEffect(prompt.build) {
                     // Give focus back to the screen once the card closes.
-                    onDispose { shellScope.launch { kotlinx.coroutines.delay(80); runCatching { sideBar.currentItem.requestFocus() } } }
+                    onDispose { shellScope.launch { kotlinx.coroutines.delay(80); if (runCatching { contentFocus.requestFocus() }.isFailure) sideBar.open() } }
                 }
             }
         }
@@ -281,6 +311,17 @@ private fun Section.icon(): ImageVector = when (this) {
 class SideBarState {
     var hasFocus by mutableStateOf(false)
     val currentItem = FocusRequester()
+    /**
+     * The sidebar only takes focus when asked to: Left from the content (while the key is held) or
+     * [open]. Without this, focus that's dropped while a screen changes (the card you clicked goes
+     * away) landed on the first thing on screen, the sidebar, and opened it by itself.
+     */
+    var allowEntry by mutableStateOf(false)
+
+    fun open(): Boolean {
+        allowEntry = true
+        return try { runCatching { currentItem.requestFocus() }.isSuccess } finally { allowEntry = false }
+    }
 }
 
 val LocalSideBar = staticCompositionLocalOf { SideBarState() }
@@ -352,7 +393,9 @@ private fun SideBarItem(section: Section, navigator: Navigator, bar: SideBarStat
         shape = RoundedCornerShape(16.dp),
         sheen = false,
         scaleOnFocus = false,
-        modifier = Modifier.fillMaxWidth().then(if (selected) Modifier.focusRequester(bar.currentItem) else Modifier),
+        modifier = Modifier.fillMaxWidth()
+            .focusProperties { canFocus = bar.hasFocus || bar.allowEntry }
+            .then(if (selected) Modifier.focusRequester(bar.currentItem) else Modifier),
     ) { focused ->
         val fg = when { focused -> Color.Black; selected -> colors.onBackground; else -> colors.onSurfaceMuted }
         Row(

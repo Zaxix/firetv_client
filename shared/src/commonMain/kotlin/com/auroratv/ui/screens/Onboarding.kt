@@ -41,6 +41,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -51,6 +64,7 @@ import com.auroratv.core.toAppError
 import com.auroratv.data.SavedServer
 import com.auroratv.jellyfin.model.UserDto
 import com.auroratv.ui.AppContainer
+import com.auroratv.ui.LocalContainer
 import com.auroratv.ui.components.ArtworkImage
 import com.auroratv.ui.components.AuroraButton
 import com.auroratv.ui.components.FocusSurface
@@ -58,6 +72,13 @@ import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
 import kotlinx.coroutines.launch
 
+/**
+ * A text box that behaves on a TV: moving onto it only highlights it (no keyboard popping up and
+ * trapping the D-pad). Select/click starts typing and opens the keyboard; Back, Up/Down or the
+ * keyboard's action key stop typing, close the keyboard and leave you on the box. A hardware
+ * keyboard (or `adb input text`) can type straight into the highlighted box, and Enter submits.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun AuroraTextField(
     value: String,
@@ -70,24 +91,95 @@ fun AuroraTextField(
     onIme: () -> Unit = {},
 ) {
     val colors = Aurora.colors
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType, imeAction = imeAction, autoCorrectEnabled = false),
-        keyboardActions = KeyboardActions(onAny = { onIme() }),
-        textStyle = AuroraType.bodyStrong.copy(color = colors.onBackground),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = colors.focusRing,
-            unfocusedBorderColor = colors.divider,
-            focusedLabelColor = colors.onBackground,
-            unfocusedLabelColor = colors.onSurfaceFaint,
-            cursorColor = colors.onBackground,
-        ),
-        modifier = modifier,
-    )
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val platform = LocalContainer.current.platform
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf(false) }
+    var boxFocused by remember { mutableStateOf(false) }
+    val fieldFocus = remember { FocusRequester() }
+    val boxFocus = remember { FocusRequester() }
+    val latestValue by androidx.compose.runtime.rememberUpdatedState(value)
+
+    fun closeKeyboard() { keyboard?.hide(); platform.hideKeyboard() }
+    fun startEditing() {
+        editing = true
+        scope.launch {
+            androidx.compose.runtime.withFrameNanos { }
+            runCatching { fieldFocus.requestFocus() }
+            keyboard?.show()
+        }
+    }
+    fun stopEditing() {
+        closeKeyboard()
+        editing = false
+        scope.launch { androidx.compose.runtime.withFrameNanos { }; runCatching { boxFocus.requestFocus() } }
+    }
+    fun isBack(ev: androidx.compose.ui.input.key.KeyEvent) = ev.key == Key.Back || ev.key == Key.Escape
+
+    Box(modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            singleLine = true,
+            visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType, imeAction = imeAction, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onAny = { stopEditing(); onIme() }),
+            textStyle = AuroraType.bodyStrong.copy(color = colors.onBackground),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = colors.focusRing,
+                unfocusedBorderColor = if (boxFocused) colors.focusRing else colors.divider,
+                focusedLabelColor = colors.onBackground,
+                unfocusedLabelColor = if (boxFocused) colors.onBackground else colors.onSurfaceFaint,
+                cursorColor = colors.onBackground,
+            ),
+            modifier = Modifier.fillMaxWidth()
+                .focusRequester(fieldFocus)
+                .focusProperties { canFocus = editing }
+                .onFocusChanged { if (!it.isFocused && editing) { editing = false; closeKeyboard() } }
+                // Back reaches us before the keyboard does, so one press closes it and stops typing.
+                .onInterceptKeyBeforeSoftKeyboard { ev ->
+                    if (editing && isBack(ev)) { if (ev.type == KeyEventType.KeyUp) stopEditing(); true } else false
+                }
+                .onPreviewKeyEvent { ev ->
+                    when {
+                        !editing -> false
+                        isBack(ev) -> { if (ev.type == KeyEventType.KeyUp) stopEditing(); true }
+                        ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp -> { closeKeyboard(); focusManager.moveFocus(FocusDirection.Up); true }
+                        ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown -> { closeKeyboard(); focusManager.moveFocus(FocusDirection.Down); true }
+                        else -> false
+                    }
+                },
+        )
+        if (!editing) {
+            // The D-pad stop: highlights the box; Select (or a click) starts typing.
+            Box(
+                Modifier.matchParentSize()
+                    .focusRequester(boxFocus)
+                    .onFocusChanged { boxFocused = it.isFocused }
+                    .onPreviewKeyEvent { ev ->
+                        if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val code = ev.utf16CodePoint
+                        when {
+                            ev.key == Key.Enter || ev.key == Key.NumPadEnter -> {
+                                if (latestValue.isNotBlank()) onIme() else startEditing(); true
+                            }
+                            ev.key == Key.Backspace -> { if (latestValue.isNotEmpty()) onValueChange(latestValue.dropLast(1)); true }
+                            !ev.isCtrlPressed && !ev.isAltPressed && code >= 32 && code != 127 -> {
+                                onValueChange(latestValue + code.toChar()); true
+                            }
+                            else -> false
+                        }
+                    }
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = ::startEditing,
+                    )
+            )
+        }
+    }
 }
 
 @Composable
