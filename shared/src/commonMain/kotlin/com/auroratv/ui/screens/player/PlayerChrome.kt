@@ -954,7 +954,7 @@ private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modif
 @Composable
 private fun StartingBackdrop(item: com.auroratv.jellyfin.model.BaseItemDto) {
     val api = LocalSession.current.api
-    val shown = if (item.isEpisode) item.seriesName ?: item.name else item.name
+    val shown = (if (item.isEpisode) item.seriesName ?: item.name else item.name).orEmpty()
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         com.auroratv.ui.components.ArtworkImage(
             api.images.backdrop(item, com.auroratv.ui.components.screenArtworkPx()), null, Modifier.fillMaxSize(),
