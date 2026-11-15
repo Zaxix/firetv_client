@@ -34,6 +34,10 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Subtitle fonts | MKV font attachments recognised by extension, MIME type or codec |
 | Next Episode | offered from the credits start (chapters, segments or detection), else the final two minutes |
 | Intro/credits detection | recurring chapter lengths across a season → opening/ending; periodic chapters ignored; AniSkip via AniList title search + sequel walk, only for anime, only for missing kinds, title/year must match, Jellyfin token never sent to third parties, nothing sent when the setting is off |
+| Dolby Vision routing | per device type (DV TV with/without libdovi, Shield, HDR10 TV with a DV decoder, SDR TV, Windows/mpv): which `VideoRangeType`s go to the server for HEVC/AV1/VP9 and which path each profile takes (native, 7 → 8.1, base layer, server); DV codec strings |
+| Dolby Vision bitstream edits | enhancement-layer (NAL 63) removal keeps every other unit byte-for-byte; start-code scan across emulation-prevention bytes; HDR10+ SEI masking changes exactly one byte per message, leaves A/53 captions and suffix SEI alone and walks emulation-prevention bytes; non-Annex-B data untouched |
+| Ratings and reviews | MDBList parsing (critics, audience, IMDb + votes, Metacritic, Letterboxd); Trakt comments: spoiler-flagged, spoiler-tagged and one-line comments dropped, reviewer score from either field, private profiles show the username; no keys → server critic score only and no network calls; keys go only to their own service, no Jellyfin credentials leave; session cache and failure back-off; key sync through DisplayPreferences keeps other prefs |
+| Ratings UI (rendered) | ratings strip (fresh/rotten tomato, full/empty popcorn, IMDb, Metascore, Letterboxd), review cards with star scores, full-review overlay opened by click and closed by Back; screenshots saved with the test reports (`ui-shots/`) |
 
 **Result: all passing.**
 
@@ -51,6 +55,9 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 | Ember Field | **4K HEVC Main10 HDR10** (PQ/BT.2020, mastering display + MaxCLL), E-AC3 5.1 |
 | Old Reel | MPEG-4 Part 2 + MP3 in AVI (needs server transcoding on TV) |
 | Skylark Isles S01E01–03 | **Anime-style ASS typesetting**: rotated and moving signs, `\clip`, `\t` transforms, karaoke OP romaji, overlapping dialogue, embedded font; HEVC Main10 |
+| Prism Coast | **Dolby Vision 8.1** (HDR10 base layer): RPUs from `dovi_tool generate`, muxed by mkvmerge (config record: profile 8, compatibility 1) |
+| Neon Tide | **Dolby Vision 5** (no base layer): dovi_tool's profile 5 test RPU on every frame (profile 5, compatibility 0) |
+| Velvet Static | **Dolby Vision 7 FEL** (UHD Blu-ray style): dovi_tool's FEL test RPU (profile 7, compatibility 6, EL present) |
 
 | | Check | Result |
 |---|---|---|
@@ -60,7 +67,7 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 | ✅ | Session restore after relaunch | restored |
 | ✅ | Expired/invalid token detected | SessionExpired |
 | ✅ | Libraries | Movies (movies), TV Shows (tvshows) |
-| ✅ | Library pagination | 5 movies over 3 pages of 2, no duplicates |
+| ✅ | Library pagination | 8 movies over 4 pages of 2, no duplicates |
 | ✅ | Search | "meridian" → Glass Meridian |
 | ✅ | Metadata + artwork from server | overview, genres, poster served as image/jpeg, BlurHash present |
 | ✅ | HEVC Main10 + ASS → Direct Play on HEVC-capable Fire TV profile | hevc Main 10, 10-bit → DirectPlay; ASS delivery = Embed |
@@ -69,6 +76,11 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 | ✅ | ASS burned in when the device has no ASS renderer | Transcode; ASS delivery = Encode (never flattened to SRT) |
 | ⚠️ | 4K HDR10 Direct Play / server tone-mapping decisions | not verifiable on this server: Jellyfin 12.4's probe reported the PQ/BT.2020 sample as SDR (ffprobe in the CI log confirms the file is PQ). The HDR decision logic is covered by `DeviceProfileTest`. |
 | ✅ | 4K HDR10 → Direct Play on Windows/mpv | DirectPlay (mpv tone-maps locally) |
+| ✅ | Dolby Vision 8.1 (`DOVIWithHDR10`) | DV TV = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
+| ✅ | Dolby Vision 5 (`DOVI`) | DV TV = Direct Play, HDR10 TV = server converts, SDR TV = server converts, Windows = Direct Play |
+| ✅ | Dolby Vision 7 FEL (`DOVIWithEL`) | DV TV (profile 8 decoder + libdovi) = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
+| ✅ | Critic score from server metadata | `CriticRating` 93 → tomatometer 93% |
+| ✅ | Rating keys typed on one device reach another | written to the user's DisplayPreferences by one key store, read into another device's vault |
 | ✅ | MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv | Fire TV = Transcode (ContainerNotSupported, VideoCodecNotSupported, AudioCodecNotSupported); Windows = DirectPlay |
 | ✅ | Multi-track MKV: audio/subtitle selection | 3 audio (aac, ac3, eac3), 3 subs; ja → jpn, forced → English Forced, smart → English Full; DirectPlay |
 | ✅ | External SRT sidecar detected | 2 subtitle streams, 1 external |
@@ -94,6 +106,13 @@ The MSI/EXE/portable build is packaged on `windows-2022`, then the **packaged** 
 | Old Reel: MPEG-4 Part 2 AVI, MP3 | PASS |
 | Seven Rivers: 3 audio / 3 subtitle tracks | PASS (forced subtitle rendered: `[FORCED] Sign: "Station"`) |
 | Skylark Isles S01E01–E03: HEVC Main10 + anime ASS | PASS |
+| Prism Coast: Dolby Vision 8.1 | PASS, `doviProfile=8 colormatrix=dolbyvision` |
+| Neon Tide: Dolby Vision 5 | PASS, `doviProfile=5 colormatrix=dolbyvision` |
+| Velvet Static: Dolby Vision 7 FEL | PASS, `doviProfile=7 colormatrix=dolbyvision` |
+
+`colormatrix=dolbyvision` means mpv picked up the RPU metadata and hands it to libplacebo, which
+applies the Dolby Vision reshaping when rendering with gpu-next (the self-test decodes with `vo=null`,
+so the reshaped picture itself is checked on real hardware only).
 
 The runner has no GPU, so decoding was software (`hwdec=no`); D3D11VA/NVDEC hardware decoding needs
 real hardware. The first run found that libmpv requires `vulkan-1.dll`, which PCs without GPU drivers
@@ -113,7 +132,7 @@ server. Debug builds log every remote key the activity receives, so the run prov
 * **D-pad Down** moved focus from the hero into the first rail; **Right + Select** opened that movie's
   detail page; **Back** returned Home with focus restored to the same card; **Back** again opened the
   sidebar; **Down + Select** in the sidebar switched to Up Next ✅
-* **D-pad Down ×4** in Settings reached the About page, which lists the detected decoders and
+* **D-pad Down ×4** in Settings reached the new Ratings page, and once more the About page, which lists the detected decoders and
   capabilities (Media3 1.8.0, software H.264/HEVC on the emulator, Keystore token storage) ✅
 * played video through Media3. The emulator's decoders were probed (software, ≤1080p) and the
   app chose **Direct Play** for H.264 MKV and asked the server to **transcode** HEVC Main10, with
@@ -122,14 +141,17 @@ server. Debug builds log every remote key the activity receives, so the run prov
   transform, karaoke romaji and overlapping dialogue, plus colours, `\pos` and simultaneous top/bottom
   lines in the styled sample (see screenshots) ✅
 * player controls (progress bar, elapsed/remaining, transport, audio/subtitle/info, next episode) ✅
-* no crashes (`FATAL EXCEPTION` check on logcat) ✅
+* no crashes (`FATAL EXCEPTION` check on logcat) ✅; every ExoPlayer playback above already runs
+  through the new Dolby Vision-aware video renderer. The emulator reports no DV decoder and no HDR
+  display (`Dolby Vision: display=false decoderProfiles=[]` in the log), so the DV-specific paths
+  themselves (native, 7 → 8.1, HDR10+ masking) can't run there
 * **MPV player** (switched with the `player` launch extra, same as the setting): the anime typesetting
   episode and the HEVC Main10 movie through server transcoding, and the multi-track MKV by Direct Play.
   Rotated/moving signs, `\clip` + `\t`, karaoke and fades rendered by mpv's libass; the server's font
   attachment was downloaded and used, matching ExoPlayer pixel-for-pixel in typeface ✅
 * **Server font attachments for transcodes**: both engines now use the MKV's embedded font when the
   server transcodes (ExoPlayer previously fell back to the system font) ✅
-* **R8-shrunk release APK** (13 MB): fresh install, sign-in with the remote, Home, then playback of
+* **R8-shrunk release APK** (with libmpv, FFmpeg and libdovi): fresh install, sign-in with the remote, Home, then playback of
   the anime ASS episode and the HEVC Main10 movie through Media3 + libass + FFmpeg, then the HEVC movie
   again through libmpv. The run fails on
   any crash, missing class or native-library error, or if the player never reaches the READY state ✅
@@ -146,6 +168,7 @@ re-running the job fixes it.
 
 ## Not tested in CI (needs real hardware)
 
-Fire TV hardware decoders (HEVC/AV1/DV), HDMI audio passthrough, HDR output on a TV, libass overlay
+Fire TV hardware decoders (HEVC/AV1/DV) and Dolby Vision output (native, profile 7 → 8.1 conversion,
+HDR10+ masking), live MDBList/Trakt calls with real keys, HDMI audio passthrough, HDR output on a TV, libass overlay
 performance on low-end sticks, Windows GPU decoding and HDR output, Xbox controllers. See
 [Known limitations](KNOWN_LIMITATIONS.md).
