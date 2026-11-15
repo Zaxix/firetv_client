@@ -74,7 +74,13 @@ import com.auroratv.ui.nav.Route
 import com.auroratv.ui.nav.ScreenFocus
 import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
-import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.Image
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
+import com.auroratv.resources.Res
+import com.auroratv.resources.brand_appletv
+import com.auroratv.resources.brand_prime
 import kotlinx.coroutines.coroutineScope
 
 /** Tile size: landscape and well under a poster's height (posters are 150 × 225 dp). */
@@ -87,19 +93,29 @@ private fun ResolvedBrand.gradient(): List<Color> = brand.colors.map { Color(it)
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
+    val container = LocalContainer.current
+    val api = LocalSession.current.api
+    var focusedBrand by remember { mutableStateOf<ResolvedBrand?>(null) }
+    // Resting on a tile starts loading its hub, so opening it is usually instant.
+    LaunchedEffect(focusedBrand) {
+        val b = focusedBrand ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(350)
+        container.brands.prefetch(api, b)
+    }
     LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.focusRestorer(),
     ) {
-        items(brands, key = { it.brand.id }) { b -> BrandTile(b) { onOpen(b) } }
+        items(brands, key = { it.brand.id }) { b -> BrandTile(b, onFocused = { focusedBrand = b }) { onOpen(b) } }
     }
 }
 
 @Composable
-fun BrandTile(brand: ResolvedBrand, onClick: () -> Unit) {
+fun BrandTile(brand: ResolvedBrand, onFocused: () -> Unit = {}, onClick: () -> Unit) {
     FocusSurface(
         onClick = onClick,
+        onFocused = onFocused,
         shape = RoundedCornerShape(16.dp),
         focusKey = "brand/${brand.brand.id}",
         modifier = Modifier.width(TileWidth).height(TileHeight),
@@ -135,7 +151,10 @@ private fun BrandArt(brand: ResolvedBrand, focused: Boolean, modifier: Modifier,
     ) {
         val studio = brand.imageStudio
         val type = brand.imageType
-        if (studio != null && type != null) {
+        val bundled = bundledArt(brand.brand.id)
+        if (bundled != null) {
+            Image(painterResource(bundled), brand.brand.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else if (studio != null && type != null) {
             val art = Artwork(api.images.url(studio.id, type, studio.imageTags[type], maxWidth = artworkPx(TileWidth * 2, 1f)), null)
             if (type == "Logo") ArtworkImage(art, brand.brand.name, Modifier.fillMaxSize().padding(imagePadding), contentScale = ContentScale.Fit, showPlaceholder = false)
             else ArtworkImage(art, brand.brand.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, showPlaceholder = false)
@@ -154,6 +173,13 @@ private fun BrandArt(brand: ResolvedBrand, focused: Boolean, modifier: Modifier,
     }
 }
 
+/** Tile artwork supplied for the app (see docs/brand); other brands use the server's studio image or their name. */
+private fun bundledArt(id: String): DrawableResource? = when (id) {
+    "appletv" -> Res.drawable.brand_appletv
+    "prime" -> Res.drawable.brand_prime
+    else -> null
+}
+
 /** Brand Hub: everything in the library from one studio/network family. */
 @Composable
 fun BrandHubScreen(route: Route.Brand) {
@@ -166,36 +192,33 @@ fun BrandHubScreen(route: Route.Brand) {
     var attempt by remember { mutableStateOf(0) }
 
     LaunchedEffect(attempt) {
-        if (model.rails != null && attempt == 0) return@LaunchedEffect
+        if (model.loadedOnce && attempt == 0) return@LaunchedEffect
         model.error = null
-        try {
-            val brand = container.brands.find(api, route.brandId) ?: container.brands.brands(api).firstOrNull { it.brand.id == route.brandId }
+        val brand = try {
+            container.brands.find(api, route.brandId) ?: container.brands.brands(api).firstOrNull { it.brand.id == route.brandId }
                 ?: error("This brand isn't in your library any more.")
-            model.brand = brand
-            coroutineScope {
-                fun q(types: List<String>, sort: String) = ItemQuery(includeItemTypes = types, studioIds = brand.studioIds, sortBy = sort, sortDescending = true, limit = 30)
-                val newest = async { api.items(q(listOf("Movie", "Series"), "PremiereDate,SortName")) }
-                val movies = async { api.items(q(listOf("Movie"), "CommunityRating,SortName")) }
-                val series = async { api.items(q(listOf("Series"), "CommunityRating,SortName")) }
-                val m = movies.await(); val s = series.await()
-                model.total = m.totalRecordCount + s.totalRecordCount
-                model.rails = listOfNotNull(
-                    newest.await().items.takeIf { it.isNotEmpty() }?.let { Triple("newest", "New and recent", it) },
-                    m.items.takeIf { it.isNotEmpty() }?.let { Triple("movies", "Movies", it) },
-                    s.items.takeIf { it.isNotEmpty() }?.let { Triple("series", "Series", it) },
-                )
-            }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (t: Throwable) {
-            model.error = t.toAppError().userMessage
+            model.error = t.toAppError().userMessage; return@LaunchedEffect
         }
+        model.brand = brand
+        val hub = container.brands.hub(api, brand)
+        // Each row appears as soon as its own answer arrives.
+        coroutineScope {
+            launch { model.newest = runCatching { hub.newest.await() }.getOrElse { emptyList() } }
+            launch { model.movies = runCatching { hub.movies.await() }.getOrElse { emptyList() } }
+            launch { model.series = runCatching { hub.series.await() }.getOrElse { emptyList() } }
+            launch { model.total = runCatching { hub.total.await() }.getOrNull() }
+        }
+        model.loadedOnce = true
+        if (listOf(hub.newest, hub.movies, hub.series).all { it.isCancelled })
+            model.error = "Couldn't load ${brand.brand.name} from the server."
     }
-    ScreenFocus(entry, navigator, browseFocus, ready = model.rails != null)
+    ScreenFocus(entry, navigator, browseFocus, ready = model.brand != null)
 
     val brand = model.brand
-    val rails = model.rails
-    if (model.error != null && rails == null) {
+    if (model.error != null && model.newest.isNullOrEmpty() && model.movies.isNullOrEmpty() && model.series.isNullOrEmpty()) {
         ErrorState(model.error!!, onRetry = { attempt++ })
         return
     }
@@ -232,20 +255,27 @@ fun BrandHubScreen(route: Route.Brand) {
                 }
             }
         }
-        when {
-            rails == null -> items(2) { SkeletonRail(CardStyle.Poster) }
-            rails.isEmpty() -> item { EmptyState("Nothing here yet", "No movies or series from ${route.name} in your libraries.") }
-            else -> items(rails, key = { it.first }) { (key, title, list) ->
-                ContentRail(title, list, api.images, CardStyle.Poster, "brand-$key", onItemClick = { openItem(navigator, it) })
+        val rows = listOf(Triple("newest", "New and recent", model.newest), Triple("movies", "Movies", model.movies), Triple("series", "Series", model.series))
+        rows.forEach { (key, title, list) ->
+            when {
+                list == null -> item(key = "$key-loading") { SkeletonRail(CardStyle.Poster) }
+                list.isNotEmpty() -> item(key = key) {
+                    ContentRail(title, list, api.images, CardStyle.Poster, "brand-$key", onItemClick = { openItem(navigator, it) })
+                }
             }
+        }
+        if (rows.all { it.third?.isEmpty() == true }) {
+            item(key = "empty") { EmptyState("Nothing here yet", "No movies or series from ${route.name} in your libraries.") }
         }
     }
 }
 
-
 class BrandHubModel {
     var brand by mutableStateOf<ResolvedBrand?>(null)
-    var rails by mutableStateOf<List<Triple<String, String, List<BaseItemDto>>>?>(null)
+    var newest by mutableStateOf<List<BaseItemDto>?>(null)
+    var movies by mutableStateOf<List<BaseItemDto>?>(null)
+    var series by mutableStateOf<List<BaseItemDto>?>(null)
     var total by mutableStateOf<Int?>(null)
     var error by mutableStateOf<String?>(null)
+    var loadedOnce = false
 }

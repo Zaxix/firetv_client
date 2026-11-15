@@ -2,6 +2,11 @@ package com.auroratv.brands
 
 import com.auroratv.jellyfin.JellyfinApi
 import com.auroratv.jellyfin.model.BaseItemDto
+import com.auroratv.jellyfin.Fields
+import com.auroratv.jellyfin.ItemQuery
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.minutes
@@ -67,10 +72,25 @@ object BrandCatalog {
     }
 }
 
-/** Resolves brands once per server session (studio lists change rarely); refreshed every 30 minutes. */
-class BrandService {
+/** The rows of one Brand Hub, each loading independently so the page fills in as answers arrive. */
+class BrandHubData(
+    val newest: Deferred<List<BaseItemDto>>,
+    val movies: Deferred<List<BaseItemDto>>,
+    val series: Deferred<List<BaseItemDto>>,
+    /** Movies + series count; a separate query so the rows never wait for it. */
+    val total: Deferred<Int>,
+    val created: TimeMark,
+)
+
+/**
+ * Resolves brands once per server session (studio lists change rarely; refreshed every 30 min) and
+ * loads Brand Hubs: lean queries (poster fields only, no per-row counts), all in parallel, cached
+ * for 10 minutes, and started early when a tile is focused so the hub is usually ready on open.
+ */
+class BrandService(private val scope: CoroutineScope) {
     private val mutex = Mutex()
     private var cached: Triple<JellyfinApi, TimeMark, List<ResolvedBrand>>? = null
+    private val hubs = HashMap<String, Pair<JellyfinApi, BrandHubData>>()
 
     suspend fun brands(api: JellyfinApi): List<ResolvedBrand> = mutex.withLock {
         cached?.let { (a, at, list) -> if (a === api && at.elapsedNow() < 30.minutes) return@withLock list }
@@ -80,4 +100,28 @@ class BrandService {
     }
 
     fun find(api: JellyfinApi, id: String): ResolvedBrand? = cached?.takeIf { it.first === api }?.third?.firstOrNull { it.brand.id == id }
+
+    /** The hub for [brand]: cached, in flight, or started now. Main thread only. */
+    fun hub(api: JellyfinApi, brand: ResolvedBrand): BrandHubData {
+        hubs[brand.brand.id]?.let { (a, h) ->
+            val failed = listOf(h.newest, h.movies, h.series).any { it.isCancelled }
+            if (a === api && h.created.elapsedNow() < 10.minutes && !failed) return h
+        }
+        fun query(types: List<String>, sort: String, limit: Int = 24) = ItemQuery(
+            includeItemTypes = types, studioIds = brand.studioIds, sortBy = sort, sortDescending = true,
+            limit = limit, fields = Fields.POSTER, totalCount = false,
+        )
+        val h = BrandHubData(
+            newest = scope.async { api.items(query(listOf("Movie", "Series"), "PremiereDate,SortName")).items },
+            movies = scope.async { api.items(query(listOf("Movie"), "CommunityRating,SortName")).items },
+            series = scope.async { api.items(query(listOf("Series"), "CommunityRating,SortName")).items },
+            total = scope.async { api.items(query(listOf("Movie", "Series"), "SortName", limit = 0).copy(totalCount = true, fields = "")).totalRecordCount },
+            created = TimeSource.Monotonic.markNow(),
+        )
+        hubs[brand.brand.id] = api to h
+        return h
+    }
+
+    /** Starts loading [brand]'s hub (e.g. when its tile is focused) so opening it is instant. */
+    fun prefetch(api: JellyfinApi, brand: ResolvedBrand) { hub(api, brand) }
 }

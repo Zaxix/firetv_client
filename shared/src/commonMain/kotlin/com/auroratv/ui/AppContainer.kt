@@ -33,7 +33,7 @@ class AppContainer(val platform: Platform) {
     /** In-app updates from the latest-build release. */
     val updates = com.auroratv.update.UpdateManager(http, platform.updater, platform.files, { settings.current }, appScope, { com.auroratv.playback.wallClockMs() })
     /** Studio/network brands found in the library (Home's brand tiles). */
-    val brands = com.auroratv.brands.BrandService()
+    val brands = com.auroratv.brands.BrandService(appScope)
     /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */
     var pendingSettingsPage: String? = null
 

@@ -164,6 +164,8 @@ private fun MainShell(container: AppContainer) {
     val entry = navigator.current
 
     val sideBar = remember { SideBarState() }
+    /** The screen area; requesting focus here returns to the card/button that had it before the sidebar. */
+    val contentFocus = remember { FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -202,7 +204,7 @@ private fun MainShell(container: AppContainer) {
             val isPlayer = entry.route is Route.Player
             val motion = Aurora.motion
             if (!isPlayer) {
-                Box(Modifier.fillMaxSize().focusGroup().focusRestorer()) {
+                Box(Modifier.fillMaxSize().focusRequester(contentFocus).focusGroup().focusRestorer()) {
                     AnimatedContent(
                         targetState = entry,
                         transitionSpec = { fadeIn(tween(motion.duration(220))) togetherWith fadeOut(tween(motion.duration(120))) },
@@ -210,11 +212,17 @@ private fun MainShell(container: AppContainer) {
                         CompositionLocalProvider(LocalEntry provides e) { RouteContent(container, e.route) }
                     }
                 }
-                SideBar(navigator, sideBar) {
-                    // After choosing a section, go to its content (like tvOS) once it has composed.
-                    shellScope.launch {
-                        kotlinx.coroutines.delay(120)
-                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                SideBar(navigator, sideBar) { sameScreen ->
+                    if (sameScreen) {
+                        // Choosing the section you're already on just closes the sidebar and goes back
+                        // to where you were on that screen.
+                        if (runCatching { contentFocus.requestFocus() }.isFailure) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                    } else {
+                        // After choosing a section, go to its content (like tvOS) once it has composed.
+                        shellScope.launch {
+                            kotlinx.coroutines.delay(120)
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                        }
                     }
                 }
             } else {
@@ -290,7 +298,7 @@ private fun Section.short(): String = when (this) {
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: () -> Unit) {
+private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: (sameScreen: Boolean) -> Unit) {
     val colors = Aurora.colors
     val motion = Aurora.motion
     val expanded = bar.hasFocus
@@ -326,11 +334,15 @@ private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: () -> U
 }
 
 @Composable
-private fun SideBarItem(section: Section, navigator: Navigator, bar: SideBarState, expanded: Boolean, onSelected: () -> Unit) {
+private fun SideBarItem(section: Section, navigator: Navigator, bar: SideBarState, expanded: Boolean, onSelected: (sameScreen: Boolean) -> Unit) {
     val colors = Aurora.colors
     val selected = navigator.currentSection == section
     FocusSurface(
-        onClick = { navigator.selectSection(section); onSelected() },
+        onClick = {
+            val same = navigator.currentSection == section && navigator.current.route == Route.Root(section)
+            navigator.selectSection(section)
+            onSelected(same)
+        },
         shape = RoundedCornerShape(16.dp),
         sheen = false,
         scaleOnFocus = false,

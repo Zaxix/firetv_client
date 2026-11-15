@@ -78,6 +78,8 @@ object Fields {
     const val CARD = "PrimaryImageAspectRatio,Overview,Genres,ParentId,SeriesPrimaryImageTag,ChildCount,RecursiveItemCount"
     const val DETAIL = "Overview,Genres,Studios,People,Taglines,MediaSources,MediaStreams,Chapters,PrimaryImageAspectRatio,ChildCount,RecursiveItemCount,OriginalTitle,ParentId"
     const val IMAGE_TYPES = "Primary,Backdrop,Logo,Thumb"
+    /** Just what a poster card draws: no overview/genres/child counts (child counts are costly for series). */
+    const val POSTER = "PrimaryImageAspectRatio"
 }
 
 data class ItemQuery(
@@ -95,6 +97,8 @@ data class ItemQuery(
     val fields: String = Fields.CARD,
     /** Only items from these studios/networks (Jellyfin studio item ids). */
     val studioIds: List<String> = emptyList(),
+    /** Ask the server to count all matches (a second, sometimes slow, query on big libraries). */
+    val totalCount: Boolean = true,
 )
 
 /**
@@ -208,7 +212,7 @@ class JellyfinApi(
             parameter("fields", query.fields)
             parameter("imageTypeLimit", 1)
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
-            parameter("enableTotalRecordCount", true)
+            parameter("enableTotalRecordCount", query.totalCount)
         }.read()
 
     /** Studios and networks used by the user's movies and series (for brand tiles), with any images. */
