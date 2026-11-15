@@ -136,6 +136,22 @@ class JellyfinIntegrationTest {
             "overview, ${m.genres.size} genres, poster ${bytes.second}, blurhash=${poster.blurHash != null}"
         }
 
+        record("Critic score from server metadata feeds the ratings strip") {
+            val m = movie("Glass Meridian")
+            val r = com.auroratv.ratings.RatingsService.fromJellyfin(m)
+            assertEquals(93, r?.tomatometer)
+            "CriticRating=${m.criticRating} → tomatometer ${r?.tomatometer}%; providerIds=${m.providerIds.keys}"
+        }
+        record("Rating keys typed on one device reach another (Jellyfin DisplayPreferences)") {
+            val pc = com.auroratv.ratings.RatingsKeyStore(MemoryVault())
+            pc.save(com.auroratv.ratings.RatingsKeys("ci-mdblist", "ci-trakt")); pc.push(api, pc.keys.value)
+            val tvVault = MemoryVault()
+            val tv = com.auroratv.ratings.RatingsKeyStore(tvVault); tv.pull(api)
+            assertEquals(com.auroratv.ratings.RatingsKeys("ci-mdblist", "ci-trakt"), tv.keys.value)
+            pc.push(api, com.auroratv.ratings.RatingsKeys())
+            "pushed from one store, pulled into another; vault keys=${tvVault.data.keys.sorted()}"
+        }
+
         // ---- Playback negotiation ----
         record("HEVC Main10 + ASS → Direct Play on HEVC-capable Fire TV profile") {
             val m = movie("Glass Meridian")

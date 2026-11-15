@@ -56,7 +56,7 @@ import com.auroratv.ui.theme.AuroraType
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 
-private enum class SettingsPage(val label: String) { Appearance("Appearance"), Playback("Playback"), Subtitles("Subtitles"), Server("Server"), About("About") }
+private enum class SettingsPage(val label: String) { Appearance("Appearance"), Playback("Playback"), Subtitles("Subtitles"), Server("Server"), Ratings("Ratings"), About("About") }
 
 private val LANGUAGES = listOf("" to "Default", "eng" to "English", "spa" to "Spanish", "fra" to "French", "deu" to "German", "ita" to "Italian",
     "por" to "Portuguese", "jpn" to "Japanese", "kor" to "Korean", "zho" to "Chinese", "rus" to "Russian", "nld" to "Dutch", "swe" to "Swedish",
@@ -104,6 +104,7 @@ fun SettingsScreen(container: AppContainer) {
                 SettingsPage.Playback -> PlaybackPage(container)
                 SettingsPage.Subtitles -> SubtitlePage(container)
                 SettingsPage.Server -> ServerPage(container)
+                SettingsPage.Ratings -> RatingsPage(container)
                 SettingsPage.About -> AboutPage(container)
             }
         }
@@ -278,6 +279,69 @@ private fun ServerPage(container: AppContainer) {
         items(servers.filter { it.id != session.server.id }, key = { "remove-" + it.id }) { server ->
             SettingRow("Remove ${server.name}", if (confirmRemove == server.id) "Press again to confirm" else null, "Forgets the server and its saved sign-ins") {
                 if (confirmRemove == server.id) { container.sessions.removeServer(server); confirmRemove = null } else confirmRemove = server.id
+            }
+        }
+    }
+}
+
+/**
+ * Optional rating sources. Keys are free, kept in the secure vault and copied to the user's
+ * Jellyfin profile, so typing them once on a PC is enough for the TV too.
+ */
+@Composable
+private fun RatingsPage(container: AppContainer) {
+    val session = LocalSession.current
+    val scope = rememberCoroutineScope()
+    val saved by container.ratingsKeys.keys.collectAsState()
+    var mdblist by remember(saved) { mutableStateOf(saved.mdblist) }
+    var trakt by remember(saved) { mutableStateOf(saved.trakt) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val colors = Aurora.colors
+    androidx.compose.runtime.LaunchedEffect(session) { runCatching { container.ratingsKeys.pull(session.api) } }
+    SettingsList {
+        item { Header("Ratings & reviews") }
+        item {
+            Text(
+                "Detail pages always show the critics score your server has. Add free keys for more: " +
+                    "MDBList brings the Rotten Tomatoes critics and audience scores, IMDb, Metacritic and Letterboxd " +
+                    "(mdblist.com → Preferences → API Access). Trakt brings spoiler-free reviews with each reviewer's score " +
+                    "(trakt.tv → Settings → Your API Apps → New Application; use urn:ietf:wg:oauth:2.0:oob as the redirect URI " +
+                    "and paste the Client ID).",
+                style = AuroraType.body, color = colors.onSurfaceMuted, modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        item {
+            Text(
+                "IMDb's own user reviews can't be shown: IMDb has no API for them and its terms don't allow scraping. Trakt reviews flagged as spoilers are never shown.",
+                style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
+        item { AuroraTextField(mdblist, { mdblist = it }, "MDBList API key", Modifier.fillMaxWidth(), password = true) }
+        item { AuroraTextField(trakt, { trakt = it }, "Trakt Client ID", Modifier.fillMaxWidth(), password = true) }
+        item {
+            SettingRow("Save and test", status, "Keys are stored encrypted on this device and in your Jellyfin profile, so your other Aurora devices get them too") {
+                val keys = com.auroratv.ratings.RatingsKeys(mdblist, trakt)
+                status = "Checking…"
+                scope.launch {
+                    container.ratingsKeys.save(keys)
+                    val results = buildList {
+                        if (keys.mdblist.isNotBlank()) add("MDBList: " + container.ratings.testMdbList(keys.mdblist))
+                        if (keys.trakt.isNotBlank()) add("Trakt: " + container.ratings.testTrakt(keys.trakt))
+                        add(runCatching { container.ratingsKeys.push(session.api, keys); "synced to your profile" }.getOrElse { "not synced (${it.toAppError().userMessage})" })
+                    }
+                    status = results.joinToString(" · ")
+                }
+            }
+        }
+        if (saved.hasAny) {
+            item {
+                SettingRow("Remove keys", null, "Forgets both keys on this device and in your Jellyfin profile") {
+                    scope.launch {
+                        container.ratingsKeys.save(com.auroratv.ratings.RatingsKeys())
+                        runCatching { container.ratingsKeys.push(session.api, com.auroratv.ratings.RatingsKeys()) }
+                        status = "Keys removed"
+                    }
+                }
             }
         }
     }

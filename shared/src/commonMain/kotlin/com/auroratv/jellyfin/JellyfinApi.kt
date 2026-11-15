@@ -208,6 +208,34 @@ class JellyfinApi(
             parameter("enableTotalRecordCount", true)
         }.read()
 
+    /** CustomPrefs of a DisplayPreferences entry (per user + client); the server returns defaults if none exist. */
+    suspend fun customPrefs(id: String, client: String): Map<String, String> {
+        val obj: kotlinx.serialization.json.JsonObject = http.get(url("/DisplayPreferences/$id")) {
+            auth(); parameter("userId", requireUser()); parameter("client", client)
+        }.read()
+        val prefs = obj["CustomPrefs"] as? kotlinx.serialization.json.JsonObject ?: return emptyMap()
+        return prefs.mapNotNull { (k, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content?.let { k to it } }.toMap()
+    }
+
+    /** Merges [values] into a DisplayPreferences entry's CustomPrefs (read-modify-write keeps the other fields). */
+    suspend fun saveCustomPrefs(id: String, client: String, values: Map<String, String>) {
+        val current: kotlinx.serialization.json.JsonObject = http.get(url("/DisplayPreferences/$id")) {
+            auth(); parameter("userId", requireUser()); parameter("client", client)
+        }.read()
+        val prefs = (current["CustomPrefs"] as? kotlinx.serialization.json.JsonObject).orEmpty() +
+            values.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) }
+        val body = kotlinx.serialization.json.JsonObject(current + mapOf(
+            "Id" to kotlinx.serialization.json.JsonPrimitive(id),
+            "Client" to kotlinx.serialization.json.JsonPrimitive(client),
+            "CustomPrefs" to kotlinx.serialization.json.JsonObject(prefs),
+        ))
+        http.post(url("/DisplayPreferences/$id")) {
+            auth(); parameter("userId", requireUser()); parameter("client", client)
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.ensureOk()
+    }
+
     suspend fun item(itemId: String): BaseItemDto =
         http.get(url("/Items/$itemId")) {
             auth(); parameter("userId", requireUser())

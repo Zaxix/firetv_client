@@ -87,6 +87,11 @@ class DetailModel(preview: BaseItemDto?) {
     var episodes by mutableStateOf<List<BaseItemDto>?>(null)
     var nextUp by mutableStateOf<BaseItemDto?>(null)
     var similar by mutableStateOf<List<BaseItemDto>>(emptyList())
+    var ratings by mutableStateOf<com.auroratv.ratings.ExternalRatings?>(preview?.let { com.auroratv.ratings.RatingsService.fromJellyfin(it) })
+    var reviews by mutableStateOf<List<com.auroratv.ratings.Review>>(emptyList())
+    var openReview by mutableStateOf<com.auroratv.ratings.Review?>(null)
+    var ratingsFor: String? = null
+    val reviewsFocus = FocusRequester()
     val listState = LazyListState()
 }
 
@@ -130,6 +135,21 @@ fun DetailScreen(route: Route.Detail) {
             val err = t.toAppError()
             container.onError(err)
             model.error = err.userMessage
+        }
+    }
+    // Ratings and reviews come from outside services: fetched once per item after the page is up,
+    // cached by RatingsService, and never in the way of the page itself.
+    val loadedId = model.item?.takeIf { model.loaded }?.id
+    LaunchedEffect(loadedId) {
+        val item = model.item ?: return@LaunchedEffect
+        if (loadedId == null || model.ratingsFor == loadedId) return@LaunchedEffect
+        model.ratingsFor = loadedId
+        model.ratings = com.auroratv.ratings.RatingsService.fromJellyfin(item)
+        if (!container.ratings.supports(item)) return@LaunchedEffect
+        container.ratingsKeys.pull(api)
+        coroutineScope {
+            launch { container.ratings.ratings(item)?.let { model.ratings = it } }
+            launch { model.reviews = container.ratings.reviews(item) }
         }
     }
     ScreenFocus(entry, navigator, playFocus, ready = model.item != null)
@@ -177,6 +197,7 @@ fun DetailScreen(route: Route.Detail) {
                 Box(Modifier.fillMaxWidth().height(headerHeight), contentAlignment = Alignment.BottomStart) {
                 DetailHeader(
                     item = item,
+                    ratings = model.ratings,
                     nextUp = model.nextUp,
                     playFocus = playFocus,
                     onPlay = { target, fromStart -> navigator.push(Route.Player(target.id, fromStart)) },
@@ -205,6 +226,9 @@ fun DetailScreen(route: Route.Detail) {
                     else EpisodeRow(eps) { ep -> navigator.push(Route.Detail(ep.id, ep)) }
                 }
             }
+            if (model.reviews.isNotEmpty()) {
+                item(key = "reviews") { ReviewsRow(model.reviews, model.reviewsFocus) { model.openReview = it } }
+            }
             val cast = item.people.filter { it.type == "Actor" }.take(20)
             if (cast.isNotEmpty()) {
                 item(key = "cast") { CastRow(cast, api.images) }
@@ -216,12 +240,19 @@ fun DetailScreen(route: Route.Detail) {
             }
             item(key = "info") { TechnicalInfo(item) }
         }
+        model.openReview?.let { review ->
+            ReviewOverlay(review) {
+                model.openReview = null
+                runCatching { model.reviewsFocus.requestFocus() }
+            }
+        }
     }
 }
 
 @Composable
 private fun DetailHeader(
     item: BaseItemDto,
+    ratings: com.auroratv.ratings.ExternalRatings?,
     nextUp: BaseItemDto?,
     playFocus: FocusRequester,
     onPlay: (BaseItemDto, Boolean) -> Unit,
@@ -246,11 +277,15 @@ private fun DetailHeader(
             item.productionYear?.toString(),
             item.officialRating,
             formatRuntime(item.runtimeMs),
-            formatRating(item.communityRating)?.let { "★ $it" },
-            item.criticRating?.let { "${it.toInt()}% critics" },
+            // Community score stays in the line unless IMDb's own number is shown below.
+            formatRating(item.communityRating)?.takeIf { ratings?.imdb == null }?.let { "★ $it" },
             item.status?.takeIf { item.isSeries },
         ).joinToString("  ·  ")
         Text(meta, style = AuroraType.bodyStrong, color = colors.onSurfaceMuted)
+        if (ratings != null && !ratings.isEmpty) {
+            Spacer(Modifier.height(14.dp))
+            RatingsStrip(ratings)
+        }
         if (item.genres.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
             Text(item.genres.joinToString(", "), style = AuroraType.body, color = colors.onSurfaceFaint)

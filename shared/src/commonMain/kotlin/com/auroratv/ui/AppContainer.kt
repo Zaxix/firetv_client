@@ -22,6 +22,9 @@ class AppContainer(val platform: Platform) {
     val http = createJellyfinHttpClient()
     val settings = SettingsRepository(platform.files)
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
+    /** Optional MDBList / Trakt keys (secure vault, synced through the user's Jellyfin profile). */
+    val ratingsKeys = com.auroratv.ratings.RatingsKeyStore(platform.vault)
+    val ratings = com.auroratv.ratings.RatingsService(http) { ratingsKeys.keys.value }
 
     private var detector: Pair<JellyfinApi, SkipDetector>? = null
 

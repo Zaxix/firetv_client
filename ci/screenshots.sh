@@ -53,7 +53,8 @@ shoot 04-series-detail "detail:$SERIES" 15 Down Down
 shoot 05-movies-library "section:Movies" 15 Down
 shoot 06-search "section:Search" 12
 shoot 07-settings "section:Settings" 10 Down
-shoot 08-about-capabilities "section:Settings" 12 Down Down Down Down
+shoot 08-about-capabilities "section:Settings" 12 Down Down Down Down Down
+shoot 08b-settings-ratings "section:Settings" 12 Down Down Down Down
 shoot 09-player-ass-typesetting "player:$EP1" 14
 shoot 10-player-controls "player:$SEVEN" 12 Up
 # Hovering the timeline with a mouse shows the time and the trickplay thumbnail at that point.
