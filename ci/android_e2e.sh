@@ -61,7 +61,8 @@ open "player:$SEVEN"; sleep 9
 adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.3; input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'
 adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null && echo "captured android-16-player-scrubbing"
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
-open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
+open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
+key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
 # ---- MPV player: the same subtitle-heavy titles through libmpv (switched with the `player` extra) ----
 # Start EP1 from the beginning (the ExoPlayer run above left a resume point in it).

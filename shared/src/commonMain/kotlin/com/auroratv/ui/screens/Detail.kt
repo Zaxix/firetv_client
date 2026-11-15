@@ -282,13 +282,13 @@ private fun DetailHeader(
             item.status?.takeIf { item.isSeries },
         ).joinToString("  ·  ")
         Text(meta, style = AuroraType.bodyStrong, color = colors.onSurfaceMuted)
-        if (ratings != null && !ratings.isEmpty) {
-            Spacer(Modifier.height(14.dp))
-            RatingsStrip(ratings)
-        }
         if (item.genres.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
             Text(item.genres.joinToString(", "), style = AuroraType.body, color = colors.onSurfaceFaint)
+        }
+        if (ratings != null && !ratings.isEmpty) {
+            Spacer(Modifier.height(16.dp))
+            RatingsStrip(ratings)
         }
         item.taglines.firstOrNull()?.let {
             Spacer(Modifier.height(14.dp))
