@@ -35,6 +35,17 @@ touch the platform are native: video decoding and rendering, secure storage, and
 | Networking | Ktor + kotlinx.serialization | Multiplatform, cancellable, typed DTOs |
 | Local cache | Coil 3 memory + disk cache for artwork; JSON files for settings/servers | The app's own data is tiny (settings, server list), so SQLDelight would add a code generator and schema migrations without a measurable gain. Library data is always fetched fresh from the server (the spec requires server-sourced data), and back-stack entries keep screen data in memory so returning is instant. |
 
+## Ratings and reviews
+
+`RatingsService` (common) takes the server's `CriticRating` as the critics score and, with optional
+keys, adds MDBList (`/tmdb/{movie|show}/{id}`: Rotten Tomatoes critics + audience, IMDb, Metacritic,
+Letterboxd) and Trakt comments (`/{movies|shows}/{imdb id}/comments/likes`, spoiler-flagged and
+spoiler-tagged ones dropped, the reviewer's own 1–10 score kept). The detail page fetches them after
+it is on screen; results are cached for the session (failures for five minutes), each call has an
+eight-second budget, and keys go only to their own service and are never logged. Keys live in the
+secure vault and are mirrored into the user's Jellyfin DisplayPreferences (`aurora-ratings`) so a
+key typed on a PC appears on the TV.
+
 ## Playback flow
 
 1. **Probe** (`AndroidCapabilities` / `DesktopPlatform.probeCapabilities`), once per launch:
@@ -57,7 +68,15 @@ touch the platform are native: video decoding and rendering, secure storage, and
 5. **Switching tracks**: switching between embedded tracks during Direct Play happens in the engine
    with no reload. Choosing a subtitle that needs burning in, or changing audio while transcoding,
    asks the server for a new stream at the current position.
-6. **Buffering**: Media3 buffers up to 2 minutes / 160 MB ahead (starting after 1.5 s) and keeps 15 s
+6. **Dolby Vision routing** (Android, ExoPlayer): `DolbyVisionRenderersFactory` replaces Media3's
+   video renderer with one that rewrites each DV track's `Format` before decoder selection, using the
+   per-profile decision in `DolbyVisionSupport.routeFor` (the same rules `allowedRangeTypes` gives the
+   server): native DV, profile 7 → 8.1 (codec string rewritten so the profile 8 decoder is chosen, and
+   a codec-adapter filter that drops NAL 63 and runs libdovi on NAL 62), or the plain HEVC/AVC/AV1
+   decoder for the base layer. The filter copies each access unit into a reused heap buffer once,
+   edits it there and writes back only when something changed; HDR10+ SEI masking for affected Fire TV
+   models runs in the same pass.
+7. **Buffering**: Media3 buffers up to 2 minutes / 160 MB ahead (starting after 1.5 s) and keeps 15 s
    behind the playhead; mpv keeps a 400 MiB forward and 100 MiB back cache and resumes after 2 s of
    cache instead of stalling longer. Seeks jump to the nearest keyframe on both engines so scrubbing
    is near-instant.

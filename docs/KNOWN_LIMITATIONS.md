@@ -29,6 +29,19 @@ can only be confirmed on that device; CI can't test them.
   Simple* switches to static cue rendering. Rendering is also capped at 1080p on 4K TVs.
 * **Dolby Vision profile 5** (no HDR10 base layer) plays only on devices with a DV decoder and a DV
   display; otherwise the server tone-maps it, which needs a server with tone-mapping configured.
+* **Dolby Vision profile 7 → 8.1 conversion** drops the full enhancement layer (FEL), as every
+  conversion-based player does: the picture is the base layer shaped by the converted RPU, which is
+  how Fire TVs and most TVs show UHD Blu-ray Dolby Vision at all. The conversion needs libdovi, which
+  ships for arm64-v8a, armeabi-v7a and x86_64; on other ABIs profile 7 plays as HDR10. The routing and
+  the bitstream edits are unit-tested and the server decisions are tested against a real Jellyfin with
+  generated profile 5 / 7 / 8.1 files, but **no Dolby Vision playback has been checked on a real Fire TV
+  or DV TV yet** (CI has neither).
+* **Ratings and reviews** beyond the server's critic score need free keys (Settings → Ratings):
+  MDBList for Rotten Tomatoes critics/audience, IMDb, Metacritic and Letterboxd; Trakt for reviews.
+  IMDb's user reviews aren't available: IMDb offers no API for them and its terms don't allow scraping,
+  so reviews come from Trakt, where spoiler-flagged ones are filtered out. Episodes show the server's
+  own ratings only. The CI server has no keys, so the live MDBList/Trakt calls are only covered by
+  mocked tests.
 * **Minimum Android version is 6.0 (API 23).** That covers Fire OS 6, 7 and 8 devices. Fire TV devices
   still on Fire OS 5 (Android 5.1) aren't supported.
 * **Release signing:** releases are signed with a permanent key (see README). Builds from before it

@@ -29,7 +29,17 @@ Legend: ✅ supported · 🔎 probed per device (hardware dependent) · 🔁 ser
 | HDR10 | 🔎 display must report HDR10 + 10-bit decoder; otherwise server tone-maps (🔁) | ✅ passes through with Windows HDR on (`target-colorspace-hint`), else mpv tone-maps to SDR |
 | HDR10+ | 🔎 (plays as HDR10 where HDR10+ isn't reported) | ✅ as HDR10 |
 | HLG | 🔎 | ✅ |
-| Dolby Vision (profile 5, 7, 8) | 🔎 needs a `video/dolby-vision` decoder **and** a DV-capable display; DV with HDR10/HLG base layer plays as the base layer; profile 5 without DV support → 🔁 | ✅ profiles 5/8 via libplacebo reshaping (gpu-next); profile 7 as base layer |
+| HDR10+ inside Dolby Vision | 🔎 on Fire TV 4K / 4K Max (AFTMM, AFTKA, AFTKM, AFTKRT) the HDR10+ SEI messages are masked on the way into the DV decoder, which mishandles streams carrying both (media3 #11096) | ✅ |
+| Dolby Vision 8.1 / 8.4 / 8.2 (WEB-DL, streaming rips) | 🔎 DV decoder declaring profile 8 + DV display → real Dolby Vision; otherwise the track is handed to the plain HEVC decoder and plays its HDR10 / HLG / SDR base layer | ✅ libplacebo applies the RPU (gpu-next) |
+| Dolby Vision 7 FEL/MEL (UHD Blu-ray remuxes) | 🔎 decoder declaring profile 7 (or a Shield, which decodes it without declaring it) → native; DV decoder with only profile 8 (Fire TV, most TVs) → **converted to 8.1 on the fly** (libdovi rewrites the RPU, the enhancement layer is dropped, nothing is re-encoded) so the TV still switches to Dolby Vision; no DV display → HDR10 base layer | ✅ base layer + RPU via libplacebo (the enhancement layer is ignored) |
+| Dolby Vision 5 (no base layer) | 🔎 DV decoder declaring profile 5 + DV display → native; otherwise 🔁 server converts (it can't be shown correctly any other way) | ✅ libplacebo reshaping |
+| Dolby Vision 10 (AV1) | 🔎 AV1 DV decoder → native; 10.1/10.2/10.4 otherwise play their AV1 base layer; 10.0 → 🔁 | ✅ |
+| Invalid DV signalling (`DOVIInvalid`) | 🔁 always left to the server | 🔁 |
+
+Which path a file took is shown in the player's info panel (*HDR path*), and *Settings → About → Dolby
+Vision* shows what the decoder and display declared. The Android mpv engine has no Dolby Vision output
+path, so with mpv selected DV files play their base layer and profile 5 is converted by the server; use
+ExoPlayer (the default) for Dolby Vision on a TV.
 
 ## Audio
 
