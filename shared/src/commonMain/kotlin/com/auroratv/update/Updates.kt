@@ -110,7 +110,7 @@ class UpdateManager(
     /** Automatic check: on start-up, if enabled and the last one was over 20 hours ago. */
     fun checkIfDue(): Job? {
         if (updater == null || !settings().autoCheckUpdates) return null
-        if (now() - prefs.lastCheckMs < AUTO_INTERVAL_MS) return null
+        if (prefs.lastCheckMs != 0L && now() - prefs.lastCheckMs < AUTO_INTERVAL_MS) return null
         return check(userAsked = false)
     }
 
