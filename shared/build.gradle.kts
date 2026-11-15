@@ -76,6 +76,8 @@ kotlin {
             implementation(libs.media3.effect)
             implementation(libs.ass.media)
             implementation(libs.jellyfin.media3.ffmpeg)
+            // libmpv for Android (mpv 0.42 + FFmpeg + libass), the optional second player. GPL-3.0.
+            implementation(libs.libmpv.android)
         }
         val desktopMain by getting {
             dependencies {

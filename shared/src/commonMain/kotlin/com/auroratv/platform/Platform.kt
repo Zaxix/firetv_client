@@ -46,6 +46,12 @@ interface Platform {
     fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine
 
     /**
+     * What the engine chosen in [settings] can play, given the probed device [base]. The default is
+     * [base]; Android widens it when mpv is selected (FFmpeg decodes more audio and containers).
+     */
+    fun capabilitiesFor(base: DeviceCapabilities, settings: com.auroratv.settings.Settings): DeviceCapabilities = base
+
+    /**
      * Hosts the player. Android draws video and controls in one view tree; Windows places the mpv
      * video window behind a transparent controls window. [controls] is the shared Compose player UI.
      */

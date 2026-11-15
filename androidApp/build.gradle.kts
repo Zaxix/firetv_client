@@ -63,7 +63,11 @@ android {
         compose = true
     }
     packaging {
-        jniLibs { useLegacyPackaging = true }
+        jniLibs {
+            useLegacyPackaging = true
+            // libmpv, ass-media and the FFmpeg extension may each bundle the NDK C++ runtime.
+            pickFirsts += setOf("lib/*/libc++_shared.so")
+        }
         resources { excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties") }
     }
 }

@@ -63,8 +63,19 @@ adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null 
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
+# ---- MPV player: the same subtitle-heavy titles through libmpv (switched with the `player` extra) ----
+# Start EP1 from the beginning (the ExoPlayer run above left a resume point in it).
+curl -sf -X POST "$URL/UserItems/$EP1/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":0}' >/dev/null || true
+openmpv() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es player mpv --es route "$1"; }
+openmpv "player:$EP1"; sleep 24; shot android-17-mpv-anime-ass
+sleep 4; shot android-18-mpv-anime-ass-later
+openmpv "player:$GLASS"; sleep 24; shot android-19-mpv-hevc-main10-styled-ass
+openmpv "player:$SEVEN"; sleep 16; shot android-20-mpv-direct-play-mkv
+key KEYCODE_DPAD_DOWN; sleep 2; shot android-21-mpv-info
+adb shell am force-stop "$PKG"; adb shell am start -n "$PKG/$ACT" --es player exoplayer; sleep 6
+
 adb logcat -d > "$OUT/logcat-full.txt"
-grep -E "Negotiator|Caps|Capabilities|ExoEngine|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
+grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
 echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi

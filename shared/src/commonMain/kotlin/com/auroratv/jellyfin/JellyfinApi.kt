@@ -1,5 +1,7 @@
 package com.auroratv.jellyfin
 
+import io.ktor.http.isSuccess
+import io.ktor.client.statement.bodyAsBytes
 import com.auroratv.AppInfo
 import com.auroratv.core.AppError
 import com.auroratv.core.AuroraJson
@@ -350,6 +352,13 @@ class JellyfinApi(
         }
 
     /** Headers the playback engines must send with media requests. Tokens never go into URLs we build. */
+    /** Downloads a server file (e.g. a font attachment) with the session's credentials. */
+    suspend fun downloadBytes(pathOrUrl: String): ByteArray {
+        val response = http.get(absolute(pathOrUrl)) { auth() }
+        if (!response.status.isSuccess()) throw AppError.Server(response.status.value)
+        return response.bodyAsBytes()
+    }
+
     fun mediaHeaders(): Map<String, String> =
         accessToken?.let { mapOf("X-Emby-Token" to it, "Authorization" to identity.authorizationHeader(it)) } ?: emptyMap()
 

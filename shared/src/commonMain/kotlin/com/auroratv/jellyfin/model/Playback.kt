@@ -60,6 +60,8 @@ data class MediaSourceInfo(
     @SerialName("DefaultSubtitleStreamIndex") val defaultSubtitleStreamIndex: Int? = null,
     @SerialName("IsRemote") val isRemote: Boolean = false,
     @SerialName("ETag") val eTag: String? = null,
+    /** Files attached to the container, e.g. the fonts an ASS subtitle track uses (MKV attachments). */
+    @SerialName("MediaAttachments") val mediaAttachments: List<MediaAttachment> = emptyList(),
 ) {
     val videoStream get() = mediaStreams.firstOrNull { it.isVideo }
     val audioStreams get() = mediaStreams.filter { it.isAudio }
@@ -104,3 +106,22 @@ data class PlaybackReport(
     @SerialName("PlayMethod") val playMethod: String? = null,
     @SerialName("RepeatMode") val repeatMode: String = "RepeatNone",
 )
+
+@Serializable
+data class MediaAttachment(
+    @SerialName("Index") val index: Int,
+    @SerialName("Codec") val codec: String? = null,
+    @SerialName("FileName") val fileName: String? = null,
+    @SerialName("MimeType") val mimeType: String? = null,
+    @SerialName("DeliveryUrl") val deliveryUrl: String? = null,
+) {
+    /** TrueType/OpenType fonts (what libass can load), by MIME type, codec or file extension. */
+    val isFont: Boolean
+        get() {
+            val mime = mimeType.orEmpty().lowercase()
+            val ext = fileName.orEmpty().substringAfterLast('.', "").lowercase()
+            val codec = codec.orEmpty().lowercase()
+            return ext in setOf("ttf", "otf", "ttc", "otc") || codec in setOf("ttf", "otf") ||
+                listOf("truetype", "opentype", "font/ttf", "font/otf", "font/collection", "font/sfnt", "x-font-ttf", "x-font-otf").any { it in mime }
+        }
+}

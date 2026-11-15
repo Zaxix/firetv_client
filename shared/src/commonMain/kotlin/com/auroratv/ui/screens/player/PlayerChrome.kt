@@ -270,11 +270,14 @@ fun PlayerChrome(
     }
 
     var countdown by remember { mutableIntStateOf(10) }
+    var askStillWatching by remember { mutableStateOf(false) }
     LaunchedEffect(showUpNext) {
-        if (!showUpNext) return@LaunchedEffect
+        if (!showUpNext) { askStillWatching = false; return@LaunchedEffect }
         controlsVisible = false; panel = Panel.None
         countdown = 10
         if (!s.autoPlayNext) return@LaunchedEffect
+        // Nobody has touched the remote for a long while: ask instead of starting another episode.
+        if (controller.shouldAskStillWatching()) { askStillWatching = true; return@LaunchedEffect }
         while (countdown > 0) { delay(1_000); countdown-- }
         controller.playNext()
     }
@@ -283,6 +286,7 @@ fun PlayerChrome(
     }
 
     fun handleKey(ev: KeyEvent): Boolean {
+        controller.noteInteraction()
         val down = ev.type == KeyEventType.KeyDown
         val up = ev.type == KeyEventType.KeyUp
         when (ev.key) {
@@ -331,6 +335,7 @@ fun PlayerChrome(
                     while (true) {
                         val event = awaitPointerEvent()
                         if (event.type == PointerEventType.Move || event.type == PointerEventType.Press) {
+                            controller.noteInteraction()
                             if (!controlsVisible) controlsVisible = true
                             poke()
                         }
@@ -443,7 +448,8 @@ fun PlayerChrome(
             }, primary = true, focusRequester = skipFocus)
         }
 
-        if (showUpNext) UpNextCard(ui.nextEpisode!!, controller, if (s.autoPlayNext) countdown else null, onExit = ::exit)
+        if (showUpNext && askStillWatching) StillWatchingPrompt(ui.nextEpisode!!, onContinue = { controller.noteInteraction(); controller.playNext() }, onExit = ::exit)
+        else if (showUpNext) UpNextCard(ui.nextEpisode!!, controller, if (s.autoPlayNext) countdown else null, onExit = ::exit)
 
         ui.error?.let { message ->
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
@@ -712,6 +718,28 @@ private fun InfoPanel(controller: PlayerController, focus: FocusRequester) {
                     Text(k, style = AuroraType.caption, color = Color.White.copy(alpha = 0.55f), modifier = Modifier.width(140.dp))
                     Text(v, style = AuroraType.caption, color = Color.White)
                 }
+            }
+        }
+    }
+}
+
+/** Shown instead of auto-playing the next episode after a long time without any input. */
+@Composable
+private fun StillWatchingPrompt(next: BaseItemDto, onContinue: () -> Unit, onExit: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(50); runCatching { focus.requestFocus() } }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(720.dp)) {
+            Text("Are you still watching?", style = AuroraType.title, color = Color.White)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                listOfNotNull(next.seriesName, listOfNotNull(next.episodeLabel, next.name).joinToString(" · ").ifBlank { null }).joinToString("  —  "),
+                style = AuroraType.body, color = Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(28.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                AuroraButton("Continue Watching", onContinue, icon = Icons.Filled.PlayArrow, primary = true, focusRequester = focus)
+                AuroraButton("I'm Done", onExit)
             }
         }
     }

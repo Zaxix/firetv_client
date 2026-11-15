@@ -12,6 +12,9 @@
 # libass (ass-media): JNI calls back into these classes by name.
 -keep class io.github.peerless2012.** { *; }
 
+# libmpv: native code calls MPVLib's event/log methods and the observer interfaces by name.
+-keep class dev.jdtech.mpv.** { *; }
+
 # Jellyfin FFmpeg decoder: loaded by DefaultRenderersFactory via reflection, and JNI-backed.
 -keep class androidx.media3.decoder.ffmpeg.** { *; }
 -keep class androidx.media3.decoder.** { native <methods>; }

@@ -17,6 +17,9 @@ sealed interface SubtitleTrackRef {
     ) : SubtitleTrackRef
 }
 
+/** A font file for libass, e.g. from an MKV attachment the server stripped while transcoding. */
+class SubtitleFont(val name: String, val data: ByteArray)
+
 data class EngineSource(
     val url: String,
     val headers: Map<String, String>,
@@ -28,6 +31,11 @@ data class EngineSource(
     val externalSubtitles: List<SubtitleTrackRef.External>,
     val isHls: Boolean,
     val title: String,
+    /**
+     * Fonts the ASS/SSA subtitles need when the container isn't played directly (transcode or
+     * remux drops MKV attachments). Empty for Direct Play: engines read attachments from the file.
+     */
+    val fonts: List<SubtitleFont> = emptyList(),
 )
 
 data class EngineState(

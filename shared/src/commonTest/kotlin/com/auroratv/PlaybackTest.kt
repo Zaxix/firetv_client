@@ -195,6 +195,32 @@ class NegotiationTest {
     }
 
     @Test
+    fun fontAttachmentsAreRecognised() {
+        fun a(name: String?, mime: String?, codec: String? = null) = com.auroratv.jellyfin.model.MediaAttachment(0, codec, name, mime)
+        assertTrue(a("OpenSans-Bold.ttf", "application/x-truetype-font").isFont)
+        assertTrue(a("FOT-Rodin.otf", null).isFont)
+        assertTrue(a(null, "font/ttf").isFont)
+        assertTrue(a("x", null, codec = "ttf").isFont)
+        assertFalse(a("cover.jpg", "image/jpeg").isFont)
+        assertFalse(a("chapters.xml", "text/xml").isFont)
+    }
+
+    @Test
+    fun stillWatchingScalesWithEpisodeLength() {
+        val min = 60_000L
+        // 24 min anime: at least 90 minutes (about four episodes) before asking.
+        assertEquals(90 * min, com.auroratv.playback.StillWatching.thresholdMs(com.auroratv.settings.StillWatchingMode.Smart, 24 * min))
+        // 45 min drama: three episodes.
+        assertEquals(135 * min, com.auroratv.playback.StillWatching.thresholdMs(com.auroratv.settings.StillWatchingMode.Smart, 45 * min))
+        // Very long episodes are capped at 4 hours.
+        assertEquals(240 * min, com.auroratv.playback.StillWatching.thresholdMs(com.auroratv.settings.StillWatchingMode.Smart, 100 * min))
+        assertFalse(com.auroratv.playback.StillWatching.shouldAsk(com.auroratv.settings.StillWatchingMode.Smart, 89 * min, 24 * min))
+        assertTrue(com.auroratv.playback.StillWatching.shouldAsk(com.auroratv.settings.StillWatchingMode.Smart, 91 * min, 24 * min))
+        assertTrue(com.auroratv.playback.StillWatching.shouldAsk(com.auroratv.settings.StillWatchingMode.After1Hour, 61 * min, 24 * min))
+        assertFalse(com.auroratv.playback.StillWatching.shouldAsk(com.auroratv.settings.StillWatchingMode.Off, 1_000 * min, 24 * min))
+    }
+
+    @Test
     fun nextEpisodeOnlyFromCreditsStart() {
         val item = BaseItemDto(id = "e1", name = "Ep", type = "Episode", runTimeTicks = 24 * 60 * 10_000_000L,
             chapters = listOf(ChapterInfo(0, "Part A"), ChapterInfo(21 * 60 * 10_000_000L, "Ending"), ChapterInfo(23 * 60 * 10_000_000L, "Preview")))

@@ -31,9 +31,14 @@ can only be confirmed on that device; CI can't test them.
   display; otherwise the server tone-maps it, which needs a server with tone-mapping configured.
 * **Minimum Android version is 6.0 (API 23).** That covers Fire OS 6, 7 and 8 devices. Fire TV devices
   still on Fire OS 5 (Android 5.1) aren't supported.
-* **Release signing:** without the `AURORA_KEYSTORE_*` repository secrets, CI signs each release APK
-  with a new throwaway key, so installing a newer build over an older one fails until you uninstall the
-  old one. Add the secrets (see README) for upgrade-in-place.
+* **Release signing:** releases are signed with a permanent key (see README). Builds from before it
+  existed used throwaway keys, so uninstall such a build once; after that, updates install in place.
+  The debug APK is still signed with a per-build key.
+* **MPV on Android TV** is opt-in and newer than the ExoPlayer path. Video decoding is limited to what
+  the device's MediaCodec decodes in hardware (the same as ExoPlayer), because software HEVC/4K is too
+  slow on TV boxes. Its renderer (gpu-next on OpenGL ES 3) has been tested on the Android TV emulator
+  only; if video stays black on a device, switch back to ExoPlayer. The first time MPV shows subtitles
+  it indexes the system fonts (a few seconds, once). Bundling libmpv makes the APK considerably larger.
 * **Release builds are shrunk with R8.** Native-backed libraries (libass, FFmpeg) and Aurora's own
   classes are kept explicitly, and CI installs and plays the release APK on an emulator. If a release
   build ever misbehaves where the debug build doesn't, the debug APK is the fallback.

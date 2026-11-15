@@ -96,6 +96,24 @@ object AndroidCapabilities {
         return caps
     }
 
+    /**
+     * Capabilities when libmpv plays instead of ExoPlayer. Video stays limited to what MediaCodec
+     * decodes in hardware (software HEVC/4K is too slow on TV boxes), but FFmpeg decodes every
+     * common audio codec, mpv demuxes every common container, renders bitmap subtitles (PGS,
+     * VobSub) itself, and supports subtitle delay. ASS/SSA goes through libass in both engines.
+     */
+    fun forMpv(base: DeviceCapabilities): DeviceCapabilities = base.copy(
+        engineName = "libmpv 0.42 (MediaCodec + FFmpeg, libass)",
+        audioDecode = base.audioDecode + setOf("aac", "mp3", "mp2", "flac", "opus", "vorbis", "ac3", "eac3", "dts", "truehd", "alac", "pcm_s16le", "pcm_s24le", "wmav2", "wmapro"),
+        maxAudioChannels = maxOf(base.maxAudioChannels, 6),
+        containers = base.containers + setOf("wmv", "asf", "flv", "mpeg", "mpg", "vob", "3gp", "m2v", "ogv"),
+        subtitleEmbedded = base.subtitleEmbedded + setOf("pgssub", "dvdsub", "dvbsub", "mov_text"),
+        subtitleExternal = base.subtitleExternal + setOf("sub", "smi", "sup"),
+        libassRendering = true,
+        supportsSubtitleDelay = true,
+        notes = base.notes.filterNot { it.startsWith("Subtitle delay") || it.startsWith("FFmpeg audio extension") },
+    )
+
     private fun isHardware(info: MediaCodecInfo): Boolean =
         if (Build.VERSION.SDK_INT >= 29) info.isHardwareAccelerated
         else !info.name.startsWith("OMX.google.") && !info.name.startsWith("c2.android.") && !info.name.contains(".sw.")

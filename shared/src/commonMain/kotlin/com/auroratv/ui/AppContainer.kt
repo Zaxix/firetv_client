@@ -33,12 +33,18 @@ class AppContainer(val platform: Platform) {
     private val capsLock = Mutex()
     private var caps: DeviceCapabilities? = null
 
-    /** Probed once per launch (decoder lists and HDR/audio output don't change mid-session). */
-    suspend fun capabilities(): DeviceCapabilities = capsLock.withLock {
-        caps ?: withContext(Dispatchers.Default) { platform.probeCapabilities() }.also {
-            caps = it
-            Log.i("Capabilities", "${it.engineName}: video=${it.video.map { v -> "${v.codec}(${v.maxWidth}x${v.maxHeight},${v.maxBitDepth}bit,hw=${v.hardware})" }} hdr=${it.hdr} audio=${it.audioDecode} passthrough=${it.audioPassthrough}")
+    /**
+     * Probed once per launch (decoder lists and HDR/audio output don't change mid-session), then
+     * adjusted for the player engine chosen in Settings, which can change at any time.
+     */
+    suspend fun capabilities(): DeviceCapabilities {
+        val base = capsLock.withLock {
+            caps ?: withContext(Dispatchers.Default) { platform.probeCapabilities() }.also {
+                caps = it
+                Log.i("Capabilities", "${it.engineName}: video=${it.video.map { v -> "${v.codec}(${v.maxWidth}x${v.maxHeight},${v.maxBitDepth}bit,hw=${v.hardware})" }} hdr=${it.hdr} audio=${it.audioDecode} passthrough=${it.audioPassthrough}")
+            }
         }
+        return platform.capabilitiesFor(base, settings.current)
     }
 
     /** Central error hook: expired sessions send the user back to sign-in from anywhere. */

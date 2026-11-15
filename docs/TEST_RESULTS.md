@@ -30,6 +30,8 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Transcoding profile | H.264 is listed first (fast server encodes), HEVC second for stream copy |
 | Trickplay | Jellyfin `Trickplay` sheets parsed; the smallest set ≥ 320 px is used; tile URL format |
 | Signs & Songs | never the default dialogue track with Japanese audio (Default/Always/Smart); used as the forced track for dubs; title variants recognised, "Sign Language"/"Full" excluded |
+| Still watching | Smart threshold scales with episode length (24 min → 90 min, 45 min → 135 min, capped at 4 h); fixed hours; off |
+| Subtitle fonts | MKV font attachments recognised by extension, MIME type or codec |
 | Next Episode | offered from the credits start (chapters, segments or detection), else the final two minutes |
 | Intro/credits detection | recurring chapter lengths across a season → opening/ending; periodic chapters ignored; AniSkip via AniList title search + sequel walk, only for anime, only for missing kinds, title/year must match, Jellyfin token never sent to third parties, nothing sent when the setting is off |
 

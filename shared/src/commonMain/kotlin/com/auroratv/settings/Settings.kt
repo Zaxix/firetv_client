@@ -15,6 +15,8 @@ import kotlinx.serialization.Serializable
 @Serializable enum class ResumeBehavior { Resume, StartOver }
 @Serializable enum class SkipIntroMode { ShowButton, Auto, Off }
 @Serializable enum class AssRenderMode { Full, Simple }
+@Serializable enum class PlayerEngineChoice { ExoPlayer, Mpv }
+@Serializable enum class StillWatchingMode { Smart, After1Hour, After2Hours, After3Hours, Off }
 
 @Serializable
 data class Settings(
@@ -29,9 +31,13 @@ data class Settings(
     val maxBitrateMbps: Int = 0,
     val enableDirectPlay: Boolean = true,
     val hardwareDecoding: Boolean = true,
+    /** Android TV: which video player to use. Windows always uses mpv. */
+    val playerEngine: PlayerEngineChoice = PlayerEngineChoice.ExoPlayer,
     val audioPassthrough: Boolean = false,
     val preferredAudioLanguage: String = "",
     val autoPlayNext: Boolean = true,
+    /** When to ask "Are you still watching?" before auto-playing another episode. */
+    val stillWatching: StillWatchingMode = StillWatchingMode.Smart,
     /** Android TV: switch the display to the video's frame rate (removes 24p judder; screen may blank briefly). */
     val matchFrameRate: Boolean = false,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,

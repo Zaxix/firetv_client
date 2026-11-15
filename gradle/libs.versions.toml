@@ -9,6 +9,7 @@ ktor = "3.3.0"
 coil = "3.3.0"
 media3 = "1.8.0"
 ass-media = "0.5.1"
+libmpv = "1.0.0"
 jellyfin-ffmpeg = "1.8.0+1"
 jna = "5.17.0"
 activity-compose = "1.10.1"
@@ -37,6 +38,7 @@ media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", versio
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
 ass-media = { module = "io.github.peerless2012:ass-media", version.ref = "ass-media" }
+libmpv-android = { module = "dev.jdtech.mpv:libmpv", version.ref = "libmpv" }
 jellyfin-media3-ffmpeg = { module = "org.jellyfin.media3:media3-ffmpeg-decoder", version.ref = "jellyfin-ffmpeg" }
 
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }

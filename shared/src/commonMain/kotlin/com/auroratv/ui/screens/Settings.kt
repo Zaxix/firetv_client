@@ -36,9 +36,11 @@ import com.auroratv.core.toAppError
 import com.auroratv.playback.DeviceCapabilities
 import com.auroratv.settings.AnimationLevel
 import com.auroratv.settings.AssRenderMode
+import com.auroratv.settings.PlayerEngineChoice
 import com.auroratv.settings.ResumeBehavior
 import com.auroratv.settings.Settings
 import com.auroratv.settings.SkipIntroMode
+import com.auroratv.settings.StillWatchingMode
 import com.auroratv.settings.SubtitleMode
 import com.auroratv.settings.ThemeMode
 import com.auroratv.ui.AppContainer
@@ -171,11 +173,31 @@ private fun PlaybackPage(container: AppContainer) {
             item { SettingRow("Audio passthrough", onOff(s.audioPassthrough), "Send AC3/E-AC3/DTS/TrueHD bitstream to a receiver (S/PDIF or HDMI)") { set { it.copy(audioPassthrough = !it.audioPassthrough) } } }
         }
         if (!isDesktop) {
+            item {
+                SettingRow(
+                    "Video player",
+                    if (s.playerEngine == PlayerEngineChoice.Mpv) "MPV" else "ExoPlayer",
+                    "Both render ASS/SSA subtitles fully with libass (styling, typesetting, karaoke, embedded fonts). ExoPlayer is Android's own player; MPV can also play more audio formats and containers without the server converting them, and supports subtitle delay.",
+                ) { set { it.copy(playerEngine = if (it.playerEngine == PlayerEngineChoice.Mpv) PlayerEngineChoice.ExoPlayer else PlayerEngineChoice.Mpv) } }
+            }
             item { SettingRow("Match frame rate", onOff(s.matchFrameRate), "Switch the TV to the video's frame rate (e.g. 24 Hz for films) for smoother motion. The screen may go black for a moment when it switches.") { set { it.copy(matchFrameRate = !it.matchFrameRate) } } }
         }
         item { Header("Behaviour") }
         item { SettingRow("Audio language", languageName(s.preferredAudioLanguage)) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
         item { SettingRow("Auto-play next episode", onOff(s.autoPlayNext)) { set { it.copy(autoPlayNext = !it.autoPlayNext) } } }
+        item {
+            SettingRow(
+                "Ask \"Are you still watching?\"",
+                when (s.stillWatching) {
+                    StillWatchingMode.Smart -> "Smart"
+                    StillWatchingMode.After1Hour -> "After 1 hour"
+                    StillWatchingMode.After2Hours -> "After 2 hours"
+                    StillWatchingMode.After3Hours -> "After 3 hours"
+                    StillWatchingMode.Off -> "Never"
+                },
+                "Before auto-playing another episode when the remote hasn't been used for a while. Smart waits about three episodes (at least 90 minutes); films are never interrupted.",
+            ) { set { it.copy(stillWatching = StillWatchingMode.entries.after(it.stillWatching)) } }
+        }
         item { SettingRow("When starting a partly watched item", if (s.resumeBehavior == ResumeBehavior.Resume) "Resume" else "Start over") { set { it.copy(resumeBehavior = ResumeBehavior.entries.after(it.resumeBehavior)) } } }
         item { SettingRow("Skip forward", "${s.seekForwardSeconds}s") { set { it.copy(seekForwardSeconds = listOf(10, 15, 30, 60).after(it.seekForwardSeconds)) } } }
         item { SettingRow("Skip back", "${s.seekBackSeconds}s") { set { it.copy(seekBackSeconds = listOf(5, 10, 15, 30).after(it.seekBackSeconds)) } } }

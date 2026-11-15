@@ -18,6 +18,11 @@ class MainActivity : ComponentActivity() {
         container = AppContainer(AndroidPlatform(this))
         // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
         container.initialRoute = intent?.getStringExtra("route")
+        // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.
+        intent?.getStringExtra("player")?.let { p ->
+            com.auroratv.settings.PlayerEngineChoice.entries.firstOrNull { it.name.equals(p, ignoreCase = true) }
+                ?.let { choice -> container.settings.update { it.copy(playerEngine = choice) } }
+        }
         // Back presses that Compose didn't consume (e.g. nothing focused) still go through app navigation.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {

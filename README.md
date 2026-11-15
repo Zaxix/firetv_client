@@ -5,7 +5,7 @@ interface, native hardware-accelerated playback, and styled ASS/SSA subtitles re
 both platforms.
 
 * **Shared:** Kotlin Multiplatform + Compose Multiplatform (UI, Jellyfin client, playback logic)
-* **Fire TV / Android TV:** Media3 ExoPlayer (hardware MediaCodec) + Jellyfin FFmpeg audio extension + libass (ass-media)
+* **Fire TV / Android TV:** Media3 ExoPlayer (hardware MediaCodec) + Jellyfin FFmpeg audio extension + libass (ass-media), or **libmpv** (MediaCodec + FFmpeg + libass) selectable in Settings → Playback
 * **Windows:** libmpv (gpu-next / D3D11, hardware decoding) with libass, packaged with jpackage
 
 | Docs | |
@@ -28,6 +28,8 @@ both platforms.
 * Player (tvOS-style): a scrubber with a time bubble and **trickplay thumbnail previews** (D-pad, or mouse click/drag/hover), chapter ticks, and **intro/recap/credits ranges marked in yellow**: from server media segments, chapter names like "Opening"/"Ending", or, when the server has neither, **detected automatically** (an opening/ending chapter whose length repeats across the season, or for anime the crowd-sourced [AniSkip](https://aniskip.com) database). An **in-player episode browser** (season picker plus episode cards). Chapters, audio and subtitle sheets, and a playback info panel (play method, transcode reasons, decoder). Skip Intro/Recap/Credits prompts that hide after 8 seconds and return with the controls; **Next Episode appears only once the credits start**; Up Next with countdown, resume and progress sync. A visible **Back** button; Back/Esc leaves the player in one press, and on Windows clicking the picture pauses and closing the window exits.
 * Subtitles: Default / Always / Smart / Forced-only modes. Anime "Signs & Songs" tracks are never picked as the main subtitles when the audio is Japanese (the full track is used); with an English dub they act as the forced track
 * Optional **frame-rate matching** on Android TV (24p films at 24 Hz)
+* **Two players on Android TV**: ExoPlayer (default) or MPV, switchable in Settings → Playback. Both render ASS/SSA with libass, including embedded MKV fonts, and when the server has to transcode, Aurora downloads the file's font attachments and gives them to libass, so typesetting keeps its fonts either way. MPV also plays more audio formats and containers directly and supports subtitle delay
+* **"Are you still watching?"** before auto-playing the next episode after a long time without any input. *Smart* (default) waits about three episodes' worth, at least 90 minutes; fixed 1/2/3 hours or off are also available. Films are never interrupted
 * tvOS-style navigation: a floating **sidebar** (a slim icon rail that expands with labels when focused; Left or Back opens it), full-screen featured titles (Right on More Info pages to the next one), focus lift with a light sheen, rounded buttons, and the Inter typeface (open-source, in the style of San Francisco)
 * Dark, Light and System themes across the entire app, including the player; artwork-derived accent colours
 * Fire TV remote, keyboard, mouse and Xbox-compatible controllers (Windows)
@@ -55,7 +57,9 @@ Download from the latest successful **Build** workflow run (Actions tab → run 
    ```
 3. Launch **Aurora TV** from *Your Apps & Games*.
 
-If an install fails with a signature error, uninstall the previous build first (see *Release signing* below).
+Release builds are signed with the project's permanent key, so a new build installs over the previous
+one (keeping your sign-in and settings). Builds made before the permanent key (before Nov 2026) were
+signed with throwaway keys: uninstall such a build once before installing a new one.
 
 ### Windows
 
@@ -89,7 +93,12 @@ Requirements: JDK 21, Android SDK (API 36), internet access to Maven Central/Goo
 
 ### Release signing
 
-Release APKs are signed from environment variables so no key is ever committed:
+CI signs releases with a permanent key that is committed **encrypted** (`ci/signing/aurora-release.p12.enc`,
+AES-256 + PBKDF2) and unlocked by a single repository secret, `AURORA_SIGNING_SECRET`, which is also the
+keystore password (alias `aurora`). Without that secret the workflow falls back to the variables below,
+then to a throwaway key.
+
+Locally, release APKs are signed from environment variables:
 `AURORA_KEYSTORE_PATH`, `AURORA_KEYSTORE_PASSWORD`, `AURORA_KEY_ALIAS`, `AURORA_KEY_PASSWORD`.
 
 In CI, add these repository secrets to sign every build with your own stable key (needed for
@@ -124,8 +133,9 @@ About (version, platform, token storage, detected codec/HDR/audio/subtitle capab
 
 ## License
 
-GPL-3.0 (see `LICENSE`). Aurora TV bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and a GPL
-build of libmpv, so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
+GPL-3.0 (see `LICENSE`). Aurora TV bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and GPL
+builds of libmpv (Windows: shinchiro; Android: `dev.jdtech.mpv:libmpv`, mpv 0.42 with FFmpeg, libplacebo,
+libass, fontconfig, dav1d, GPL-3.0-or-later), so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
 Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
 (ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1). See *Settings → About*.
 

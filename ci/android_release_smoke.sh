@@ -35,16 +35,20 @@ open "player:$EP1"; sleep 20; shot release-03-player-ass
 adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'
 adb pull -q /sdcard/scrub.png "$OUT/release-04-scrub.png" >/dev/null && echo "captured release-04-scrub"
 open "player:$GLASS"; sleep 20; shot release-05-player-hevc
+# The shrunk build must also run libmpv (JNI callbacks need R8 keep rules).
+curl -sf -X POST "$URL/UserItems/$GLASS/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":0}' >/dev/null || true
+adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es player mpv --es route "player:$GLASS"; sleep 22; shot release-06-mpv-hevc
 
 adb logcat -d > "$OUT/logcat-release.txt"
 # The player must reach READY (actually playing) at least once.
 grep -q "ExoEngine: state=ready" "$OUT/logcat-release.txt" || { echo "Release build never started playback"; FAIL=1; }
+grep -q "MpvEngine: libmpv ready" "$OUT/logcat-release.txt" || { echo "Release build couldn't start libmpv"; FAIL=1; }
 if grep -qE "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchMethodError|SerializationException" "$OUT/logcat-release.txt"; then
   echo "Release build failed at runtime:"
   grep -E -A25 "FATAL EXCEPTION|UnsatisfiedLinkError|ClassNotFoundException|NoSuchMethodError|SerializationException" "$OUT/logcat-release.txt" | head -80
   exit 1
 fi
-grep -E "ExoEngine|Negotiator|PlayerController" "$OUT/logcat-release.txt" | tail -40 || true
+grep -E "ExoEngine|MpvEngine|Negotiator|PlayerController|font attachments" "$OUT/logcat-release.txt" | tail -40 || true
 # Server-side view of the transcodes (helps tell a client stall from a server failure).
 docker exec jellyfin sh -c 'ls -t /config/log/FFmpeg.Transcode-*.log 2>/dev/null | head -3 | while read f; do echo "== $f"; head -c 600 "$f" | tr -d "\r" | grep -E "^/|-ss|ffmpeg" | sed -E "s/(api_key|ApiKey)=[^& ]+/\1=REDACTED/g" | head -3; tail -5 "$f"; done' > "$OUT/jellyfin-transcodes.txt" 2>&1 || true
 cat "$OUT/jellyfin-transcodes.txt" | head -60

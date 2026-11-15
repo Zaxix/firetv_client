@@ -138,6 +138,7 @@ class PlayerController(
     private val appScope: CoroutineScope,
 ) {
     private val tag = "Player"
+    private companion object { const val MAX_FONT_BYTES = 64L * 1024 * 1024 }
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
     private val negotiator = PlaybackNegotiator(api, capabilities)
 
@@ -150,6 +151,18 @@ class PlayerController(
     private var stoppedReported = false
     private val autoSkipped = mutableSetOf<String>()
     private var currentItemId: String? = null
+
+    /** Last remote/keyboard/mouse input in the player. Survives auto-played episodes. */
+    private var lastInteraction = kotlin.time.TimeSource.Monotonic.markNow()
+
+    /** Called by the player UI on any user input. */
+    fun noteInteraction() { lastInteraction = kotlin.time.TimeSource.Monotonic.markNow() }
+
+    val idleMs: Long get() = lastInteraction.elapsedNow().inWholeMilliseconds
+
+    /** True when the viewer should be asked "Are you still watching?" instead of auto-playing next. */
+    fun shouldAskStillWatching(): Boolean =
+        StillWatching.shouldAsk(settings().stillWatching, idleMs, _state.value.item?.runtimeMs)
 
     fun start(itemId: String, startFromBeginning: Boolean = false) {
         currentItemId = itemId
@@ -191,7 +204,39 @@ class PlayerController(
         observeEngine()
     }
 
-    private fun loadEngine(plan: PlaybackPlan, startMs: Long) {
+    private var fontsKey: String? = null
+    private var fonts: List<SubtitleFont> = emptyList()
+
+    /**
+     * When the server transcodes or remuxes, MKV font attachments don't survive into the stream, so
+     * ASS/SSA typesetting would fall back to default fonts. Download them from Jellyfin instead and
+     * hand them to the engine (libass on both ExoPlayer and mpv). Direct Play needs none of this.
+     */
+    private suspend fun subtitleFonts(plan: PlaybackPlan): List<SubtitleFont> {
+        if (plan.method == PlayMethod.DirectPlay) return emptyList()
+        if (plan.subtitleStreams.none { (it.codec ?: "").lowercase() in setOf("ass", "ssa") }) return emptyList()
+        val itemId = currentItemId ?: return emptyList()
+        val key = "$itemId/${plan.mediaSource.id}"
+        if (key == fontsKey) return fonts
+        val attachments = plan.mediaSource.mediaAttachments.filter { it.isFont }
+        if (attachments.isEmpty()) return emptyList()
+        var total = 0L
+        val loaded = kotlinx.coroutines.withTimeoutOrNull(20_000) {
+            attachments.mapNotNull { a ->
+                if (total > MAX_FONT_BYTES) return@mapNotNull null
+                val url = a.deliveryUrl ?: "/Videos/$itemId/${plan.mediaSource.id}/Attachments/${a.index}"
+                runCatching { api.downloadBytes(url) }
+                    .onFailure { Log.w(tag, "Font attachment ${a.index} failed: ${it.message}") }
+                    .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }
+            }
+        }.orEmpty()
+        Log.i(tag, "Loaded ${loaded.size}/${attachments.size} font attachments (${total / 1024} KB) for ASS subtitles")
+        fontsKey = key
+        fonts = loaded
+        return loaded
+    }
+
+    private suspend fun loadEngine(plan: PlaybackPlan, startMs: Long) {
         val streams = plan.mediaSource.mediaStreams
         val externals = streams.filter { it.isSubtitle && it.deliveryMethod == "External" && it.deliveryUrl != null }
             .filter { (it.codec ?: "").lowercase() in capabilities.subtitleExternal }
@@ -210,6 +255,7 @@ class PlayerController(
             externalSubtitles = externals,
             isHls = plan.method != PlayMethod.DirectPlay,
             title = _state.value.item?.name ?: "",
+            fonts = subtitleFonts(plan),
         )
         engine.load(source)
         val st = _state.value

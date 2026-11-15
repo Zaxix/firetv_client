@@ -31,6 +31,7 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
     val canvas: Canvas = Canvas().apply { background = Color.BLACK; isFocusable = false }
 
     private val lib = LibMpv.load()
+    private val fontsDir = java.io.File(System.getProperty("java.io.tmpdir"), "aurora-mpv-fonts-${ProcessHandle.current().pid()}").apply { mkdirs(); deleteOnExit() }
     private var ctx: Pointer? = null
     @Volatile private var released = false
 
@@ -94,6 +95,8 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         opt("embeddedfonts", "yes")
         opt("sub-ass-override", "scale")
         opt("sub-font-provider", "auto")
+        // Fonts the server strips when transcoding are downloaded into this folder (see load()).
+        opt("sub-fonts-dir", fontsDir.absolutePath)
         if (settings.audioPassthrough) opt("audio-spdif", "ac3,eac3,dts,dts-hd,truehd")
         val init = lib.mpv_initialize(handle)
         if (init < 0) {
@@ -239,6 +242,10 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         fileLoaded = false
         latestPos = -1L; latestBuffered = -1L
         _state.value = EngineState(isBuffering = true, positionMs = source.startPositionMs)
+        runCatching {
+            fontsDir.listFiles()?.forEach { it.delete() }
+            source.fonts.forEach { f -> java.io.File(fontsDir, f.name.replace(Regex("[^A-Za-z0-9._ -]"), "_")).apply { writeBytes(f.data); deleteOnExit() } }
+        }.onFailure { Log.w(tag, "Couldn't write subtitle fonts: ${it.message}") }
         // Only the token header: mpv splits list options on commas, and the full MediaBrowser header has commas.
         source.headers["X-Emby-Token"]?.let { set("http-header-fields", "X-Emby-Token: $it") }
         set("start", String.format(Locale.ROOT, "%.3f", source.startPositionMs / 1000.0))

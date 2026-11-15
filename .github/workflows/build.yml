@@ -32,8 +32,20 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.AURORA_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.AURORA_KEY_PASSWORD }}
+          SIGNING_SECRET: ${{ secrets.AURORA_SIGNING_SECRET }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
+          if [ -n "$SIGNING_SECRET" ]; then
+            # Permanent key: committed encrypted (ci/signing), unlocked by one repository secret that
+            # is both the file's AES key and the keystore password. Same key every build, so updates
+            # install over the previous version.
+            echo "::add-mask::$SIGNING_SECRET"
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ci/signing/aurora-release.p12.enc \
+              -out "$RUNNER_TEMP/release.jks" -pass env:SIGNING_SECRET
+            echo "AURORA_KEYSTORE_PASSWORD=$SIGNING_SECRET" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=aurora" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$SIGNING_SECRET" >> "$GITHUB_ENV"
+            echo "SIGNING=permanent key (ci/signing)" >> "$GITHUB_ENV"
+          elif [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "AURORA_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
             echo "AURORA_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
@@ -344,7 +356,7 @@ jobs:
           cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
           cp artifacts/windows/windows-selftest.txt results/reports/ 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
-          grep -E "ExoEngine|Negotiator|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
+          grep -E "ExoEngine|MpvEngine|Negotiator|font attachments|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/jellyfin-transcodes.txt results/reports/ 2>/dev/null || true
           cp artifacts/e2e/screenshots/aurora.log results/reports/desktop-aurora.log 2>/dev/null || true
           cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true

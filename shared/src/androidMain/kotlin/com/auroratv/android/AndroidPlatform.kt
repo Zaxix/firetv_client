@@ -62,11 +62,24 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     override suspend fun probeCapabilities(): DeviceCapabilities = AndroidCapabilities.probe(activity)
 
-    override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine = ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
+    private var lastCaps: DeviceCapabilities? = null
+
+    override fun capabilitiesFor(base: DeviceCapabilities, settings: com.auroratv.settings.Settings): DeviceCapabilities {
+        lastCaps = base
+        return if (settings.playerEngine == com.auroratv.settings.PlayerEngineChoice.Mpv) AndroidCapabilities.forMpv(base) else base
+    }
+
+    override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine =
+        when (settings.playerEngine) {
+            com.auroratv.settings.PlayerEngineChoice.Mpv ->
+                MpvAndroidEngine(activity, settings, passthrough = lastCaps?.audioPassthrough.orEmpty())
+            com.auroratv.settings.PlayerEngineChoice.ExoPlayer ->
+                ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
+        }
 
     @Composable
     override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {
-        val exo = engine as ExoPlayerEngine
+        val video = (engine as AndroidVideoEngine).view
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         // Pause when the app goes to the background (Home button, input switch, screensaver).
         DisposableEffect(lifecycle) {
@@ -75,7 +88,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
             onDispose { lifecycle.removeObserver(observer) }
         }
         Box(Modifier.fillMaxSize()) {
-            AndroidView(factory = { exo.view }, modifier = Modifier.fillMaxSize())
+            AndroidView(factory = { video }, modifier = Modifier.fillMaxSize())
             controls()
         }
     }

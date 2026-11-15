@@ -33,8 +33,12 @@ import com.auroratv.playback.EngineState
 import com.auroratv.playback.PlaybackEngine
 import com.auroratv.playback.SubtitleTrackRef
 import com.auroratv.settings.AssRenderMode
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.AssHandlerConfig
-import io.github.peerless2012.ass.media.kt.buildWithAssSupport
+import io.github.peerless2012.ass.media.kt.withAssMkvSupport
+import io.github.peerless2012.ass.media.kt.withAssSupport
+import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
 import io.github.peerless2012.ass.media.type.AssRenderType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,11 +58,11 @@ import kotlinx.coroutines.launch
  * full styling, positioning, karaoke and animation.
  */
 @OptIn(UnstableApi::class)
-class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: Boolean = false) : PlaybackEngine {
+class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: Boolean = false) : AndroidVideoEngine {
     private val tag = "ExoEngine"
     override val name = "Media3 ExoPlayer + libass"
 
-    val view: PlayerView = PlayerView(context).apply {
+    override val view: PlayerView = PlayerView(context).apply {
         useController = false
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
@@ -100,6 +104,16 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
         .setBackBuffer(15_000, /* retainBackBufferFromKeyframe = */ true)
         .build()
 
+    private val assRenderType = if (assMode == AssRenderMode.Full) AssRenderType.OVERLAY_OPEN_GL else AssRenderType.CUES
+    // Cap libass rendering at 1080p: on 4K TVs this halves overlay cost with no visible loss at TV distance.
+    private val assHandler = AssHandler(assRenderType, AssHandlerConfig(maxRenderPixels = 1920 * 1080))
+    private val assParsers = AssSubtitleParserFactory(assHandler)
+    private val mediaSourceFactory = DefaultMediaSourceFactory(
+        DefaultDataSource.Factory(context, httpFactory),
+        DefaultExtractorsFactory().withAssMkvSupport(assParsers, assHandler),
+    ).setSubtitleParserFactory(assParsers)
+    private val addedFonts = mutableSetOf<String>()
+
     private val player: ExoPlayer = ExoPlayer.Builder(context)
         .setTrackSelector(trackSelector)
         .setLoadControl(loadControl)
@@ -110,18 +124,20 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
             /* handleAudioFocus = */ true,
         )
         .setHandleAudioBecomingNoisy(true)
-        .buildWithAssSupport(
-            context = context,
-            renderType = if (assMode == AssRenderMode.Full) AssRenderType.OVERLAY_OPEN_GL else AssRenderType.CUES,
-            // Cap libass rendering at 1080p: on 4K TVs this halves overlay cost with no visible loss at TV distance.
-            config = AssHandlerConfig(maxRenderPixels = 1920 * 1080),
-            subtitleView = view.subtitleView,
-            dataSourceFactory = DefaultDataSource.Factory(context, httpFactory),
-            extractorsFactory = DefaultExtractorsFactory(),
-            renderersFactory = DefaultRenderersFactory(context)
+        .setMediaSourceFactory(mediaSourceFactory)
+        .setRenderersFactory(
+            DefaultRenderersFactory(context)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                .setEnableDecoderFallback(true),
+                .setEnableDecoderFallback(true)
+                .withAssSupport(assHandler)
         )
+        .build()
+        .also { p ->
+            // Same wiring as ass-media's buildWithAssSupport, but keeping the AssHandler so fonts that
+            // the server strips during transcoding can be added (see EngineSource.fonts).
+            if (assRenderType == AssRenderType.OVERLAY_OPEN_GL) view.subtitleView?.withAssSupport(assHandler)
+            assHandler.init(p)
+        }
 
     private val _state = MutableStateFlow(EngineState())
     override val state: StateFlow<EngineState> = _state.asStateFlow()
@@ -247,6 +263,8 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
             .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setSubtitleConfigurations(subs)
             .build()
+        // Fonts from MKV attachments (transcoded streams lose them); libass keeps them per handler.
+        source.fonts.filter { addedFonts.add(it.name) }.forEach { assHandler.addFont(it.name, it.data) }
         pendingAudio = source.audioOrdinal
         pendingSubtitle = source.subtitle
         pendingApplied = false
