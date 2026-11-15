@@ -112,7 +112,8 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
         DefaultDataSource.Factory(context, httpFactory),
         DefaultExtractorsFactory().withAssMkvSupport(assParsers, assHandler),
     ).setSubtitleParserFactory(assParsers)
-    private val addedFonts = mutableSetOf<String>()
+    /** Fonts for the current item; (re)added after ass-media resets on each media item transition. */
+    private var sourceFonts: List<com.auroratv.playback.SubtitleFont> = emptyList()
 
     private val player: ExoPlayer = ExoPlayer.Builder(context)
         .setTrackSelector(trackSelector)
@@ -158,6 +159,11 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
         player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) = publish()
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                sourceFonts.forEach { assHandler.addFont(it.name, it.data) }
+                if (sourceFonts.isNotEmpty()) Log.i(tag, "Gave ${sourceFonts.size} server font(s) to libass")
+            }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 val name = when (playbackState) { Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; else -> "ended" }
@@ -263,8 +269,9 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
             .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setSubtitleConfigurations(subs)
             .build()
-        // Fonts from MKV attachments (transcoded streams lose them); libass keeps them per handler.
-        source.fonts.filter { addedFonts.add(it.name) }.forEach { assHandler.addFont(it.name, it.data) }
+        // Fonts from MKV attachments (transcoded streams lose them). Added in onMediaItemTransition:
+        // ass-media clears its pending fonts there, and our listener runs after its own.
+        sourceFonts = source.fonts
         pendingAudio = source.audioOrdinal
         pendingSubtitle = source.subtitle
         pendingApplied = false
