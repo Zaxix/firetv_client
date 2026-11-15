@@ -21,7 +21,7 @@ sealed interface Route {
     data class Root(val section: Section) : Route
     data class Library(val parentId: String?, val title: String, val itemTypes: List<String>, val collectionType: String?) : Route
     data class Detail(val itemId: String, val preview: BaseItemDto? = null) : Route
-    data class Player(val itemId: String, val startFromBeginning: Boolean = false) : Route
+    data class Player(val itemId: String, val startFromBeginning: Boolean = false, val preview: BaseItemDto? = null) : Route
 }
 
 /**

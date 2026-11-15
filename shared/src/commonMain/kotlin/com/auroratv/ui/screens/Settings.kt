@@ -69,7 +69,11 @@ private fun <T> List<T>.after(current: T): T = this[(indexOf(current) + 1).mod(s
 fun SettingsScreen(container: AppContainer) {
     val navigator = LocalNavigator.current
     val entry = LocalEntry.current!!
-    var page by remember { mutableStateOf(SettingsPage.Appearance) }
+    var page by remember {
+        val requested = container.pendingSettingsPage?.let { n -> SettingsPage.entries.firstOrNull { it.name == n } }
+        container.pendingSettingsPage = null
+        mutableStateOf(requested ?: SettingsPage.Appearance)
+    }
     val first = remember { FocusRequester() }
     val colors = Aurora.colors
     ScreenFocus(entry, navigator, first)

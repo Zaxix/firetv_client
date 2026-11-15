@@ -347,6 +347,14 @@ fun PlayerChrome(
                 detectTapGestures(onTap = { if (panel != Panel.None) panel = Panel.None else togglePlay() })
             }
     ) {
+        // Until the first frame: the title's backdrop and logo instead of a black screen, faded out
+        // as soon as the video plays.
+        var firstFrame by remember(ui.item?.id) { mutableStateOf(false) }
+        LaunchedEffect(isPlaying, ui.item?.id) { if (isPlaying) firstFrame = true }
+        AnimatedVisibility(!firstFrame && ui.error == null, enter = fadeIn(tween(0)), exit = fadeOut(tween(Aurora.motion.duration(320)))) {
+            ui.item?.let { StartingBackdrop(it) }
+        }
+
         // Spinner only if buffering lasts a moment, so quick seeks don't flash it.
         var showSpinner by remember { mutableStateOf(false) }
         val wantSpinner = ui.loading || (isBuffering && ui.error == null)
@@ -937,6 +945,35 @@ private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modif
                 contentScale = ContentScale.None, alignment = cellAlign, showPlaceholder = false,
                 headers = headers, crossfade = false,
             )
+        }
+    }
+}
+
+
+/** Shown while a title starts: dimmed backdrop with its logo (or name). */
+@Composable
+private fun StartingBackdrop(item: com.auroratv.jellyfin.model.BaseItemDto) {
+    val api = LocalSession.current.api
+    val shown = if (item.isEpisode) item.seriesName ?: item.name else item.name
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        com.auroratv.ui.components.ArtworkImage(
+            api.images.backdrop(item, com.auroratv.ui.components.screenArtworkPx()), null, Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop, showPlaceholder = false,
+        )
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
+        Column(Modifier.align(Alignment.BottomStart).padding(start = 96.dp, bottom = 96.dp)) {
+            val logo = api.images.logo(item, com.auroratv.ui.components.artworkPx(420.dp, 1f))
+            if (logo != null) {
+                com.auroratv.ui.components.ArtworkImage(logo, shown, Modifier.height(110.dp).widthIn(max = 460.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false,
+                    colorFilter = com.auroratv.ui.components.logoColorFilter())
+            } else {
+                Text(shown, style = AuroraType.title, color = Color.White)
+            }
+            if (item.isEpisode) {
+                Spacer(Modifier.height(10.dp))
+                Text(listOfNotNull(item.episodeLabel, item.name.takeIf { it != shown }).joinToString("  ·  "), style = AuroraType.bodyStrong, color = Color.White.copy(alpha = 0.85f))
+            }
         }
     }
 }

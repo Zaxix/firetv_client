@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,7 @@ import com.auroratv.ui.theme.Aurora
 import com.auroratv.ui.theme.AuroraType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class DetailModel(preview: BaseItemDto?) {
@@ -170,6 +172,7 @@ fun DetailScreen(route: Route.Detail) {
         }
     }
     fun togglePlayed() {
+        container.prewarmer.invalidate() // resume point changes
         val played = !(item.userData?.played ?: false)
         scope.launch {
             runCatching { api.setPlayed(item.id, played) }
@@ -178,6 +181,7 @@ fun DetailScreen(route: Route.Detail) {
         }
     }
 
+    val ratingKeys by container.ratingsKeys.keys.collectAsState()
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val headerHeight = maxHeight * 0.86f
         // Full-screen backdrop like the tvOS TV app; shade only where text sits (lower left).
@@ -200,7 +204,8 @@ fun DetailScreen(route: Route.Detail) {
                     ratings = model.ratings,
                     nextUp = model.nextUp,
                     playFocus = playFocus,
-                    onPlay = { target, fromStart -> navigator.push(Route.Player(target.id, fromStart)) },
+                    onPlay = { target, fromStart -> navigator.push(Route.Player(target.id, fromStart, target)) },
+                    onPrewarm = { target -> container.prewarmPlayback(api, target.id) },
                     onFavorite = ::toggleFavorite,
                     onPlayed = ::togglePlayed,
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
@@ -228,6 +233,13 @@ fun DetailScreen(route: Route.Detail) {
             }
             if (model.reviews.isNotEmpty()) {
                 item(key = "reviews") { ReviewsRow(model.reviews, model.reviewsFocus) { model.openReview = it } }
+            } else if (ratingKeys.trakt.isBlank() && (item.isMovie || item.isSeries)) {
+                item(key = "reviews-setup") {
+                    ReviewsHint(hasMdbList = ratingKeys.mdblist.isNotBlank()) {
+                        container.pendingSettingsPage = "Ratings"
+                        navigator.selectSection(com.auroratv.ui.nav.Section.Settings)
+                    }
+                }
             }
             val cast = item.people.filter { it.type == "Actor" }.take(20)
             if (cast.isNotEmpty()) {
@@ -256,6 +268,7 @@ private fun DetailHeader(
     nextUp: BaseItemDto?,
     playFocus: FocusRequester,
     onPlay: (BaseItemDto, Boolean) -> Unit,
+    onPrewarm: (BaseItemDto) -> Unit,
     onFavorite: () -> Unit,
     onPlayed: () -> Unit,
     onSeries: (() -> Unit)?,
@@ -305,6 +318,9 @@ private fun DetailHeader(
                 else -> item
             }
             if (playTarget != null) {
+                // Get playback ready while the viewer reads the page (PlaybackInfo, fonts), so
+                // pressing Play goes straight to the video. Short delay: skip pages just passed through.
+                LaunchedEffect(playTarget.id, playTarget.resumePositionMs) { delay(400); onPrewarm(playTarget) }
                 val resumeMs = playTarget.resumePositionMs
                 val label = when {
                     resumeMs > 0 -> "Resume ${formatTime(resumeMs)}"

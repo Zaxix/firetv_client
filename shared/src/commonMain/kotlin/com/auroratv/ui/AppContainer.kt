@@ -12,6 +12,7 @@ import com.auroratv.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -25,6 +26,15 @@ class AppContainer(val platform: Platform) {
     /** Optional MDBList / Trakt keys (secure vault, synced through the user's Jellyfin profile). */
     val ratingsKeys = com.auroratv.ratings.RatingsKeyStore(platform.vault)
     val ratings = com.auroratv.ratings.RatingsService(http) { ratingsKeys.keys.value }
+    /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
+    val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope)
+    /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */
+    var pendingSettingsPage: String? = null
+
+    /** Starts preparing [itemId] for playback in the background (main thread; no-op if already prepared). */
+    fun prewarmPlayback(api: com.auroratv.jellyfin.JellyfinApi, itemId: String) {
+        appScope.launch { prewarmer.prewarm(api, capabilities(), settings.current, itemId) }
+    }
 
     private var detector: Pair<JellyfinApi, SkipDetector>? = null
 

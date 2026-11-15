@@ -322,3 +322,30 @@ private fun compactCount(n: Int): String = when {
     n >= 1_000 -> "${n / 1_000}K"
     else -> n.toString()
 }
+
+/** Shown where reviews would be when no Trakt key is set: says how to turn them on. */
+@Composable
+fun ReviewsHint(hasMdbList: Boolean, onOpenSettings: () -> Unit) {
+    val colors = Aurora.colors
+    Column(Modifier.padding(start = ScreenStart, end = ScreenPadding)) {
+        Text("Reviews", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(bottom = 14.dp))
+        FocusSurface(onClick = onOpenSettings, shape = RoundedCornerShape(16.dp), focusKey = "reviews/setup", sheen = false, modifier = Modifier.widthIn(max = 760.dp)) { focused ->
+            Row(
+                Modifier.background(if (focused) colors.surfaceRaised else colors.surface.copy(alpha = 0.72f)).padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PopcornIcon(full = true, modifier = Modifier.size(40.dp))
+                Spacer(Modifier.width(18.dp))
+                Column {
+                    Text("Turn on spoiler-free reviews", style = AuroraType.label, color = colors.onBackground)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Add a free Trakt Client ID" + (if (hasMdbList) "" else " (and an MDBList key for audience, IMDb and Metacritic scores)") +
+                            " in Settings → Ratings. Type it once on any Aurora device; your others pick it up.",
+                        style = AuroraType.caption, color = colors.onSurfaceMuted,
+                    )
+                }
+            }
+        }
+    }
+}

@@ -136,13 +136,16 @@ class PlayerController(
     private val settings: () -> Settings,
     /** Application-lifetime scope so the final "stopped" report survives the screen closing. */
     private val appScope: CoroutineScope,
+    /** Work done ahead of time by the detail page (item, PlaybackInfo, fonts); optional. */
+    private val prewarmer: PlaybackPrewarmer? = null,
+    /** The item as the previous screen had it, so the player can show its artwork immediately. */
+    preview: BaseItemDto? = null,
 ) {
     private val tag = "Player"
-    private companion object { const val MAX_FONT_BYTES = 64L * 1024 * 1024 }
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
     private val negotiator = PlaybackNegotiator(api, capabilities)
 
-    private val _state = MutableStateFlow(PlayerUiState())
+    private val _state = MutableStateFlow(PlayerUiState(item = preview, loading = true))
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
     val engineState: StateFlow<EngineState> get() = engine.state
 
@@ -151,6 +154,7 @@ class PlayerController(
     private var stoppedReported = false
     private val autoSkipped = mutableSetOf<String>()
     private var currentItemId: String? = null
+    private var prewarmedNext: String? = null
 
     /** Last remote/keyboard/mouse input in the player. Survives auto-played episodes. */
     private var lastInteraction = kotlin.time.TimeSource.Monotonic.markNow()
@@ -170,19 +174,26 @@ class PlayerController(
         stoppedReported = false
         autoSkipped.clear()
         val s = settings()
-        _state.value = PlayerUiState(loading = true, subtitleDelayMs = s.subtitleDelayMs, subtitleScale = s.subtitleScale)
+        val preview = _state.value.item?.takeIf { it.id == itemId } ?: _state.value.nextEpisode?.takeIf { it.id == itemId }
+        _state.value = PlayerUiState(item = preview, loading = true, subtitleDelayMs = s.subtitleDelayMs, subtitleScale = s.subtitleScale)
         scope.launch {
             val result = appResult {
-                val item = api.item(itemId)
-                val source = item.mediaSources.firstOrNull()
-                val streams = source?.mediaStreams ?: item.mediaStreams
-                val audio = TrackSelector.pickAudio(streams, s.preferredAudioLanguage, source?.defaultAudioStreamIndex)
-                val audioLang = streams.firstOrNull { it.index == audio }?.language
-                val subtitle = TrackSelector.pickSubtitle(streams, s.subtitleMode, s.preferredSubtitleLanguage, audioLang, source?.defaultSubtitleStreamIndex)
-                val startMs = if (startFromBeginning || s.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
-                val plan = negotiator.negotiate(itemId, source?.id, startMs, audio, subtitle, s.maxBitrateMbps, s.enableDirectPlay)
-                _state.update { it.copy(item = item, plan = plan, audioIndex = audio, subtitleIndex = subtitle, chapters = item.chapters) }
+                val t0 = kotlin.time.TimeSource.Monotonic.markNow()
+                val warm = prewarmer?.take(api, capabilities, s, itemId)
+                val prepared = when {
+                    warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning)
+                    !startFromBeginning || warm.startMs == 0L -> warm
+                    // Direct Play URLs don't depend on the start point; a transcode does, so ask again.
+                    warm.plan.method == PlayMethod.DirectPlay -> PreparedPlayback(warm.item, warm.plan, 0L, warm.audioIndex, warm.subtitleIndex, warm.fonts)
+                    else -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning = true, knownItem = warm.item)
+                }
+                val item = prepared.item
+                val plan = prepared.plan
+                val startMs = prepared.startMs
+                if (prepared.fonts.isNotEmpty()) { fontsKey = "$itemId/${plan.mediaSource.id}"; fonts = prepared.fonts }
+                _state.update { it.copy(item = item, plan = plan, audioIndex = prepared.audioIndex, subtitleIndex = prepared.subtitleIndex, chapters = item.chapters) }
                 loadEngine(plan, startMs)
+                Log.i(tag, "Ready to play in ${t0.elapsedNow().inWholeMilliseconds} ms (${if (warm != null) "prepared on the detail page" else "cold"}, ${plan.method.jellyfinName})")
                 // Secondary lookups never block playback.
                 launch {
                     _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
@@ -218,19 +229,7 @@ class PlayerController(
         val itemId = currentItemId ?: return emptyList()
         val key = "$itemId/${plan.mediaSource.id}"
         if (key == fontsKey) return fonts
-        val attachments = plan.mediaSource.mediaAttachments.filter { it.isFont }
-        if (attachments.isEmpty()) return emptyList()
-        var total = 0L
-        val loaded = kotlinx.coroutines.withTimeoutOrNull(20_000) {
-            attachments.mapNotNull { a ->
-                if (total > MAX_FONT_BYTES) return@mapNotNull null
-                val url = a.deliveryUrl ?: "/Videos/$itemId/${plan.mediaSource.id}/Attachments/${a.index}"
-                runCatching { api.downloadBytes(url) }
-                    .onFailure { Log.w(tag, "Font attachment ${a.index} failed: ${it.message}") }
-                    .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }
-            }
-        }.orEmpty()
-        Log.i(tag, "Loaded ${loaded.size}/${attachments.size} font attachments (${total / 1024} KB) for ASS subtitles")
+        val loaded = PlaybackPreparer.downloadFonts(api, itemId, plan.mediaSource)
         fontsKey = key
         fonts = loaded
         return loaded
@@ -315,6 +314,14 @@ class PlayerController(
             // Auto-skip intros when enabled. Checked twice a second; cheap.
             while (isActive) {
                 delay(500)
+                // From the credits on, get the next episode ready so "Next Episode" starts at once.
+                val st = _state.value
+                val next = st.nextEpisode
+                val from = st.nextEpisodeFromMs
+                if (prewarmer != null && next != null && from != null && engine.state.value.positionMs >= from && prewarmedNext != next.id) {
+                    prewarmedNext = next.id
+                    prewarmer.prewarm(api, capabilities, settings(), next.id)
+                }
                 if (settings().skipIntro != SkipIntroMode.Auto) continue
                 val range = _state.value.activeSkip(engine.state.value.positionMs) ?: continue
                 if (range.kind != SkipRange.Kind.Credits) {
