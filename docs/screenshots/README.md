@@ -32,6 +32,6 @@ components with sample scores and reviews (marked as such here; no live data).
 |---|---|
 | ![](ui-ratings-and-reviews.jpg) Critics (tomato) and audience (popcorn) meters, IMDb, Metascore, Letterboxd; spoiler-free review cards with each reviewer's score | ![](ui-review-overlay.jpg) A review opened in full (Up/Down scroll, Back closes) |
 
-Windows playback (mpv video window with the transparent Aurora controls on top) is captured on every
+Windows playback (mpv video window with the transparent Nameless controls on top) is captured on every
 CI run against the public Jellyfin demo server. Those images contain third-party film artwork, so they
 stay in the CI results only (`ci-results` branch, `screenshots/windows/`).

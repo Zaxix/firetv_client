@@ -71,7 +71,7 @@ fun main(args: Array<String>) {
         Window(
             onCloseRequest = { persist(); gamepad.stop(); exitApplication() },
             state = state,
-            title = "Aurora TV",
+            title = com.auroratv.AppInfo.NAME,
             icon = icon,
         ) {
             LaunchedEffect(Unit) {

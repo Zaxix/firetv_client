@@ -53,7 +53,7 @@ can only be confirmed on that device; CI can't test them.
   slow on TV boxes. Its renderer (gpu-next on OpenGL ES 3) has been tested on the Android TV emulator
   only; if video stays black on a device, switch back to ExoPlayer. The first time MPV shows subtitles
   it indexes the system fonts (a few seconds, once). Bundling libmpv makes the APK considerably larger.
-* **Release builds are shrunk with R8.** Native-backed libraries (libass, FFmpeg) and Aurora's own
+* **Release builds are shrunk with R8.** Native-backed libraries (libass, FFmpeg) and Nameless's own
   classes are kept explicitly, and CI installs and plays the release APK on an emulator. If a release
   build ever misbehaves where the debug build doesn't, the debug APK is the fallback.
 * **Scrub thumbnails need trickplay on the server.** Turn on "Enable trickplay image extraction" in
@@ -66,7 +66,7 @@ can only be confirmed on that device; CI can't test them.
   recorders, remote desktop) the overlay may not composite. Fullscreen (F11) is the intended TV mode.
 * **Audio passthrough** must be enabled manually (Settings → Playback): Windows can't reliably report
   what a receiver connected over S/PDIF/HDMI accepts.
-* **libmpv needs `vulkan-1.dll`.** It ships with every GPU driver, and Aurora bundles the Khronos loader
+* **libmpv needs `vulkan-1.dll`.** It ships with every GPU driver, and Nameless bundles the Khronos loader
   as well, so the app also starts on PCs or VMs without GPU drivers (playback then uses software decoding).
 * **Controllers:** XInput (Xbox-compatible) controllers are supported. DirectInput-only and
   PlayStation pads need Steam Input or DS4Windows to present as XInput.
@@ -83,7 +83,7 @@ can only be confirmed on that device; CI can't test them.
 
 * **Intro/credits markers, in order of reliability:** server media segments (Jellyfin 10.10+ with a
   provider plugin; *Intro Skipper* fingerprints audio and covers every TV show, so it's the best
-  option), then chapter names, then Aurora's own detection. The detection only works when (a) the
+  option), then chapter names, then Nameless's own detection. The detection only works when (a) the
   files have chapters and an opening/ending chapter of the same length recurs in other episodes of
   the season, or (b) the show is anime that AniSkip knows. AniSkip times are crowd-sourced, and
   mapping a Jellyfin season onto a MyAnimeList entry (via provider ids, or an AniList title search
@@ -92,12 +92,12 @@ can only be confirmed on that device; CI can't test them.
   the episode number; they can be turned off in Settings → Playback.
 * Requires **Jellyfin 10.9 or newer** (uses the 10.9+ routes such as `/UserViews`, `/UserItems/Resume`,
   `/UserFavoriteItems`).
-* Live TV, music libraries, photos, SyncPlay and Quick Connect aren't implemented; Aurora focuses on
+* Live TV, music libraries, photos, SyncPlay and Quick Connect aren't implemented; Nameless focuses on
   movies and TV.
 
 * **In-app updates** need one confirmation on Android/Fire TV per update: sideloaded apps can't install
   silently, so Android's install screen always appears. On Fire OS the first update also asks you to
-  allow Aurora TV under *Install unknown apps*. Debug APKs, the Windows portable ZIP and Linux builds
+  allow Nameless under *Install unknown apps*. Debug APKs, the Windows portable ZIP and Linux builds
   don't install updates themselves (they open the download page). The update flow is unit-tested
   with a fake platform; the real Android install screen and the Windows MSI upgrade have not been
   exercised by CI, which can't confirm an install.

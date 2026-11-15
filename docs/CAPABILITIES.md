@@ -1,6 +1,6 @@
 # Codec, HDR, audio and subtitle capability matrix
 
-Aurora never assumes support. On Android every row marked *probed* is measured at launch from
+Nameless never assumes support. On Android every row marked *probed* is measured at launch from
 `MediaCodecList`, the display's HDR capabilities and the HDMI sink's audio capabilities, and the
 result is sent to Jellyfin, which transcodes anything the device can't handle. **Settings → About**
 shows exactly what was detected on your device.

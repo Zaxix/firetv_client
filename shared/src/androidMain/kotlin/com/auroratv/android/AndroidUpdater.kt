@@ -45,12 +45,12 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
     private val debuggable get() = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     override fun pickAsset(names: Collection<String>): String? =
-        if (debuggable) null else names.firstOrNull { it == RELEASE_APK }
+        if (debuggable) null else RELEASE_APKS.firstOrNull { it in names }
 
     override fun installBlocker(): String? =
         if (Build.VERSION.SDK_INT >= 26 && !pm.canRequestPackageInstalls())
-            "Allow Aurora TV to install updates: in the screen that opens, turn on \"Allow from this source\" for Aurora TV " +
-                "(on Fire TV: Settings → My Fire TV → Developer options → Install unknown apps → Aurora TV), then choose Update again."
+            "Allow ${com.auroratv.AppInfo.NAME} to install updates: in the screen that opens, turn on \"Allow from this source\" for ${com.auroratv.AppInfo.NAME} " +
+                "(on Fire TV: Settings → My Fire TV → Developer options → Install unknown apps → ${com.auroratv.AppInfo.NAME}), then choose Update again."
         else null
 
     override fun openInstallSettings(): Boolean {
@@ -68,7 +68,7 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
     }
 
     override suspend fun download(http: HttpClient, url: String, asset: ReleaseAsset, onProgress: (Float) -> Unit): String {
-        val file = File(context.cacheDir, "updates/$RELEASE_APK")
+        val file = File(context.cacheDir, "updates/update.apk")
         UpdateDownload.downloadVerified(http, url, file, asset, onProgress)
         verifyApk(file)
         return file.absolutePath
@@ -79,7 +79,7 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
     private fun verifyApk(file: File) {
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         val archive = pm.getPackageArchiveInfo(file.absolutePath, flags) ?: error("The downloaded file isn't a valid app package.")
-        if (archive.packageName != pkg) error("The downloaded package is ${archive.packageName}, not Aurora TV.")
+        if (archive.packageName != pkg) error("The downloaded package is ${archive.packageName}, not ${com.auroratv.AppInfo.NAME}.")
         val newCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
         if (newCode <= currentBuild) error("The download isn't newer than this version.")
         val mine = signers(installedInfo(flags))
@@ -118,7 +118,9 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
     }
 
     companion object {
-        const val RELEASE_APK = "AuroraTV-release.apk"
+        const val RELEASE_APK = "Nameless-release.apk"
+        /** Current name first; the old name is still published so builds from before the rename can update. */
+        val RELEASE_APKS = listOf(RELEASE_APK, "AuroraTV-release.apk")
         private const val TAG = "Updates"
     }
 }
@@ -138,7 +140,7 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "status $status"
                 Log.w("Updates", "Update not installed: $message")
                 if (status != PackageInstaller.STATUS_FAILURE_ABORTED)
-                    Toast.makeText(context, "Aurora TV update wasn't installed: $message", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "${com.auroratv.AppInfo.NAME} update wasn't installed: $message", Toast.LENGTH_LONG).show()
             }
         }
     }

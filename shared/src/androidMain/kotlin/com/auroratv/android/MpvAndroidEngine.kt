@@ -155,7 +155,7 @@ class MpvAndroidEngine(
         opt("ytdl", "no")
         opt("save-position-on-quit", "no")
         opt("audio-set-media-role", "yes")
-        opt("user-agent", "AuroraTV/${AppInfo.VERSION} (Android; mpv)")
+        opt("user-agent", "Nameless/${AppInfo.VERSION} (Android; mpv)")
         // Buffering: same tuning as the Windows mpv engine, sized for TV-box RAM.
         opt("cache", "yes")
         opt("demuxer-max-bytes", "150MiB")

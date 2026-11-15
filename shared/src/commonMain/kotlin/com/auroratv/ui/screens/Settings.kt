@@ -371,7 +371,7 @@ private fun UpdateRows(container: AppContainer) {
             }
         }
         if (updates.supported) {
-            SettingRow("Check for updates automatically", onOff(s.autoCheckUpdates), "Once a day when Aurora starts") {
+            SettingRow("Check for updates automatically", onOff(s.autoCheckUpdates), "Once a day when ${AppInfo.NAME} starts") {
                 container.settings.update { it.copy(autoCheckUpdates = !it.autoCheckUpdates) }
             }
         }
@@ -384,7 +384,7 @@ private fun AboutPage(container: AppContainer) {
     val info = container.platform.info
     val colors = Aurora.colors
     SettingsList {
-        item { Header("Aurora TV ${container.platform.updater?.currentVersion?.takeIf { it != "dev" } ?: AppInfo.VERSION}") }
+        item { Header("${AppInfo.NAME} ${container.platform.updater?.currentVersion?.takeIf { it != "dev" } ?: AppInfo.VERSION}") }
         item { UpdateRows(container) }
         item { Line("Platform", "${info.platformName} · ${info.osVersion}") }
         item { Line("Device", info.deviceName) }
@@ -412,7 +412,7 @@ private fun AboutPage(container: AppContainer) {
         item { Header("Open-source licenses") }
         item {
             Text(
-                "Aurora TV is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
+                "${AppInfo.NAME} is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
                     "Compose Multiplatform (Apache 2.0), Ktor (Apache 2.0), Coil (Apache 2.0), AndroidX Media3 (Apache 2.0), " +
                     "Jellyfin Media3 FFmpeg decoder (GPL v3, FFmpeg LGPL/GPL), libass-android / ass-media (MIT; libass ISC, FreeType FTL, " +
                     "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), libdovi + ExoplayerHdrUtils (MIT), Vulkan loader (Apache 2.0), JNA (Apache 2.0/LGPL). See the project README for full license details.",

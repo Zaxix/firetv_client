@@ -83,7 +83,7 @@ class ExoPlayerEngine(
     }
 
     private val httpFactory = DefaultHttpDataSource.Factory()
-        .setUserAgent("AuroraTV/${AppInfo.VERSION} (Android)")
+        .setUserAgent("Nameless/${AppInfo.VERSION} (Android)")
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(15_000)
         .setReadTimeoutMs(30_000)

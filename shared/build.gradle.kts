@@ -8,7 +8,10 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
 }
 
-val versionName = providers.gradleProperty("aurora.versionName").get()
+// Same numbering as the apps: CI builds are 1.0.<run number> (AURORA_BUILD).
+val versionName = providers.gradleProperty("aurora.versionName").get().let { base ->
+    providers.environmentVariable("AURORA_BUILD").orNull?.toIntOrNull()?.let { base.substringBeforeLast('.') + ".$it" } ?: base
+}
 
 // Generates AppInfo.kt so shared code (About screen, Jellyfin client header) knows the real version.
 val generateAppInfo = tasks.register("generateAppInfo") {
@@ -24,7 +27,8 @@ val generateAppInfo = tasks.register("generateAppInfo") {
             |package com.auroratv
             |
             |object AppInfo {
-            |    const val NAME = "Aurora TV"
+            |    /** The app's display name (package ids and data folders keep the original "Aurora" names). */
+            |    const val NAME = "Nameless"
             |    const val VERSION = "$version"
             |}
             """.trimMargin()

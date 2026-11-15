@@ -143,7 +143,7 @@ class DesktopPlatform : Platform {
             // Alt+F4 / closing the overlay leaves the player rather than doing nothing.
             onCloseRequest = onClose,
             state = dialogState,
-            title = "Aurora TV",
+            title = com.auroratv.AppInfo.NAME,
             undecorated = true,
             transparent = true,
             resizable = false,

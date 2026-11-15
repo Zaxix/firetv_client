@@ -49,7 +49,7 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
     @Volatile private var seeking = false
 
     init {
-        if (lib == null) _state.value = EngineState(isBuffering = false, error = "The video engine (libmpv) is missing from this installation. Reinstall Aurora TV.")
+        if (lib == null) _state.value = EngineState(isBuffering = false, error = "The video engine (libmpv) is missing from this installation. Reinstall ${com.auroratv.AppInfo.NAME}.")
     }
 
     /** Called once the canvas is on screen (it needs a native HWND before mpv can initialise). */
@@ -90,7 +90,7 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
         opt("hr-seek", "no") // seek to keyframes: near-instant, no decode-ahead
         opt("video-sync", "audio")
         opt("vd-lavc-threads", "0")
-        opt("user-agent", "AuroraTV/${AppInfo.VERSION} (Windows)")
+        opt("user-agent", "Nameless/${AppInfo.VERSION} (Windows)")
         opt("sub-auto", "no")
         opt("embeddedfonts", "yes")
         opt("sub-ass-override", "scale")

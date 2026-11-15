@@ -137,7 +137,7 @@ fun AuroraApp(container: AppContainer) {
 private fun Splash() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Aurora", style = AuroraType.hero, color = Aurora.colors.onBackground)
+            Text(com.auroratv.AppInfo.NAME, style = AuroraType.hero, color = Aurora.colors.onBackground)
             Spacer(Modifier.height(24.dp))
             Box(Modifier.size(48.dp)) { LoadingState() }
         }

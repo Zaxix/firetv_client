@@ -29,7 +29,7 @@ sealed class AppError(val userMessage: String, cause: Throwable? = null) : Excep
         AppError("The server returned an error ($status). Try again in a moment.")
 
     class BadData(cause: Throwable? = null) :
-        AppError("The server sent data Aurora couldn't read.", cause)
+        AppError("The server sent data the app couldn't read.", cause)
 
     class Playback(message: String, cause: Throwable? = null) : AppError(message, cause)
 

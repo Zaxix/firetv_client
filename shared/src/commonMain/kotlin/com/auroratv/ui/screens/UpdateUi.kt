@@ -86,7 +86,7 @@ fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo) {
         Column(Modifier.widthIn(max = 760.dp).fillMaxWidth(0.62f).clip(RoundedCornerShape(24.dp)).background(colors.surfaceRaised).padding(36.dp)) {
             Text("Update available", style = AuroraType.caption, color = colors.onSurfaceFaint)
             Spacer(Modifier.height(6.dp))
-            Text("Aurora TV ${info.version}", style = AuroraType.title, color = colors.onBackground)
+            Text("${com.auroratv.AppInfo.NAME} ${info.version}", style = AuroraType.title, color = colors.onBackground)
             updates.updater?.let { Text("You have ${it.currentVersion}", style = AuroraType.body, color = colors.onSurfaceMuted) }
             if (info.changes.isNotEmpty()) {
                 Spacer(Modifier.height(18.dp))
@@ -102,8 +102,8 @@ fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo) {
                     LinearProgressIndicator(progress = { s.progress }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)), color = colors.accent, trackColor = colors.onBackground.copy(alpha = 0.15f))
                 }
                 is UpdateState.Installing -> Text(
-                    if (updates.updater?.pickAsset(info.assets.keys)?.endsWith(".apk") == true) "Confirm the install on the next screen. Aurora restarts when it's done."
-                    else "Installing: Aurora will close and reopen in a moment.",
+                    if (updates.updater?.pickAsset(info.assets.keys)?.endsWith(".apk") == true) "Confirm the install on the next screen. ${com.auroratv.AppInfo.NAME} restarts when it's done."
+                    else "Installing: ${com.auroratv.AppInfo.NAME} will close and reopen in a moment.",
                     style = AuroraType.bodyStrong, color = colors.onBackground,
                 )
                 is UpdateState.Failed -> Text(s.message, style = AuroraType.body, color = Color(0xFFFF8A80))

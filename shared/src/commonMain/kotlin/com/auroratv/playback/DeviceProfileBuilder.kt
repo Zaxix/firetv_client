@@ -89,7 +89,7 @@ object DeviceProfileBuilder {
         }
 
         return DeviceProfile(
-            name = "Aurora TV (${caps.engineName})",
+            name = "${com.auroratv.AppInfo.NAME} (${caps.engineName})",
             maxStreamingBitrate = bitrate,
             maxStaticBitrate = bitrate,
             directPlayProfiles = directPlay,

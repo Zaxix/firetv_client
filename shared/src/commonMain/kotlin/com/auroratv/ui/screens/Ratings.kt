@@ -341,7 +341,7 @@ fun ReviewsHint(hasMdbList: Boolean, onOpenSettings: () -> Unit) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Add a free Trakt Client ID" + (if (hasMdbList) "" else " (and an MDBList key for audience, IMDb and Metacritic scores)") +
-                            " in Settings → Ratings. Type it once on any Aurora device; your others pick it up.",
+                            " in Settings → Ratings. Type it once on any device running Nameless; your others pick it up.",
                         style = AuroraType.caption, color = colors.onSurfaceMuted,
                     )
                 }

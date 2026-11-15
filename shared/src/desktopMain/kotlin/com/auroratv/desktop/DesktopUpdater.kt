@@ -35,13 +35,15 @@ class DesktopUpdater(private val exitApp: () -> Unit) : AppUpdater {
         script.writeText(
             """
             @echo off
-            rem Aurora TV updater: wait for the app to close, upgrade it, start the new version.
+            rem Updater: wait for the app to close, upgrade it, start the new version.
             timeout /t 3 /nobreak >nul
             msiexec /i "%~1" /passive /norestart
-            start "" "%~2"
+            if exist "%~2" (start "" "%~2") else (start "" "%~3")
             """.trimIndent().replace("\n", "\r\n")
         )
-        ProcessBuilder("cmd.exe", "/c", "start", "Aurora TV update", "/min", script.absolutePath, path, app.absolutePath)
+        // If the install folder was renamed by the upgrade (e.g. "Aurora TV" → "Nameless"), start the new one.
+        val renamed = File(app.parentFile?.parentFile, "${com.auroratv.AppInfo.NAME}/${com.auroratv.AppInfo.NAME}.exe")
+        ProcessBuilder("cmd.exe", "/c", "start", "${com.auroratv.AppInfo.NAME} update", "/min", script.absolutePath, path, app.absolutePath, renamed.absolutePath)
             .redirectErrorStream(true).start()
         Log.i("Updates", "Installer started; closing Aurora so it can be replaced")
         exitApp()

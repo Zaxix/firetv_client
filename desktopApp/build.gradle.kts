@@ -32,10 +32,10 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "Aurora TV"
+            packageName = "Nameless"
             packageVersion = auroraVersionName
-            description = "Aurora TV — Jellyfin client"
-            vendor = "Aurora TV"
+            description = "Nameless — Jellyfin client"
+            vendor = "Nameless"
             licenseFile.set(rootProject.file("LICENSE"))
             // CI drops libmpv-2.dll (and its license) into native/windows before packaging.
             appResourcesRootDir.set(project.layout.projectDirectory.dir("native"))
@@ -43,7 +43,7 @@ compose.desktop {
 
             windows {
                 iconFile.set(project.file("icons/aurora.ico"))
-                menuGroup = "Aurora TV"
+                menuGroup = "Nameless"
                 shortcut = true
                 dirChooser = true
                 perUserInstall = true

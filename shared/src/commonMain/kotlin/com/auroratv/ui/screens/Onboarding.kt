@@ -98,7 +98,7 @@ private fun OnboardingFrame(title: String, subtitle: String, content: @Composabl
             Modifier.widthIn(max = 620.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("Aurora", style = AuroraType.hero, color = colors.onBackground)
+            Text(com.auroratv.AppInfo.NAME, style = AuroraType.hero, color = colors.onBackground)
             Spacer(Modifier.height(32.dp))
             Text(title, style = AuroraType.title, color = colors.onBackground, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
