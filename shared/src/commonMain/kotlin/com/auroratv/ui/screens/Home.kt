@@ -76,6 +76,7 @@ import com.auroratv.ui.theme.BlurHash
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 /** A rail whose items load lazily the first time it scrolls into view. */
@@ -91,6 +92,7 @@ class RailState(val key: String, val title: String, val style: CardStyle, val lo
 class HomeModel {
     var hero by mutableStateOf<List<BaseItemDto>>(emptyList())
     var rails by mutableStateOf<List<RailState>?>(null)
+    var brands by mutableStateOf<List<com.auroratv.brands.ResolvedBrand>>(emptyList())
     var error by mutableStateOf<String?>(null)
     var focused by mutableStateOf<BaseItemDto?>(null)
     var heroIndex by mutableIntStateOf(0)
@@ -114,6 +116,8 @@ fun HomeScreen() {
         model.error = null
         try {
             coroutineScope {
+                // Brand tiles load on their own; Home never waits for them.
+                if (settings.showBrandTiles) launch { model.brands = runCatching { container.brands.brands(api) }.getOrDefault(emptyList()) }
                 val views = async { api.userViews() }
                 val resume = async { runCatching { api.resumeItems() }.getOrDefault(emptyList()) }
                 val nextUp = async { runCatching { api.nextUp() }.getOrDefault(emptyList()) }
@@ -175,6 +179,11 @@ fun HomeScreen() {
             if (settings.showHeroCarousel) {
                 item(key = "hero") {
                     Hero(model, heroItem, heroFocus, heroHeight, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) })
+                }
+            }
+            if (settings.showBrandTiles && model.brands.isNotEmpty()) {
+                item(key = "brands") {
+                    BrandRow(model.brands) { b -> navigator.push(Route.Brand(b.brand.id, b.brand.name)) }
                 }
             }
             if (rails == null) {

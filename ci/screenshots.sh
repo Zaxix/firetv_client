@@ -49,6 +49,7 @@ theme Dark
 shoot 01-home-dark "" 25
 shoot 02-home-rails-dark "" 22 Down Right
 shoot 03-movie-detail "detail:$GLASS" 15
+shoot 03b-brand-hub "brand:netflix" 15
 shoot 04-series-detail "detail:$SERIES" 15 Down Down
 shoot 05-movies-library "section:Movies" 15 Down
 shoot 06-search "section:Search" 12

@@ -28,6 +28,8 @@ class AppContainer(val platform: Platform) {
     val ratings = com.auroratv.ratings.RatingsService(http) { ratingsKeys.keys.value }
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope)
+    /** Studio/network brands found in the library (Home's brand tiles). */
+    val brands = com.auroratv.brands.BrandService()
     /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */
     var pendingSettingsPage: String? = null
 

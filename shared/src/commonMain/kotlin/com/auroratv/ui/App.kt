@@ -155,6 +155,7 @@ private fun MainShell(container: AppContainer) {
                 link.startsWith("section:") -> Section.entries.firstOrNull { it.name.equals(link.substringAfter(':'), true) }?.let(nav::selectSection)
                 link.startsWith("detail:") -> nav.push(Route.Detail(link.substringAfter(':')))
                 link.startsWith("player:") -> nav.push(Route.Player(link.substringAfter(':')))
+                link.startsWith("brand:") -> com.auroratv.brands.BrandCatalog.all.firstOrNull { it.id == link.substringAfter(':') }?.let { nav.push(Route.Brand(it.id, it.name)) }
             }
         }
     }
@@ -232,6 +233,7 @@ private fun RouteContent(container: AppContainer, route: Route) {
             Section.Settings -> SettingsScreen(container)
         }
         is Route.Library -> LibraryScreen(route)
+        is Route.Brand -> com.auroratv.ui.screens.BrandHubScreen(route)
         is Route.Detail -> DetailScreen(route)
         is Route.Player -> PlayerScreen(container, route)
     }

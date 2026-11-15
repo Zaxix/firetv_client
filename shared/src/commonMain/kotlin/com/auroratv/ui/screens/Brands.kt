@@ -1,0 +1,251 @@
+package com.auroratv.ui.screens
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import com.auroratv.brands.ResolvedBrand
+import com.auroratv.core.toAppError
+import com.auroratv.jellyfin.ItemQuery
+import com.auroratv.jellyfin.model.BaseItemDto
+import com.auroratv.ui.LocalContainer
+import com.auroratv.ui.LocalSession
+import com.auroratv.jellyfin.Artwork
+import com.auroratv.ui.nav.LocalEntry
+import androidx.compose.ui.draw.clip
+import com.auroratv.ui.components.ArtworkImage
+import com.auroratv.ui.components.AuroraButton
+import com.auroratv.ui.components.CardStyle
+import com.auroratv.ui.components.ContentRail
+import com.auroratv.ui.components.EmptyState
+import com.auroratv.ui.components.ErrorState
+import com.auroratv.ui.components.FocusSurface
+import com.auroratv.ui.components.ScreenPadding
+import com.auroratv.ui.components.ScreenStart
+import com.auroratv.ui.components.SkeletonRail
+import com.auroratv.ui.components.artworkPx
+import com.auroratv.ui.nav.LocalNavigator
+import com.auroratv.ui.nav.Route
+import com.auroratv.ui.nav.ScreenFocus
+import com.auroratv.ui.theme.Aurora
+import com.auroratv.ui.theme.AuroraType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+
+/** Tile size: landscape and well under a poster's height (posters are 150 × 225 dp). */
+private val TileWidth = 212.dp
+private val TileHeight = 119.dp
+
+private fun ResolvedBrand.gradient(): List<Color> = brand.colors.map { Color(it) }
+
+/** "Brands" row on Home: one tile per studio/network found in the library. */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = Modifier.focusRestorer(),
+    ) {
+        items(brands, key = { it.brand.id }) { b -> BrandTile(b) { onOpen(b) } }
+    }
+}
+
+@Composable
+fun BrandTile(brand: ResolvedBrand, onClick: () -> Unit) {
+    FocusSurface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        focusKey = "brand/${brand.brand.id}",
+        modifier = Modifier.width(TileWidth).height(TileHeight),
+    ) { focused ->
+        BrandArt(brand, focused, Modifier.fillMaxSize(), wordmarkSize = 21.sp, imagePadding = 22.dp)
+    }
+}
+
+/**
+ * The brand's face: gradient with a soft light that drifts while focused, and either the studio
+ * image from the user's server or the brand name set in Aurora's type.
+ */
+@Composable
+private fun BrandArt(brand: ResolvedBrand, focused: Boolean, modifier: Modifier, wordmarkSize: TextUnit, imagePadding: androidx.compose.ui.unit.Dp) {
+    val api = LocalSession.current.api
+    val colors = brand.gradient()
+    val drift = if (focused && Aurora.motion.enabled) {
+        val t = rememberInfiniteTransition(label = "brand")
+        t.animateFloat(0f, 1f, infiniteRepeatable(tween(3200), RepeatMode.Reverse), label = "drift").value
+    } else 0.35f
+    Box(
+        modifier
+            .background(Brush.linearGradient(colors, start = Offset.Zero, end = Offset.Infinite))
+            .drawWithContent {
+                drawRect(Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = if (focused) 0.22f else 0.1f), Color.Transparent),
+                    center = Offset(size.width * (0.15f + 0.7f * drift), size.height * 0.15f),
+                    radius = size.width * 0.75f,
+                ))
+                drawContent()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val studio = brand.imageStudio
+        val type = brand.imageType
+        if (studio != null && type != null) {
+            val art = Artwork(api.images.url(studio.id, type, studio.imageTags[type], maxWidth = artworkPx(TileWidth * 2, 1f)), null)
+            if (type == "Logo") ArtworkImage(art, brand.brand.name, Modifier.fillMaxSize().padding(imagePadding), contentScale = ContentScale.Fit, showPlaceholder = false)
+            else ArtworkImage(art, brand.brand.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, showPlaceholder = false)
+        } else {
+            val b = brand.brand
+            Text(
+                if (b.uppercase) b.name.uppercase() else b.name,
+                style = AuroraType.title.copy(fontSize = wordmarkSize, lineHeight = wordmarkSize * 1.15f, fontWeight = FontWeight.Black, letterSpacing = b.tracking.em),
+                color = Color(b.textColor),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 14.dp),
+            )
+        }
+    }
+}
+
+/** Brand Hub: everything in the library from one studio/network family. */
+@Composable
+fun BrandHubScreen(route: Route.Brand) {
+    val container = LocalContainer.current
+    val api = LocalSession.current.api
+    val navigator = LocalNavigator.current
+    val entry = LocalEntry.current!!
+    val model = entry.model("brand") { BrandHubModel() }
+    val browseFocus = remember { FocusRequester() }
+    var attempt by remember { mutableStateOf(0) }
+
+    LaunchedEffect(attempt) {
+        if (model.rails != null && attempt == 0) return@LaunchedEffect
+        model.error = null
+        try {
+            val brand = container.brands.find(api, route.brandId) ?: container.brands.brands(api).firstOrNull { it.brand.id == route.brandId }
+                ?: error("This brand isn't in your library any more.")
+            model.brand = brand
+            coroutineScope {
+                fun q(types: List<String>, sort: String) = ItemQuery(includeItemTypes = types, studioIds = brand.studioIds, sortBy = sort, sortDescending = true, limit = 30)
+                val newest = async { api.items(q(listOf("Movie", "Series"), "PremiereDate,SortName")) }
+                val movies = async { api.items(q(listOf("Movie"), "CommunityRating,SortName")) }
+                val series = async { api.items(q(listOf("Series"), "CommunityRating,SortName")) }
+                val m = movies.await(); val s = series.await()
+                model.total = m.totalRecordCount + s.totalRecordCount
+                model.rails = listOfNotNull(
+                    newest.await().items.takeIf { it.isNotEmpty() }?.let { Triple("newest", "New and recent", it) },
+                    m.items.takeIf { it.isNotEmpty() }?.let { Triple("movies", "Movies", it) },
+                    s.items.takeIf { it.isNotEmpty() }?.let { Triple("series", "Series", it) },
+                )
+            }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            model.error = t.toAppError().userMessage
+        }
+    }
+    ScreenFocus(entry, navigator, browseFocus, ready = model.rails != null)
+
+    val brand = model.brand
+    val rails = model.rails
+    if (model.error != null && rails == null) {
+        ErrorState(model.error!!, onRetry = { attempt++ })
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(top = com.auroratv.ui.ScreenTop, bottom = 64.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        item(key = "banner") {
+            Row(Modifier.padding(start = ScreenStart, end = ScreenPadding), verticalAlignment = Alignment.CenterVertically) {
+                if (brand != null) {
+                    Box(Modifier.width(360.dp).height(202.dp).clip(RoundedCornerShape(20.dp))) {
+                        BrandArt(brand, focused = true, modifier = Modifier.fillMaxSize(), wordmarkSize = 38.sp, imagePadding = 36.dp)
+                    }
+                }
+                Spacer(Modifier.width(36.dp))
+                Column {
+                    Text(brand?.brand?.name ?: route.name, style = AuroraType.hero, color = Aurora.colors.onBackground)
+                    model.total?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text("$it titles in your library", style = AuroraType.bodyStrong, color = Aurora.colors.onSurfaceMuted)
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    AuroraButton(
+                        "Browse all",
+                        {
+                            val b = model.brand ?: return@AuroraButton
+                            navigator.push(Route.Library(null, b.brand.name, listOf("Movie", "Series"), null, b.studioIds))
+                        },
+                        icon = Icons.Filled.GridView,
+                        focusRequester = browseFocus,
+                        focusKey = "brand/browse",
+                    )
+                }
+            }
+        }
+        when {
+            rails == null -> items(2) { SkeletonRail(CardStyle.Poster) }
+            rails.isEmpty() -> item { EmptyState("Nothing here yet", "No movies or series from ${route.name} in your libraries.") }
+            else -> items(rails, key = { it.first }) { (key, title, list) ->
+                ContentRail(title, list, api.images, CardStyle.Poster, "brand-$key", onItemClick = { openItem(navigator, it) })
+            }
+        }
+    }
+}
+
+
+class BrandHubModel {
+    var brand by mutableStateOf<ResolvedBrand?>(null)
+    var rails by mutableStateOf<List<Triple<String, String, List<BaseItemDto>>>?>(null)
+    var total by mutableStateOf<Int?>(null)
+    var error by mutableStateOf<String?>(null)
+}

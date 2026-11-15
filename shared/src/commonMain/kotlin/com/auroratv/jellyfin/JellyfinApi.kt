@@ -93,6 +93,8 @@ data class ItemQuery(
     val genres: List<String> = emptyList(),
     val isFavorite: Boolean? = null,
     val fields: String = Fields.CARD,
+    /** Only items from these studios/networks (Jellyfin studio item ids). */
+    val studioIds: List<String> = emptyList(),
 )
 
 /**
@@ -202,11 +204,26 @@ class JellyfinApi(
             query.searchTerm?.let { parameter("searchTerm", it) }
             if (query.genres.isNotEmpty()) parameter("genres", query.genres.joinToString("|"))
             query.isFavorite?.let { parameter("isFavorite", it) }
+            if (query.studioIds.isNotEmpty()) parameter("studioIds", query.studioIds.joinToString("|"))
             parameter("fields", query.fields)
             parameter("imageTypeLimit", 1)
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("enableTotalRecordCount", true)
         }.read()
+
+    /** Studios and networks used by the user's movies and series (for brand tiles), with any images. */
+    suspend fun studios(): List<BaseItemDto> =
+        http.get(url("/Studios")) {
+            auth()
+            parameter("userId", requireUser())
+            parameter("includeItemTypes", "Movie,Series")
+            parameter("recursive", true)
+            parameter("enableImages", true)
+            parameter("imageTypeLimit", 1)
+            parameter("enableImageTypes", "Logo,Thumb,Primary")
+            parameter("enableUserData", false)
+            parameter("enableTotalRecordCount", false)
+        }.read<QueryResult<BaseItemDto>>().items
 
     /** CustomPrefs of a DisplayPreferences entry (per user + client); the server returns defaults if none exist. */
     suspend fun customPrefs(id: String, client: String): Map<String, String> {

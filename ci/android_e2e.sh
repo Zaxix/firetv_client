@@ -34,6 +34,7 @@ sleep 10; shot android-02-login
 adb shell input text "aurora"; key KEYCODE_ENTER
 adb shell input text "aurora-ci"; key KEYCODE_ENTER
 sleep 20; shot android-03-home
+key KEYCODE_DPAD_DOWN; sleep 2; shot android-04a-brand-tiles
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-04-rail-focus
 key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 8; shot android-05-detail
 key KEYCODE_BACK; sleep 3; shot android-06-back-focus-restored
@@ -63,6 +64,7 @@ adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null 
 # Detail page → Play with the remote: playback is prepared while the page is open ("Ready to play in … ms").
 open "detail:$SEVEN"; sleep 6; key KEYCODE_DPAD_CENTER; sleep 8; shot android-13b-play-from-detail; key KEYCODE_BACK; sleep 2
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
+open "brand:netflix"; sleep 10; shot android-17-brand-hub
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 

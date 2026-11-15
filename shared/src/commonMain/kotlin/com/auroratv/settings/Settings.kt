@@ -26,6 +26,8 @@ data class Settings(
     val showBackdrops: Boolean = true,
     val artworkAccents: Boolean = true,
     val showHeroCarousel: Boolean = true,
+    /** Studio/network tiles (Disney, Netflix, Apple TV...) under the featured carousel. */
+    val showBrandTiles: Boolean = true,
     // Playback
     /** 0 = automatic (no client cap). */
     val maxBitrateMbps: Int = 0,

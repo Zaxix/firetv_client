@@ -156,6 +156,7 @@ private fun AppearancePage(container: AppContainer) {
         item { SettingRow("Animations", s.animations.name, "Reduce motion on slower devices") { set { it.copy(animations = AnimationLevel.entries.after(it.animations)) } } }
         item { SettingRow("Backdrop artwork", onOff(s.showBackdrops), "Large background art on Home and detail pages") { set { it.copy(showBackdrops = !it.showBackdrops) } } }
         item { SettingRow("Featured carousel", onOff(s.showHeroCarousel), "Rotating featured titles at the top of Home") { set { it.copy(showHeroCarousel = !it.showHeroCarousel) } } }
+        item { SettingRow("Brand tiles", onOff(s.showBrandTiles), "Studios and services in your library (Disney, Netflix, Apple TV, Paramount…) as tiles on Home") { set { it.copy(showBrandTiles = !it.showBrandTiles) } } }
         item { SettingRow("Artwork colour accents", onOff(s.artworkAccents), "Tint highlights with colours from the artwork") { set { it.copy(artworkAccents = !it.artworkAccents) } } }
     }
 }

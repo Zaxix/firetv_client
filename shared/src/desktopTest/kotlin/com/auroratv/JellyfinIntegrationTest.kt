@@ -136,6 +136,15 @@ class JellyfinIntegrationTest {
             "overview, ${m.genres.size} genres, poster ${bytes.second}, blurhash=${poster.blurHash != null}"
         }
 
+        record("Brand tiles: studios from metadata resolve to brands, and a hub lists their titles") {
+            val brands = com.auroratv.brands.BrandCatalog.resolve(api.studios())
+            val ids = brands.map { it.brand.id }
+            assertTrue(ids.containsAll(listOf("netflix", "appletv", "paramount")), "found $ids")
+            val netflix = brands.first { it.brand.id == "netflix" }
+            val titles = api.items(ItemQuery(includeItemTypes = listOf("Movie", "Series"), studioIds = netflix.studioIds)).items.map { it.name }
+            assertEquals(listOf("Glass Meridian"), titles)
+            "brands=$ids; Netflix hub → $titles"
+        }
         record("Critic score from server metadata feeds the ratings strip") {
             val m = movie("Glass Meridian")
             val r = com.auroratv.ratings.RatingsService.fromJellyfin(m)

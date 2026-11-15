@@ -33,6 +33,7 @@ MOVIES = {
         plot="A broadcast engineer finds a second picture hidden underneath the first in every signal her station receives.",
         tagline="Dolby Vision profile 7."),
 }
+STUDIO = {'Harbor Lights (2021)': 'Apple TV+', 'Glass Meridian (2023)': 'Netflix', 'Seven Rivers (2019)': 'Paramount Pictures', 'Ember Field (2024)': 'A24', 'Old Reel (1999)': 'Walt Disney Pictures', 'Prism Coast (2025)': 'National Geographic', 'Neon Tide (2025)': 'Hulu', 'Velvet Static (2025)': 'HBO'}  # synthetic studio credits so brand tiles have something to show
 CRITIC = {'Harbor Lights (2021)': 81, 'Glass Meridian (2023)': 93, 'Seven Rivers (2019)': 72, 'Ember Field (2024)': 54, 'Old Reel (1999)': 64, 'Prism Coast (2025)': 88, 'Neon Tide (2025)': 67, 'Velvet Static (2025)': 90}  # synthetic "critics" scores so the ratings strip has data
 SERIES = dict(name="Skylark Isles", hue=0.50, year=2022, genres=["Animation", "Fantasy"], rating=8.6,
     plot="Kira, a sky-cartographer apprentice, chases the aurora across a floating archipelago to find where the lights are born.",
@@ -89,14 +90,14 @@ for folder, m in MOVIES.items():
     open(os.path.join(path, os.path.basename(folder) + ".nfo"), "w").write(
         f"<?xml version='1.0' encoding='utf-8'?><movie><title>{esc(title)}</title><year>{m['year']}</year>"
         f"<plot>{esc(m['plot'])}</plot><tagline>{esc(m['tagline'])}</tagline><rating>{m['rating']}</rating>"
-        f"<criticrating>{CRITIC.get(folder, 70)}</criticrating><mpaa>{m['mpaa']}</mpaa>{genres}<premiered>{m['year']}-05-01</premiered>"
+        f"<criticrating>{CRITIC.get(folder, 70)}</criticrating><studio>{esc(STUDIO.get(folder, 'Aurora Test Pictures'))}</studio><mpaa>{m['mpaa']}</mpaa>{genres}<premiered>{m['year']}-05-01</premiered>"
         f"<actor><name>Ada Linden</name><role>Lead</role></actor><actor><name>Marco Vale</name><role>Support</role></actor></movie>")
 
 s = SERIES
 spath = os.path.join(root, "tv", s["name"])
 art(spath, s["name"], s["hue"], 42)
 open(os.path.join(spath, "tvshow.nfo"), "w").write(
-    f"<?xml version='1.0' encoding='utf-8'?><tvshow><title>{s['name']}</title><year>{s['year']}</year><plot>{esc(s['plot'])}</plot>"
+    f"<?xml version='1.0' encoding='utf-8'?><tvshow><title>{s['name']}</title><studio>Crunchyroll</studio><year>{s['year']}</year><plot>{esc(s['plot'])}</plot>"
     f"<rating>{s['rating']}</rating>" + "".join(f"<genre>{g}</genre>" for g in s["genres"]) + "<status>Continuing</status></tvshow>")
 season = os.path.join(spath, "Season 01")
 for i, name in enumerate(s["episodes"], 1):

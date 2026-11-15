@@ -118,6 +118,7 @@ class LibraryModel(val route: Route.Library) {
                     limit = limit,
                     filters = f.filters,
                     isFavorite = f.favorite,
+                    studioIds = route.studioIds,
                 )
             )
             r.items to r.totalRecordCount
