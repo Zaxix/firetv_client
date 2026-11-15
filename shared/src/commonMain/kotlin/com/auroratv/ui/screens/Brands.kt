@@ -80,7 +80,10 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import com.auroratv.resources.Res
 import com.auroratv.resources.brand_appletv
-import com.auroratv.resources.brand_prime
+import com.auroratv.resources.brand_prime_logo
+import com.auroratv.resources.brand_netflix
+import com.auroratv.resources.brand_disney
+import com.auroratv.resources.brand_paramount
 import kotlinx.coroutines.coroutineScope
 
 /** Tile size: landscape and well under a poster's height (posters are 150 × 225 dp). */
@@ -153,7 +156,8 @@ private fun BrandArt(brand: ResolvedBrand, focused: Boolean, modifier: Modifier,
         val type = brand.imageType
         val bundled = bundledArt(brand.brand.id)
         if (bundled != null) {
-            Image(painterResource(bundled), brand.brand.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (bundled.fullBleed) Image(painterResource(bundled.res), brand.brand.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            else Image(painterResource(bundled.res), brand.brand.name, Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp), contentScale = ContentScale.Fit)
         } else if (studio != null && type != null) {
             val art = Artwork(api.images.url(studio.id, type, studio.imageTags[type], maxWidth = artworkPx(TileWidth * 2, 1f)), null)
             if (type == "Logo") ArtworkImage(art, brand.brand.name, Modifier.fillMaxSize().padding(imagePadding), contentScale = ContentScale.Fit, showPlaceholder = false)
@@ -174,9 +178,14 @@ private fun BrandArt(brand: ResolvedBrand, focused: Boolean, modifier: Modifier,
 }
 
 /** Tile artwork supplied for the app (see docs/brand); other brands use the server's studio image or their name. */
-private fun bundledArt(id: String): DrawableResource? = when (id) {
-    "appletv" -> Res.drawable.brand_appletv
-    "prime" -> Res.drawable.brand_prime
+private class BundledArt(val res: DrawableResource, val fullBleed: Boolean)
+
+private fun bundledArt(id: String): BundledArt? = when (id) {
+    "appletv" -> BundledArt(Res.drawable.brand_appletv, fullBleed = true)
+    "netflix" -> BundledArt(Res.drawable.brand_netflix, fullBleed = false)
+    "prime" -> BundledArt(Res.drawable.brand_prime_logo, fullBleed = false)
+    "disney" -> BundledArt(Res.drawable.brand_disney, fullBleed = false)
+    "paramount" -> BundledArt(Res.drawable.brand_paramount, fullBleed = false)
     else -> null
 }
 

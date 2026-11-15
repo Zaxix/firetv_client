@@ -38,8 +38,8 @@ data class ResolvedBrand(val brand: Brand, val studioIds: List<String>, val imag
 
 object BrandCatalog {
     val all: List<Brand> = listOf(
-        Brand("netflix", "Netflix", listOf("Netflix", "Netflix Animation"), listOf(0xFF1A0204, 0xFF8E0B12), textColor = 0xFFFF2A35, tracking = 0.08f, uppercase = true),
-        Brand("disney", "Disney", listOf("Disney+", "Disney Plus", "Walt Disney Pictures", "Walt Disney Animation Studios", "Walt Disney Productions", "Disney Channel", "Disney Junior", "Disney XD", "Disney Television Animation", "Walt Disney Television"), listOf(0xFF0B1A5C, 0xFF1F4FD8)),
+        Brand("netflix", "Netflix", listOf("Netflix", "Netflix Animation"), listOf(0xFF0B0B0D, 0xFF2A080B), textColor = 0xFFFF2A35, tracking = 0.08f, uppercase = true),
+        Brand("disney", "Disney", listOf("Disney+", "Disney Plus", "Walt Disney Pictures", "Walt Disney Animation Studios", "Walt Disney Productions", "Disney Channel", "Disney Junior", "Disney XD", "Disney Television Animation", "Walt Disney Television"), listOf(0xFF04072A, 0xFF132E8C)),
         Brand("pixar", "Pixar", listOf("Pixar", "Pixar Animation Studios"), listOf(0xFF07243F, 0xFF1C7CC9), tracking = 0.06f, uppercase = true),
         Brand("marvel", "Marvel", listOf("Marvel Studios", "Marvel Entertainment", "Marvel Television", "Marvel Animation", "Marvel Enterprises"), listOf(0xFF5E0008, 0xFFE0222E), tracking = 0.04f, uppercase = true),
         Brand("starwars", "Star Wars", listOf("Lucasfilm", "Lucasfilm Ltd.", "Lucasfilm Animation"), listOf(0xFF000000, 0xFF1C1C24), textColor = 0xFFFFD84A, tracking = 0.14f, uppercase = true),
