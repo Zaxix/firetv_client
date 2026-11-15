@@ -36,7 +36,7 @@ class JellyfinApiTest {
         assertEquals("SECRET-TOKEN-123", a.accessToken)
         assertEquals("u1", a.userId)
         val header = server.requests.single().headers["Authorization"]!!
-        assertTrue(header.startsWith("MediaBrowser Client=\"Aurora"), header)
+        assertTrue(header.startsWith("MediaBrowser Client=\"${com.auroratv.AppInfo.NAME}\""), header)
         assertTrue(header.contains("DeviceId=\"dev123\""))
         assertFalse(header.contains("Token="), "No token before sign-in")
     }
