@@ -76,7 +76,8 @@ object PlaybackPreparer {
         val attachments = source.mediaAttachments.filter { it.isFont }
         if (attachments.isEmpty()) return emptyList()
         var total = 0L
-        val loaded = kotlinx.coroutines.withTimeoutOrNull(20_000) {
+        // Real-time budget (Default dispatcher), independent of the caller's clock.
+        val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { kotlinx.coroutines.withTimeoutOrNull(20_000) {
             attachments.mapNotNull { a ->
                 if (total > MAX_FONT_BYTES) return@mapNotNull null
                 val url = a.deliveryUrl ?: "/Videos/$itemId/${source.id}/Attachments/${a.index}"
@@ -84,7 +85,7 @@ object PlaybackPreparer {
                     .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Font attachment ${a.index} failed: ${it.message}") }
                     .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }
             }
-        }.orEmpty()
+        } }.orEmpty()
         Log.i(TAG, "Loaded ${loaded.size}/${attachments.size} font attachments (${total / 1024} KB) for ASS subtitles")
         return loaded
     }
