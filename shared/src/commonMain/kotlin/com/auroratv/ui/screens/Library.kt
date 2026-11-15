@@ -119,6 +119,8 @@ class LibraryModel(val route: Route.Library) {
                     filters = f.filters,
                     isFavorite = f.favorite,
                     studioIds = route.studioIds,
+                    // Grid cards only draw artwork, title and year: skip overview/genres/child counts.
+                    fields = "PrimaryImageAspectRatio,ParentId,SeriesPrimaryImageTag",
                 )
             )
             r.items to r.totalRecordCount
