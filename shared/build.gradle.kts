@@ -127,5 +127,10 @@ android {
     }
 }
 
-// See androidApp/build.gradle.kts: ExoplayerHdrUtils' AAR metadata asks for compileSdk 37.
-tasks.matching { it.name.startsWith("check") && it.name.endsWith("AarMetadata") }.configureEach { enabled = false }
+// See androidApp/build.gradle.kts: ExoplayerHdrUtils' AAR metadata asks for compileSdk 37. In a
+// library the check's (empty) output directory is an input of the AAR bundle task, so the task is
+// kept but its check action is replaced by creating that directory.
+tasks.matching { it.name.startsWith("check") && it.name.endsWith("AarMetadata") }.configureEach {
+    actions.clear()
+    doLast { outputs.files.forEach { it.mkdirs() } }
+}
