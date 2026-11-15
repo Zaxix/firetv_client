@@ -60,6 +60,8 @@ key KEYCODE_DPAD_RIGHT; sleep 1; shot android-13-player-episode-focus
 open "player:$SEVEN"; sleep 9
 adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.3; input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'
 adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null && echo "captured android-16-player-scrubbing"
+# Detail page → Play with the remote: playback is prepared while the page is open ("Ready to play in … ms").
+open "detail:$SEVEN"; sleep 6; key KEYCODE_DPAD_CENTER; sleep 8; shot android-13b-play-from-detail; key KEYCODE_BACK; sleep 2
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
@@ -79,7 +81,8 @@ adb logcat -d > "$OUT/logcat-full.txt"
 # mpv's own warnings/errors (tag "mpv"), with any credentials redacted, for diagnosing the MPV runs.
 grep -E " [VDIWE] mpv +:" "$OUT/logcat-full.txt" | grep -E ":(error|warn|fatal)\]|Opening|EOF|end of file|HTTP|Server returned|cplayer:info|demux" \
   | sed -E 's/(api_key|ApiKey|X-Emby-Token)[=:] ?[A-Za-z0-9]+/\1=REDACTED/gI; s/Token=\\?"?[A-Za-z0-9]+/Token=REDACTED/g' | head -400 > "$OUT/logcat-mpv.txt" || true
-grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
+grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus|Ready to play|Prewarm|DolbyVision" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
 echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
+echo "---- Time from Play to engine start ----"; grep -E "Ready to play" "$OUT/logcat-aurora.txt" | sed -E "s/^.*Ready/Ready/" || true
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi
