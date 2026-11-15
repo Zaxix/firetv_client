@@ -51,7 +51,7 @@ for i in $(seq 1 120); do
   M=$(curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Movie" -H "$A" | jq .TotalRecordCount)
   E=$(curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Episode" -H "$A" | jq .TotalRecordCount)
   echo "scan: movies=$M episodes=$E" >&2
-  [ "$M" -ge 5 ] && [ "$E" -ge 3 ] && break
+  [ "$M" -ge "${EXPECTED_MOVIES:-5}" ] && [ "$E" -ge 3 ] && break
   sleep 3
 done
 sleep 10 # let image/metadata providers settle

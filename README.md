@@ -137,6 +137,7 @@ GPL-3.0 (see `LICENSE`). Aurora TV bundles the Jellyfin Media3 FFmpeg decoder (G
 builds of libmpv (Windows: shinchiro; Android: `dev.jdtech.mpv:libmpv`, mpv 0.42 with FFmpeg, libplacebo,
 libass, fontconfig, dav1d, GPL-3.0-or-later), so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
 Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
-(ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1). See *Settings → About*.
+(ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1); libdovi (MIT, from dovi_tool) via
+ExoplayerHdrUtils (MIT) for Dolby Vision profile 7 → 8.1 conversion. See *Settings → About*.
 
 Not affiliated with Apple, Amazon or the Jellyfin project. All UI artwork and icons are original.

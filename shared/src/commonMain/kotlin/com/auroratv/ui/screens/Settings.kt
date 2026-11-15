@@ -300,6 +300,12 @@ private fun AboutPage(container: AppContainer) {
                 Line(v.codec.uppercase(), "${if (v.hardware) "Hardware" else "Software"} · up to ${v.maxWidth}x${v.maxHeight} · ${v.maxBitDepth}-bit" + (v.decoderName?.let { " · $it" } ?: ""))
             }
             item { Line("HDR output", if (c.hdr.isEmpty()) (if (c.canToneMapHdr) "Tone-mapped to SDR" else "None (server tone-maps)") else c.hdr.joinToString { it.name }) }
+            item {
+                Line(
+                    "Dolby Vision",
+                    if (c.canToneMapHdr) "All profiles (mpv/libplacebo reshapes and tone-maps locally)" else c.dolbyVision.summary,
+                )
+            }
             item { Line("Audio decode", c.audioDecode.sorted().joinToString()) }
             item { Line("Audio passthrough", c.audioPassthrough.sorted().joinToString().ifBlank { "None detected" }) }
             item { Line("Max channels", c.maxAudioChannels.toString()) }
@@ -313,7 +319,7 @@ private fun AboutPage(container: AppContainer) {
                 "Aurora TV is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
                     "Compose Multiplatform (Apache 2.0), Ktor (Apache 2.0), Coil (Apache 2.0), AndroidX Media3 (Apache 2.0), " +
                     "Jellyfin Media3 FFmpeg decoder (GPL v3, FFmpeg LGPL/GPL), libass-android / ass-media (MIT; libass ISC, FreeType FTL, " +
-                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), Vulkan loader (Apache 2.0), JNA (Apache 2.0/LGPL). See the project README for full license details.",
+                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), libdovi + ExoplayerHdrUtils (MIT), Vulkan loader (Apache 2.0), JNA (Apache 2.0/LGPL). See the project README for full license details.",
                 style = AuroraType.caption, color = colors.onSurfaceMuted,
             )
         }

@@ -74,7 +74,9 @@ object MpvSelfTest {
                         // Long files: sample 4 seconds then stop (decode path verified).
                         if (pos > 4.0 && !sampled) { sampled = true; lib.mpv_command(ctx, arrayOf("stop", null)) }
                     }
-                    LibMpv.EVENT_PLAYBACK_RESTART -> details += " hwdec=${prop("hwdec-current")} subCodec=${prop("current-tracks/sub/codec")}"
+                    LibMpv.EVENT_PLAYBACK_RESTART -> details += " hwdec=${prop("hwdec-current")} subCodec=${prop("current-tracks/sub/codec")}" +
+                        " colormatrix=${prop("video-params/colormatrix")} gamma=${prop("video-params/gamma")}" +
+                        (prop("current-tracks/video/dolby-vision-profile")?.let { " doviProfile=$it" } ?: "")
                 }
             }
             if (!result.startsWith("PASS")) failures++

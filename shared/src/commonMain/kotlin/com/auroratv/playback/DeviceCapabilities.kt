@@ -55,29 +55,54 @@ data class DeviceCapabilities(
     val libassRendering: Boolean,
     val supportsSubtitleDelay: Boolean,
     val notes: List<String> = emptyList(),
+    /** Dolby Vision decoder/display support (Android); mpv on Windows uses [canToneMapHdr]. */
+    val dolbyVision: DolbyVisionSupport = DolbyVisionSupport.None,
 ) {
     fun videoSupport(codec: String) = video.firstOrNull { it.codec == codec }
     val supportsHevc get() = videoSupport(Codecs.HEVC) != null
     val supportsHevcMain10 get() = (videoSupport(Codecs.HEVC)?.maxBitDepth ?: 0) >= 10
     val audioCodecs get() = audioDecode + audioPassthrough
 
-    /** Video range types Jellyfin may send untouched. */
-    fun allowedRangeTypes(): List<String> {
+    /**
+     * Video range types Jellyfin may send untouched for [codec]. Every Dolby Vision flavour is
+     * allowed when it has somewhere correct to go: the DV decoder ([DolbyVisionSupport.native]),
+     * the profile 7 → 8.1 conversion, or its HDR10/HLG/SDR base layer on a display that shows
+     * that. Profile 5 / AV1 10.0 have no base layer, so they need a real DV path (or local tone
+     * mapping on mpv for Windows); otherwise the server converts them. DOVIInvalid (DV signalling
+     * that contradicts the base layer) is always left to the server.
+     */
+    fun allowedRangeTypes(codec: String = Codecs.HEVC): List<String> {
         val result = mutableListOf("SDR")
-        val formats = if (canToneMapHdr) HdrFormat.entries.toSet() else hdr
-        if (HdrFormat.HDR10 in formats) result += "HDR10"
-        if (HdrFormat.HDR10_PLUS in formats || HdrFormat.HDR10 in formats) result += "HDR10Plus"
-        if (HdrFormat.HLG in formats) result += "HLG"
-        if (HdrFormat.DOLBY_VISION in formats) result += HdrFormat.DOLBY_VISION.jellyfinRangeTypes + listOf("DOVIWithEL", "DOVIWithHDR10Plus", "DOVIWithELHDR10Plus")
-        else {
-            // Dolby Vision files with a backwards-compatible base layer can still play as that base layer
-            // (profile 7 enhancement layers and HDR10+ metadata are ignored by HDR10 decoders).
-            if (HdrFormat.HDR10 in formats) result += listOf("DOVIWithHDR10", "DOVIWithEL", "DOVIWithHDR10Plus", "DOVIWithELHDR10Plus")
-            if (HdrFormat.HLG in formats) result += "DOVIWithHLG"
-            result += "DOVIWithSDR"
+        if (codec == Codecs.H264) return result
+        if (canToneMapHdr) {
+            result += listOf("HDR10", "HDR10Plus", "HLG")
+            if (codec != Codecs.VP9) result += listOf("DOVI", "DOVIWithHDR10", "DOVIWithHLG", "DOVIWithSDR", "DOVIWithHDR10Plus")
+            if (codec == Codecs.HEVC) result += listOf("DOVIWithEL", "DOVIWithELHDR10Plus")
+            return result
         }
-        // Jellyfin 10.11+ marks out-of-spec DV as DOVIInvalid; its base layer plays where HDR10 does.
-        if (HdrFormat.HDR10 in formats) result += "DOVIInvalid"
+        val hdr10 = HdrFormat.HDR10 in hdr
+        val hlg = HdrFormat.HLG in hdr
+        if (hdr10) result += listOf("HDR10", "HDR10Plus")
+        if (hlg) result += "HLG"
+        val dv = dolbyVision
+        when (codec) {
+            Codecs.HEVC -> {
+                if (dv.native(5)) result += "DOVI"
+                val p8 = dv.native(8)
+                if (p8 || hdr10) result += listOf("DOVIWithHDR10", "DOVIWithHDR10Plus")
+                if (p8 || hlg) result += "DOVIWithHLG"
+                result += "DOVIWithSDR"
+                val p7 = dv.routeFor(7) != DoviRoute.BaseLayer
+                if (p7 || hdr10) result += listOf("DOVIWithEL", "DOVIWithELHDR10Plus")
+            }
+            Codecs.AV1 -> {
+                val p10 = dv.native(10)
+                if (p10) result += "DOVI"
+                if (p10 || hdr10) result += listOf("DOVIWithHDR10", "DOVIWithHDR10Plus")
+                if (p10 || hlg) result += "DOVIWithHLG"
+                result += "DOVIWithSDR"
+            }
+        }
         return result.distinct()
     }
 }

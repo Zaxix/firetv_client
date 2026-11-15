@@ -12,6 +12,8 @@ import com.auroratv.jellyfin.model.PlaybackReport
 import com.auroratv.jellyfin.model.msToTicks
 import com.auroratv.playback.Codecs
 import com.auroratv.playback.DeviceCapabilities
+import com.auroratv.playback.DolbyVisionSupport
+import com.auroratv.playback.HdrFormat
 import com.auroratv.playback.PlayMethod
 import com.auroratv.playback.PlaybackNegotiator
 import com.auroratv.playback.PlaybackPlan
@@ -113,12 +115,12 @@ class JellyfinIntegrationTest {
             assertTrue(views.any { it.contains("movies") } && views.any { it.contains("tvshows") }); views.joinToString()
         }
         record("Library pagination") {
-            val p1 = api.items(ItemQuery(includeItemTypes = listOf("Movie"), limit = 2, startIndex = 0))
-            val p2 = api.items(ItemQuery(includeItemTypes = listOf("Movie"), limit = 2, startIndex = 2))
-            val p3 = api.items(ItemQuery(includeItemTypes = listOf("Movie"), limit = 2, startIndex = 4))
-            val all = (p1.items + p2.items + p3.items).map { it.id }
-            assertEquals(5, p1.totalRecordCount); assertEquals(5, all.distinct().size)
-            "5 movies over 3 pages of 2, no duplicates"
+            val total = api.items(ItemQuery(includeItemTypes = listOf("Movie"), limit = 1)).totalRecordCount
+            assertTrue(total >= 5)
+            val pages = (0 until total step 2).map { api.items(ItemQuery(includeItemTypes = listOf("Movie"), limit = 2, startIndex = it)) }
+            val all = pages.flatMap { p -> p.items.map { it.id } }
+            assertEquals(total, all.distinct().size)
+            "$total movies over ${pages.size} pages of 2, no duplicates"
         }
         record("Search") {
             val r = api.items(ItemQuery(searchTerm = "meridian", includeItemTypes = listOf("Movie", "Series", "Episode")))
@@ -188,6 +190,7 @@ class JellyfinIntegrationTest {
         record("4K HDR10 → Direct Play on Windows/mpv (tone-maps locally)") {
             assertEquals(PlayMethod.DirectPlay, plan(movie("Ember Field"), mpvDesktop).method); "DirectPlay"
         }
+        dolbyVisionChecks()
         record("MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv") {
             val m = movie("Old Reel")
             val tv = plan(m, fireTv4k); val pc = plan(m, mpvDesktop)
@@ -267,6 +270,46 @@ class JellyfinIntegrationTest {
         record("Media segments (Skip Intro) endpoint") {
             val ep = api.items(ItemQuery(includeItemTypes = listOf("Episode"), limit = 1)).items.first()
             "${api.mediaSegments(ep.id).size} segments (no intro-detection plugin on CI server)"
+        }
+    }
+
+    /** Fire TV 4K Max on a Dolby Vision TV: DV decoder for profiles 5 and 8, libdovi for 7 → 8.1. */
+    private val fireTvDv = fireTv4k.copy(
+        hdr = setOf(HdrFormat.HDR10, HdrFormat.HLG, HdrFormat.DOLBY_VISION),
+        dolbyVision = DolbyVisionSupport(display = true, decoderProfiles = setOf(5, 8), canConvertProfile7 = true),
+    )
+    /** Same box on an HDR10 TV: Dolby Vision files can only use their base layer. */
+    private val fireTvHdr10 = fireTv4k.copy(dolbyVision = DolbyVisionSupport(display = false, decoderProfiles = setOf(5, 8)))
+
+    /**
+     * Dolby Vision samples (built in CI with dovi_tool + mkvmerge): the server's range type, then
+     * where each profile is allowed to go untouched for DV TV / HDR10 TV / SDR TV / Windows mpv.
+     */
+    private fun dolbyVisionChecks() {
+        data class Case(val title: String, val range: String, val dvTv: Boolean, val hdr10Tv: Boolean, val sdrTv: Boolean)
+        val cases = listOf(
+            Case("Prism Coast", "DOVIWithHDR10", dvTv = true, hdr10Tv = true, sdrTv = false),
+            Case("Neon Tide", "DOVI", dvTv = true, hdr10Tv = false, sdrTv = false),
+            Case("Velvet Static", "DOVIWithEL", dvTv = true, hdr10Tv = true, sdrTv = false),
+        )
+        for (c in cases) {
+            val item = runBlocking { runCatching { movie(c.title) }.getOrNull() }
+            if (item == null) {
+                report.appendLine("| ⚠️ | Dolby Vision ${c.range} sample | not generated in this run (dovi_tool/mkvmerge unavailable) |")
+                continue
+            }
+            val v = item.mediaSources.first().videoStream!!
+            if (v.videoRangeType != c.range) {
+                report.appendLine("| ⚠️ | Dolby Vision ${c.range} sample | server classified it as ${v.videoRangeType} (${v.videoRange}); routing covered by DolbyVisionTest |")
+                continue
+            }
+            record("Dolby Vision ${c.range}: DV TV / HDR10 TV / SDR TV / Windows mpv") {
+                fun direct(caps: DeviceCapabilities) = runBlocking { plan(item, caps).method == PlayMethod.DirectPlay }
+                val got = listOf(direct(fireTvDv), direct(fireTvHdr10), direct(sdr4k), direct(mpvDesktop))
+                assertEquals(listOf(c.dvTv, c.hdr10Tv, c.sdrTv, true), got, "DirectPlay for [DV TV, HDR10 TV, SDR TV, mpv]")
+                val names = listOf("DV TV", "HDR10 TV", "SDR TV", "mpv")
+                "${v.codec} ${v.videoRangeType}: " + names.zip(got).joinToString { (n, d) -> "$n=${if (d) "Direct Play" else "server converts"}" }
+            }
         }
     }
 }

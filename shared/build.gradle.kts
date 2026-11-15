@@ -34,7 +34,11 @@ val generateAppInfo = tasks.register("generateAppInfo") {
 
 kotlin {
     androidTarget {
-        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+            // ExoplayerHdrUtils may be built with a newer Kotlin; only its plain LibDovi API is used.
+            freeCompilerArgs.add("-Xskip-metadata-version-check")
+        }
     }
     jvm("desktop") {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
@@ -96,6 +100,13 @@ kotlin {
             }
         }
     }
+}
+
+// libdovi (Dolby Vision RPU rewriting, MIT) packaged with JNI bindings by ExoplayerHdrUtils (MIT).
+// Only its LibDovi class is used, so the library's own Media3 dependency (a newer release than the
+// one this app is built and tested with) is not pulled in.
+dependencies {
+    "androidMainImplementation"(libs.exoplayerhdrutils) { isTransitive = false }
 }
 
 compose.resources {

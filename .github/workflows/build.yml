@@ -111,17 +111,25 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Install tools (FFmpeg, Xvfb, libmpv)
+      - name: Install tools (FFmpeg, Xvfb, libmpv, mkvtoolnix, dovi_tool)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg xvfb xdotool imagemagick libmpv-dev xcompmgr fonts-dejavu-core libgl1-mesa-dri jq python3-pil >/dev/null
+          sudo apt-get install -y -qq ffmpeg xvfb xdotool imagemagick libmpv-dev xcompmgr fonts-dejavu-core libgl1-mesa-dri jq python3-pil mkvtoolnix >/dev/null
+          # dovi_tool (MIT) builds the Dolby Vision test samples.
+          gh release download -R quietvoid/dovi_tool --pattern '*x86_64-unknown-linux-musl.tar.gz' --dir "$RUNNER_TEMP/dovi" \
+            && tar -xzf "$RUNNER_TEMP"/dovi/*.tar.gz -C "$RUNNER_TEMP/dovi" \
+            && sudo install -m 755 "$(find "$RUNNER_TEMP/dovi" -type f -name dovi_tool | head -1)" /usr/local/bin/dovi_tool \
+            && dovi_tool --version || echo "::warning::dovi_tool unavailable; Dolby Vision samples will be skipped"
+          mkvmerge --version | head -1
 
       - name: Generate test media + artwork
         run: |
           ffmpeg -hide_banner -version | head -1
           ci/make_samples.sh "$RUNNER_TEMP/media"
           python3 ci/make_artwork.py "$RUNNER_TEMP/media"
-          for f in "$RUNNER_TEMP"/media/movies/*/*.mkv; do echo "== $f"; ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,pix_fmt,color_transfer,color_primaries,color_space -of compact "$f"; done
+          for f in "$RUNNER_TEMP"/media/movies/*/*.mkv; do echo "== $f"; ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,pix_fmt,color_transfer,color_primaries,color_space:stream_side_data=dv_profile,dv_bl_signal_compatibility_id,el_present_flag -of compact "$f" || true; done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -132,7 +140,7 @@ jobs:
       - name: Start Jellyfin
         run: |
           docker run -d --name jellyfin -p 8096:8096 -v "$RUNNER_TEMP/media:/media:ro" jellyfin/jellyfin:latest
-          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          EXPECTED_MOVIES=$(ls -d "$RUNNER_TEMP"/media/movies/*/ | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
           TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"
@@ -310,7 +318,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq jq >/dev/null
           docker run -d --name jellyfin -p 8096:8096 -v "$PWD/media:/media:ro" jellyfin/jellyfin:latest
-          ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          EXPECTED_MOVIES=$(ls -d "$PWD"/media/movies/*/ | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
           TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"

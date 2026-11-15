@@ -58,7 +58,12 @@ import kotlinx.coroutines.launch
  * full styling, positioning, karaoke and animation.
  */
 @OptIn(UnstableApi::class)
-class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: Boolean = false) : AndroidVideoEngine {
+class ExoPlayerEngine(
+    context: Context,
+    assMode: AssRenderMode,
+    matchFrameRate: Boolean = false,
+    dolbyVision: com.auroratv.playback.DolbyVisionSupport = com.auroratv.playback.DolbyVisionSupport.None,
+) : AndroidVideoEngine {
     private val tag = "ExoEngine"
     override val name = "Media3 ExoPlayer + libass"
 
@@ -115,6 +120,9 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
     /** Fonts for the current item; (re)added after ass-media resets on each media item transition. */
     private var sourceFonts: List<com.auroratv.playback.SubtitleFont> = emptyList()
 
+    /** Routes Dolby Vision tracks (native, profile 7 → 8.1, or base layer); see DolbyVisionPlayback.kt. */
+    private val renderersFactory = DolbyVisionRenderersFactory(context, dolbyVision)
+
     private val player: ExoPlayer = ExoPlayer.Builder(context)
         .setTrackSelector(trackSelector)
         .setLoadControl(loadControl)
@@ -127,7 +135,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
         .setHandleAudioBecomingNoisy(true)
         .setMediaSourceFactory(mediaSourceFactory)
         .setRenderersFactory(
-            DefaultRenderersFactory(context)
+            renderersFactory
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
                 .setEnableDecoderFallback(true)
                 .withAssSupport(assHandler)
@@ -339,6 +347,7 @@ class ExoPlayerEngine(context: Context, assMode: AssRenderMode, matchFrameRate: 
             f.colorInfo?.let { c -> add("Colour" to "transfer=${c.colorTransfer} space=${c.colorSpace}") }
         }
         videoDecoder?.let { add("Video decoder" to it) }
+        renderersFactory.session?.describe()?.let { add("HDR path" to it) }
         player.audioFormat?.let { f -> add("Decoded audio" to listOfNotNull(f.sampleMimeType, "${f.channelCount}ch", "${f.sampleRate} Hz").joinToString(" · ")) }
         audioDecoder?.let { add("Audio decoder" to it) }
         add("Dropped frames" to droppedFrames.toString())

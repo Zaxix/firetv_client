@@ -181,5 +181,47 @@ for e in 1 2 3; do
     -metadata title="Episode $e" "$OUT/tv/Skylark Isles/Season 01/Skylark Isles - S01E0$e.mkv"
 done
 
+# ---------- 7) Dolby Vision: profile 8.1 (HDR10 base), 5 (no base layer), 7 (UHD Blu-ray) ----------
+# Needs dovi_tool + mkvmerge (CI installs both); skipped otherwise. mkvmerge writes the DV
+# configuration record from the RPUs, which is what Jellyfin reads to classify the range type.
+if command -v dovi_tool >/dev/null && command -v mkvmerge >/dev/null; then
+  HERE=$(cd "$(dirname "$0")" && pwd)
+  set +e
+  (
+    set -e
+    FRAMES=72 # 3 s at 24 fps
+    ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 3 1920x1080 24)" \
+      -c:v libx265 -preset ultrafast -pix_fmt yuv420p10le -profile:v main10 \
+      -x265-params "log-level=error:hdr10=1:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400" \
+      -f hevc "$TMP/dv_base.hevc"
+    ffmpeg -nostdin -y -loglevel error -f lavfi -i "sine=frequency=520:duration=3" -c:a eac3 -ac 6 "$TMP/dv_audio.mka"
+    cat > "$TMP/p81.json" <<JSON
+{ "cm_version": "V40", "profile": "8.1", "length": $FRAMES,
+  "level6": { "max_display_mastering_luminance": 1000, "min_display_mastering_luminance": 1, "max_content_light_level": 1000, "max_frame_average_light_level": 400 } }
+JSON
+    dovi_tool generate -j "$TMP/p81.json" -o "$TMP/p81.rpu" >/dev/null
+    for i in $(seq $FRAMES); do cat "$HERE/dovi/profile5.rpu"; done > "$TMP/p5.rpu"
+    for i in $(seq $FRAMES); do cat "$HERE/dovi/profile7-fel.rpu"; done > "$TMP/p7.rpu"
+    dv_movie() { # rpu title
+      local d="$OUT/movies/$2"; mkdir -p "$d"
+      dovi_tool inject-rpu -i "$TMP/dv_base.hevc" --rpu-in "$1" -o "$TMP/dv.hevc" >/dev/null
+      mkvmerge -q -o "$d/$2.mkv" --default-duration 0:24fps "$TMP/dv.hevc" --language 0:eng "$TMP/dv_audio.mka"
+      dovi_tool extract-rpu -i "$TMP/dv.hevc" -o "$TMP/check.rpu" >/dev/null && \
+        echo "== $2: $(dovi_tool info -i "$TMP/check.rpu" --summary 2>&1 | tr '\n' ' ' | cut -c1-300)" >&2 || true
+    }
+    dv_movie "$TMP/p81.rpu" "Prism Coast (2025)"
+    dv_movie "$TMP/p5.rpu" "Neon Tide (2025)"
+    dv_movie "$TMP/p7.rpu" "Velvet Static (2025)"
+  )
+  rc=$?
+  set -e
+  if [ $rc -ne 0 ]; then
+    echo "::warning::Dolby Vision sample generation failed (exit $rc); DV samples skipped" >&2
+    rm -rf "$OUT/movies/Prism Coast (2025)" "$OUT/movies/Neon Tide (2025)" "$OUT/movies/Velvet Static (2025)"
+  fi
+else
+  echo "dovi_tool/mkvmerge not found: Dolby Vision samples skipped" >&2
+fi
+
 rm -rf "$TMP"
 find "$OUT" -type f | sort

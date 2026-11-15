@@ -76,7 +76,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     override fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine =
         if (useMpv(settings)) MpvAndroidEngine(activity, settings, passthrough = lastCaps?.audioPassthrough.orEmpty())
-        else ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate)
+        else ExoPlayerEngine(activity, settings.assRenderMode, settings.matchFrameRate, (lastCaps ?: AndroidCapabilities.probe(activity).also { lastCaps = it }).dolbyVision)
 
     @Composable
     override fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit) {

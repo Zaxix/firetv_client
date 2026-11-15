@@ -22,6 +22,16 @@ MOVIES = {
     "Old Reel (1999)": dict(hue=0.12, year=1999, genres=["Comedy"], rating=6.2, mpaa="PG",
         plot="A projectionist inherits a cinema with a single film reel that changes ending every time it is shown.",
         tagline="Same film. New ending."),
+    # Dolby Vision samples (only present when CI could build them).
+    "Prism Coast (2025)": dict(hue=0.66, year=2025, genres=["Documentary"], rating=7.1, mpaa="PG",
+        plot="A light-sculptor walks the length of a coastline where the sea refracts sunrise into colours no camera has recorded.",
+        tagline="Dolby Vision profile 8.1."),
+    "Neon Tide (2025)": dict(hue=0.90, year=2025, genres=["Music"], rating=6.8, mpaa="PG",
+        plot="A synth band records an album live on a night ferry, one track per harbour, in colours that only exist after dark.",
+        tagline="Dolby Vision profile 5."),
+    "Velvet Static (2025)": dict(hue=0.72, year=2025, genres=["Thriller"], rating=7.6, mpaa="PG-13",
+        plot="A broadcast engineer finds a second picture hidden underneath the first in every signal her station receives.",
+        tagline="Dolby Vision profile 7."),
 }
 SERIES = dict(name="Skylark Isles", hue=0.50, year=2022, genres=["Animation", "Fantasy"], rating=8.6,
     plot="Kira, a sky-cartographer apprentice, chases the aurora across a floating archipelago to find where the lights are born.",
@@ -70,6 +80,8 @@ def esc(s): return html.escape(s)
 
 for folder, m in MOVIES.items():
     path = os.path.join(root, "movies", folder)
+    if not os.path.isdir(path):
+        continue
     title = folder.rsplit(" (", 1)[0]
     art(path, title, m["hue"], hash(folder) & 0xffff)
     genres = "".join(f"<genre>{g}</genre>" for g in m["genres"])

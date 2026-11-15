@@ -15,6 +15,11 @@
 # libmpv: native code calls MPVLib's event/log methods and the observer interfaces by name.
 -keep class dev.jdtech.mpv.** { *; }
 
+# libdovi JNI bindings (ExoplayerHdrUtils): native code builds the result classes by name. Only
+# LibDovi is used; the library's ExoPlayer helpers target a newer Media3 and are stripped unused.
+-keep class com.suyashbelekar.exoplayerhdrutils.libdovi.** { *; }
+-dontwarn com.suyashbelekar.exoplayerhdrutils.**
+
 # Jellyfin FFmpeg decoder: loaded by DefaultRenderersFactory via reflection, and JNI-backed.
 -keep class androidx.media3.decoder.ffmpeg.** { *; }
 -keep class androidx.media3.decoder.** { native <methods>; }

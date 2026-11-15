@@ -62,7 +62,6 @@ object DeviceProfileBuilder {
             TranscodingProfile(container = "mp3", type = "Audio", videoCodec = "", audioCodec = "mp3", protocol = "http", maxAudioChannels = "2"),
         )
 
-        val rangeTypes = caps.allowedRangeTypes().joinToString("|")
         val codecProfiles = buildList {
             caps.video.forEach { v ->
                 val conditions = buildList {
@@ -70,7 +69,7 @@ object DeviceProfileBuilder {
                     add(ProfileCondition("LessThanEqual", "Height", v.maxHeight.toString()))
                     add(ProfileCondition("LessThanEqual", "VideoBitDepth", v.maxBitDepth.toString()))
                     if (v.profiles.isNotEmpty()) add(ProfileCondition("EqualsAny", "VideoProfile", v.profiles.joinToString("|")))
-                    if (v.codec in HDR_CAPABLE_CODECS) add(ProfileCondition("EqualsAny", "VideoRangeType", rangeTypes))
+                    if (v.codec in HDR_CAPABLE_CODECS) add(ProfileCondition("EqualsAny", "VideoRangeType", caps.allowedRangeTypes(v.codec).joinToString("|")))
                 }
                 add(CodecProfile(type = "Video", codec = v.codec, conditions = conditions))
             }

@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.audio.AudioCapabilities
 import com.auroratv.core.Log
 import com.auroratv.playback.Codecs
 import com.auroratv.playback.DeviceCapabilities
+import com.auroratv.playback.DolbyVisionSupport
 import com.auroratv.playback.HdrFormat
 import com.auroratv.playback.VideoCodecSupport
 
@@ -47,6 +48,7 @@ object AndroidCapabilities {
 
         val video = VIDEO.mapNotNull { p -> probeVideo(codecs, p) }
         val hdr = probeHdr(context, codecs)
+        val dolbyVision = probeDolbyVision(codecs, HdrFormat.DOLBY_VISION in hdr)
         if (video.none { it.codec == Codecs.HEVC }) notes += "No HEVC decoder found: HEVC content will be transcoded by the server."
         else if (video.first { it.codec == Codecs.HEVC }.maxBitDepth < 10) notes += "HEVC decoder is 8-bit only: Main10 content will be transcoded."
         if (hdr.isEmpty()) notes += "Display did not report HDR support: HDR content is tone-mapped by the server."
@@ -90,6 +92,7 @@ object AndroidCapabilities {
             subtitleExternal = setOf("ass", "ssa", "srt", "subrip", "vtt", "webvtt", "ttml"),
             libassRendering = true,
             supportsSubtitleDelay = false,
+            dolbyVision = dolbyVision,
             notes = notes + "Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.",
         )
         Log.i(TAG, "Android ${Build.VERSION.SDK_INT} ${Build.MANUFACTURER} ${Build.MODEL}: $caps")
@@ -111,6 +114,9 @@ object AndroidCapabilities {
         subtitleExternal = base.subtitleExternal + setOf("sub", "smi", "sup"),
         libassRendering = true,
         supportsSubtitleDelay = true,
+        // mpv decodes Dolby Vision files as their base layer (it has no Android DV output path);
+        // profile 5 is left to the server, which converts it.
+        dolbyVision = DolbyVisionSupport.None,
         notes = base.notes.filterNot { it.startsWith("Subtitle delay") || it.startsWith("FFmpeg audio extension") },
     )
 
@@ -157,8 +163,43 @@ object AndroidCapabilities {
         if (Display.HdrCapabilities.HDR_TYPE_HDR10 in types) result += HdrFormat.HDR10
         if (Display.HdrCapabilities.HDR_TYPE_HLG in types) result += HdrFormat.HLG
         if (Build.VERSION.SDK_INT >= 29 && Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS in types) result += HdrFormat.HDR10_PLUS
-        val dvDecoder = codecs.any { info -> info.supportedTypes.any { it.equals(MimeTypes.VIDEO_DOLBY_VISION, true) } }
-        if (Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION in types && dvDecoder) result += HdrFormat.DOLBY_VISION
+        if (Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION in types) result += HdrFormat.DOLBY_VISION
         return result
+    }
+
+    /** Dolby Vision profile number for each MediaCodec DV profile constant. */
+    private val DV_PROFILES = mapOf(
+        CodecProfileLevel.DolbyVisionProfileDvheDtr to 4,
+        CodecProfileLevel.DolbyVisionProfileDvheStn to 5,
+        CodecProfileLevel.DolbyVisionProfileDvheDtb to 7,
+        CodecProfileLevel.DolbyVisionProfileDvheSt to 8,
+        CodecProfileLevel.DolbyVisionProfileDvavSe to 9,
+        CodecProfileLevel.DolbyVisionProfileDvav110 to 10,
+    )
+
+    /** Fire TV 4K (1st/2nd gen) and 4K Max (1st/2nd gen): DV + HDR10+ streams misbehave (media3 #11096). */
+    private val HDR10_PLUS_IN_DV_BUG_MODELS = setOf("AFTMM", "AFTKA", "AFTKM", "AFTKRT")
+
+    /**
+     * Which Dolby Vision profiles the decoder declares, whether the display takes DV, and whether
+     * profile 7 can be converted. Profile 7 is only worth converting where the decoder takes 8 but
+     * not 7 (Fire TV, Chromecast, most TVs); the Shield decodes 7 without declaring it.
+     */
+    private fun probeDolbyVision(codecs: List<MediaCodecInfo>, display: Boolean): DolbyVisionSupport {
+        val profiles = mutableSetOf<Int>()
+        codecs.filter { info -> info.supportedTypes.any { it.equals(MimeTypes.VIDEO_DOLBY_VISION, true) } }.forEach { info ->
+            runCatching { info.getCapabilitiesForType(MimeTypes.VIDEO_DOLBY_VISION).profileLevels }.getOrNull()
+                ?.forEach { pl -> DV_PROFILES[pl.profile]?.let(profiles::add) }
+        }
+        if (Build.MODEL.startsWith("SHIELD Android TV") && 8 in profiles) profiles += 7
+        val needsConversion = display && 8 in profiles && 7 !in profiles
+        val support = DolbyVisionSupport(
+            display = display,
+            decoderProfiles = profiles,
+            canConvertProfile7 = needsConversion && LibDoviLoader.available,
+            masksHdr10Plus = Build.MANUFACTURER.equals("Amazon", true) && Build.MODEL in HDR10_PLUS_IN_DV_BUG_MODELS,
+        )
+        Log.i(TAG, "Dolby Vision: display=$display decoderProfiles=${profiles.sorted()} convertP7=${support.canConvertProfile7} maskHdr10Plus=${support.masksHdr10Plus}")
+        return support
     }
 }
