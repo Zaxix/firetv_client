@@ -137,6 +137,8 @@ fun AuroraApp(container: AppContainer) {
 private fun Splash() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            com.auroratv.ui.components.AppLogoImage(Aurora.colors.onBackground, Modifier.size(120.dp))
+            Spacer(Modifier.height(16.dp))
             Text(com.auroratv.AppInfo.NAME, style = AuroraType.hero, color = Aurora.colors.onBackground)
             Spacer(Modifier.height(24.dp))
             Box(Modifier.size(48.dp)) { LoadingState() }
