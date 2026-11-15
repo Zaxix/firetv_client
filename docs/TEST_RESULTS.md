@@ -123,8 +123,15 @@ server. Debug builds log every remote key the activity receives, so the run prov
   lines in the styled sample (see screenshots) ✅
 * player controls (progress bar, elapsed/remaining, transport, audio/subtitle/info, next episode) ✅
 * no crashes (`FATAL EXCEPTION` check on logcat) ✅
+* **MPV player** (switched with the `player` launch extra, same as the setting): the anime typesetting
+  episode and the HEVC Main10 movie through server transcoding, and the multi-track MKV by Direct Play.
+  Rotated/moving signs, `\clip` + `\t`, karaoke and fades rendered by mpv's libass; the server's font
+  attachment was downloaded and used, matching ExoPlayer pixel-for-pixel in typeface ✅
+* **Server font attachments for transcodes**: both engines now use the MKV's embedded font when the
+  server transcodes (ExoPlayer previously fell back to the system font) ✅
 * **R8-shrunk release APK** (13 MB): fresh install, sign-in with the remote, Home, then playback of
-  the anime ASS episode and the HEVC Main10 movie through Media3 + libass + FFmpeg. The run fails on
+  the anime ASS episode and the HEVC Main10 movie through Media3 + libass + FFmpeg, then the HEVC movie
+  again through libmpv. The run fails on
   any crash, missing class or native-library error, or if the player never reaches the READY state ✅
 
 The emulator runs found and fixed three real bugs:
