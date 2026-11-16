@@ -315,6 +315,22 @@ fun HomeScreen() {
         }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Home", "Refresh after watching failed: ${it.message}") }
     }
 
+    // Perf log (CI reads it): when the first rows on screen are filled, and what Home cost the server.
+    LaunchedEffect(Unit) {
+        val t0 = kotlin.time.TimeSource.Monotonic.markNow()
+        val filled = kotlinx.coroutines.withTimeoutOrNull(15_000) {
+            while (true) {
+                val r = model.rails
+                if (r != null && r.take(FIRST_ROWS).all { it.items != null && !it.stale }) break
+                delay(50)
+            }
+            t0.elapsedNow().inWholeMilliseconds
+        }
+        com.auroratv.core.Log.i("Perf", "Home first $FIRST_ROWS rows filled from the server in ${filled?.let { "$it ms" } ?: "over 15 s"}")
+        delay((HOME_COST_AFTER_MS - t0.elapsedNow().inWholeMilliseconds).coerceAtLeast(0))
+        container.platform.requestStats()?.let { com.auroratv.core.Log.i("Perf", "Server requests in the first ${HOME_COST_AFTER_MS / 1000} s: $it") }
+    }
+
     val rails = model.rails
     ScreenFocus(entry, navigator, heroFocus, ready = rails != null)
 
@@ -379,6 +395,8 @@ fun HomeScreen() {
 }
 
 private const val HERO_WAIT_MS = 4_000L
+private const val FIRST_ROWS = 4
+private const val HOME_COST_AFTER_MS = 10_000L
 private const val REC_WAIT_MS = 2_500L
 private const val PREWARM_DELAY_MS = 700L
 private const val SAVED_PER_ROW = 12

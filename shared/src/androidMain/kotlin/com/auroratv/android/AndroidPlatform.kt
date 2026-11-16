@@ -42,6 +42,10 @@ class AndroidPlatform(private val activity: Activity) : Platform {
         MediaHeaderCache.attach(activity)
     }
 
+    override fun requestStats(): String = com.auroratv.jellyfin.SharedOkHttp.let {
+        "api=${it.apiRequests.get()} images=${it.imageRequests.get()} media=${it.mediaRequests.get()}"
+    }
+
     override fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) =
         MediaHeaderCache.prefetch(url, headers, cacheKey)
 

@@ -60,6 +60,9 @@ interface Platform {
      */
     fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) {}
 
+    /** "api=N images=N media=N": requests made to the server since launch, or null where not counted. */
+    fun requestStats(): String? = null
+
     /** Whether a VPN is carrying this device's traffic (for clearer "can't reach the server" help). */
     fun vpnActive(): Boolean = false
 

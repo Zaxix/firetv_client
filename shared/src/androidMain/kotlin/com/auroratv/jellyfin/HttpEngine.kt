@@ -14,6 +14,11 @@ import java.util.concurrent.TimeUnit
  * and for MKV resumes, which open several byte ranges in a row.
  */
 object SharedOkHttp {
+    /** Requests this app has made to the server since launch, by kind (for the Perf log; see Platform.requestStats). */
+    val apiRequests = java.util.concurrent.atomic.AtomicInteger()
+    val imageRequests = java.util.concurrent.atomic.AtomicInteger()
+    val mediaRequests = java.util.concurrent.atomic.AtomicInteger()
+
     val dispatcher = Dispatcher().also { it.maxRequests = 64 }
     val pool = ConnectionPool(16, 5, TimeUnit.MINUTES)
 
@@ -22,6 +27,15 @@ object SharedOkHttp {
             .dispatcher(dispatcher)
             .connectionPool(pool)
             .retryOnConnectionFailure(true)
+            .addInterceptor { chain ->
+                val path = chain.request().url.encodedPath
+                when {
+                    path.contains("/Images/") -> imageRequests.incrementAndGet()
+                    path.startsWith("/Videos/") || path.startsWith("/Audio/") || path.contains("/hls") -> mediaRequests.incrementAndGet()
+                    else -> apiRequests.incrementAndGet()
+                }
+                chain.proceed(chain.request())
+            }
             // A home-network server stays reachable with a VPN app on, where the VPN allows it.
             .socketFactory(LanRoute.socketFactory)
             .build()
