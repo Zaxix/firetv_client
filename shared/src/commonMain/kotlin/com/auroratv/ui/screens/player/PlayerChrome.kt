@@ -215,7 +215,20 @@ fun PlayerChrome(
         repeatCount = 0
     }
 
-    /** Accumulates repeated seek presses (hold to accelerate) and commits once the user pauses. */
+    /**
+     * D-pad scrubbing: moves the preview point (hold to accelerate) without seeking. Nothing happens
+     * to the video until Select is pressed; Back puts the preview away.
+     */
+    fun previewBy(deltaMs: Long) {
+        val es = esState.value
+        val base = scrubTarget ?: es.positionMs
+        scrubJob?.cancel()
+        scrubTarget = (base + deltaMs).coerceIn(0, if (es.durationMs > 0) es.durationMs else Long.MAX_VALUE)
+        poke()
+    }
+    fun cancelScrub() { scrubJob?.cancel(); scrubTarget = null; repeatCount = 0 }
+
+    /** Skip buttons and the remote's ⏪/⏩ keys: accumulate repeated presses and seek once they stop. */
     fun scrubBy(deltaMs: Long) {
         val es = esState.value
         val base = scrubTarget ?: es.positionMs
@@ -325,25 +338,37 @@ fun PlayerChrome(
             Key.MediaRewind -> { if (down) scrubBy(-s.seekBackSeconds * 1000L); return true }
             Key.MediaNext -> { if (down && ui.nextEpisode != null) controller.playNext(); return true }
             Key.Back, Key.Escape -> {
-                // One press leaves the player; with a panel open it closes the panel first.
-                if (up) { if (panel != Panel.None) { panel = Panel.None; showControls() } else exit() }
+                // Back steps out one layer at a time: a scrub preview, then a panel, then the controls
+                // (leaving the paused picture clean), and only then the player itself.
+                if (up) when {
+                    scrubTarget != null -> cancelScrub()
+                    panel != Panel.None -> { panel = Panel.None; showControls() }
+                    controlsVisible && !showUpNext && ui.error == null -> hideControls()
+                    else -> exit()
+                }
                 return true
             }
         }
         if (showUpNext || ui.error != null || panel != Panel.None) { poke(); return false }
         if (!controlsVisible) {
-            if (!down) return ev.key in setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown)
+            if (!down) {
+                if (ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight) repeatCount = 0 // acceleration is per hold
+                return ev.key in setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown)
+            }
             when (ev.key) {
-                Key.DirectionLeft -> { repeatCount++; scrubBy(-s.seekBackSeconds * 1000L * accel(repeatCount)); return true }
-                Key.DirectionRight -> { repeatCount++; scrubBy(s.seekForwardSeconds * 1000L * accel(repeatCount)); return true }
+                Key.DirectionLeft -> { repeatCount++; previewBy(-s.seekBackSeconds * 1000L * accel(repeatCount)); return true }
+                Key.DirectionRight -> { repeatCount++; previewBy(s.seekForwardSeconds * 1000L * accel(repeatCount)); return true }
                 Key.DirectionUp, Key.Menu, Key.Info -> { showControls(); return true }
                 Key.DirectionDown -> {
                     // Like swiping down on tvOS: straight to Episodes (series) or Info.
                     controlsVisible = true; openPanel(if (isEpisode) Panel.Episodes else Panel.Info); return true
                 }
                 Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                    if (scrubTarget != null) { commitScrub(); return true } // jump to the previewed time
                     if (showSkip) return false // the focused Skip button handles it
-                    togglePlay(); showControls(); return true
+                    // Playing: pause and show the controls. Paused: just bring the controls back.
+                    if (esState.value.isPlaying) togglePlay()
+                    showControls(); return true
                 }
             }
             return false
@@ -444,7 +469,8 @@ fun PlayerChrome(
                         skipRanges = ui.skipRanges,
                         preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
                         focusRequester = scrubFocus,
-                        onScrub = { delta -> scrubBy(delta) },
+                        onScrub = { delta -> previewBy(delta) },
+                        onBlur = { if (scrubTarget != null && panel == Panel.None) cancelScrub() },
                         onSelect = { if (scrubTarget != null) commitScrub() else togglePlay() },
                         onDown = { openPanel(if (isEpisode) Panel.Episodes else Panel.Info) },
                         onPointerScrub = ::pointerScrub,
@@ -466,6 +492,7 @@ fun PlayerChrome(
                         target, duration, bufferedMs = 0, focused = true, chapters = emptyList(), skipRanges = ui.skipRanges, showBubble = true,
                         preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
                     )
+                    Text("Select to jump here  ·  Back to cancel", style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }
@@ -565,7 +592,10 @@ private fun TimeRow(engine: State<EngineState>, scrubTarget: Long?, skipRanges: 
     val pos = scrubTarget ?: es.positionMs
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(formatTime(pos), style = AuroraType.label, color = Color.White)
-        if (skipRanges.isNotEmpty()) {
+        if (scrubTarget != null) {
+            Spacer(Modifier.width(18.dp))
+            Text("Select to jump here  ·  Back to cancel", style = AuroraType.caption, color = Color.White.copy(alpha = 0.75f))
+        } else if (skipRanges.isNotEmpty()) {
             Spacer(Modifier.width(18.dp))
             Box(Modifier.size(10.dp).clip(CircleShape).background(SkipYellow))
             Spacer(Modifier.width(6.dp))
@@ -854,6 +884,8 @@ private fun Scrubber(
     preview: TrickplayRef?,
     focusRequester: FocusRequester,
     onScrub: (Long) -> Unit,
+    /** The timeline lost focus (e.g. Up to the buttons): an unconfirmed preview is dropped. */
+    onBlur: () -> Unit,
     onSelect: () -> Unit,
     onDown: () -> Unit,
     onPointerScrub: (Float) -> Unit,
@@ -871,7 +903,7 @@ private fun Scrubber(
     Box(
         Modifier.fillMaxWidth().height(44.dp)
             .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { if (focused && !it.isFocused) onBlur(); focused = it.isFocused }
             .onPreviewKeyEvent { ev ->
                 if (!focused) return@onPreviewKeyEvent false
                 when {
