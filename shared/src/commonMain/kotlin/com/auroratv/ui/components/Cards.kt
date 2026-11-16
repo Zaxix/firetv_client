@@ -1,5 +1,9 @@
 package com.auroratv.ui.components
 
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +51,7 @@ enum class CardStyle(val width: Dp, val aspect: Float) {
 @Composable
 fun CardStyle.requestWidth(): Int = artworkPx(width)
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MediaCard(
     item: BaseItemDto,
@@ -65,12 +70,23 @@ fun MediaCard(
         CardStyle.Poster, CardStyle.Square -> images.poster(item, style.requestWidth()) ?: images.landscape(item, style.requestWidth())
         CardStyle.Landscape -> images.landscape(item, style.requestWidth()) ?: images.poster(item, style.requestWidth())
     }
-    Column(modifier.width(style.width)) {
+    // Focus only brings the artwork into view; this also brings the title under it, so the last row
+    // of a screen isn't left with its text cut off at the bottom edge.
+    val wholeCard = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(
+        modifier.width(style.width)
+            .then(if (showTitle) Modifier.bringIntoViewRequester(wholeCard).onFocusChanged {
+                if (it.hasFocus) scope.launch { wholeCard.bringIntoView() }
+            } else Modifier)
+    ) {
         FocusSurface(
             onClick = onClick,
             onLongClick = onLongClick,
             focusKey = focusKey,
             onFocused = onFocused,
+            // The focused card glows in its own artwork's colours (from the BlurHash: no extra work).
+            glow = remember(artwork?.blurHash) { com.auroratv.ui.theme.BlurHash.accentFrom(artwork?.blurHash, dark = true) },
             modifier = Modifier.fillMaxWidth().aspectRatio(style.aspect),
         ) {
             Box(Modifier.fillMaxSize()) {

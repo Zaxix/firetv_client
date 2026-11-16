@@ -26,6 +26,8 @@ data class Settings(
     val interfaceScalePercent: Int = 0,
     val animations: AnimationLevel = AnimationLevel.Full,
     val showBackdrops: Boolean = true,
+    /** Behind rows on Home: a frosted colour field from the focused poster (true) or its backdrop art. */
+    val frostedBackground: Boolean = true,
     val artworkAccents: Boolean = true,
     val showHeroCarousel: Boolean = true,
     /** Studio/network tiles (Disney, Netflix, Apple TV...) under the featured carousel. */

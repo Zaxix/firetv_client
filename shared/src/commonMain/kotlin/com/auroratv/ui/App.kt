@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -199,8 +200,8 @@ private fun MainShell(container: AppContainer) {
     // Entering the app from sign-in: make sure no on-screen keyboard is left capturing the D-pad.
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide(); container.platform.hideKeyboard() }
-    // Look for a newer build once a day (never during playback: the prompt waits for the player to close).
-    LaunchedEffect(Unit) { container.updates.checkIfDue() }
+    // Look for a newer build every time the app opens (the prompt waits for the player to close).
+    LaunchedEffect(Unit) { container.updates.checkOnLaunch() }
     val updatePrompt by container.updates.prompt.collectAsState()
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack
@@ -363,7 +364,10 @@ private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: (sameSc
                 .fillMaxHeight()
                 .width(width)
                 .clip(RoundedCornerShape(26.dp))
-                .background(colors.surface.copy(alpha = if (expanded) 0.94f else 0.72f))
+                // Glass: translucent tinted fill with a light top edge (no live blur, which most Fire TV
+                // models can't do and which would cost GPU time on every frame).
+                .background(com.auroratv.ui.components.Glass.fill(colors.surface, opaque = expanded))
+                .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(26.dp))
                 .onFocusChanged { bar.hasFocus = it.hasFocus }
                 .focusRestorer(bar.currentItem)
                 .padding(vertical = 14.dp, horizontal = 8.dp),

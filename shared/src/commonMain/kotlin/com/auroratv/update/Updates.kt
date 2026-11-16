@@ -108,9 +108,14 @@ class UpdateManager(
     val supported get() = updater != null
 
     /** Automatic check: on start-up, if enabled and the last one was over 20 hours ago. */
-    fun checkIfDue(): Job? {
+    /**
+     * Called each time the app opens. Always asks GitHub (one small request), except when it already
+     * did in the last minute (switching users re-opens the main screen). A build you chose "Later"
+     * for stays quiet for [AUTO_INTERVAL_MS]; a newer one is offered straight away.
+     */
+    fun checkOnLaunch(): Job? {
         if (updater == null || !settings().autoCheckUpdates) return null
-        if (prefs.lastCheckMs != 0L && now() - prefs.lastCheckMs < AUTO_INTERVAL_MS) return null
+        if (prefs.lastCheckMs != 0L && now() - prefs.lastCheckMs in 0 until LAUNCH_DEBOUNCE_MS) return null
         return check(userAsked = false)
     }
 
@@ -194,5 +199,6 @@ class UpdateManager(
         const val TAG = "Updates"
         const val FILE = "updates.json"
         const val AUTO_INTERVAL_MS = 20L * 60 * 60 * 1000
+        const val LAUNCH_DEBOUNCE_MS = 60L * 1000
     }
 }

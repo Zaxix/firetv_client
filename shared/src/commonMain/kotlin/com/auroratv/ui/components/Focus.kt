@@ -50,6 +50,8 @@ fun FocusSurface(
     scaleOnFocus: Boolean = true,
     /** tvOS-style specular highlight across artwork when focused. */
     sheen: Boolean = scaleOnFocus,
+    /** Colour of the light around the card when focused (e.g. from its poster); null = neutral shadow. */
+    glow: Color? = null,
     content: @Composable (focused: Boolean) -> Unit,
 ) {
     val motion = Aurora.motion
@@ -74,7 +76,8 @@ fun FocusSurface(
                 scaleX = scale; scaleY = scale
                 // A modest shadow: big elevations are drawn blurred by the GPU every frame the card
                 // animates, which low-end TV GPUs (Fire TV sticks) feel while scrolling.
-                shadowElevation = if (active && scaleOnFocus) 14f else 0f
+                shadowElevation = if (active && scaleOnFocus) (if (glow != null) 30f else 14f) else 0f
+                if (glow != null) { ambientShadowColor = glow; spotShadowColor = glow }
                 this.shape = shape
                 clip = false
             }

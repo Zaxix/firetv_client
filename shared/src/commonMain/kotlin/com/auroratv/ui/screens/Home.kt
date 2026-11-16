@@ -55,6 +55,7 @@ import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.ui.LocalContainer
 import com.auroratv.ui.LocalSession
 import com.auroratv.ui.components.ArtworkImage
+import com.auroratv.ui.components.FrostedField
 import com.auroratv.ui.components.artworkPx
 import com.auroratv.ui.components.screenArtworkPx
 import com.auroratv.ui.components.AuroraButton
@@ -204,7 +205,7 @@ fun HomeScreen() {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val heroHeight = maxHeight * 0.80f
         if (settings.showBackdrops) {
-            HomeBackdrop(backdropItem, accent)
+            HomeBackdrop(heroItem, model.focused, settings.frostedBackground, accent)
         }
         LazyColumn(
             state = model.listState,
@@ -272,16 +273,40 @@ fun openItem(navigator: com.auroratv.ui.nav.Navigator, item: BaseItemDto) {
     }
 }
 
+/**
+ * Home's background. The featured banner always shows its artwork; with a card focused it's either
+ * that title's backdrop or (default) frosted glass in the colours of its poster.
+ */
 @Composable
-private fun HomeBackdrop(item: BaseItemDto?, accent: Color) {
+private fun HomeBackdrop(hero: BaseItemDto?, focused: BaseItemDto?, frosted: Boolean, accent: Color) {
     val api = LocalSession.current.api
     val colors = Aurora.colors
     val backdropPx = screenArtworkPx()
+    val item = focused ?: hero
+    val frostedNow = frosted && focused != null
+    // Frosted fields are keyed by colour (the BlurHash), so moving between cards of the same title or
+    // artwork doesn't fade at all.
+    val frostHash = if (frostedNow) focused?.let { (api.images.poster(it, 1) ?: api.images.landscape(it, 1))?.blurHash } else null
+    val key = if (frostedNow) "frost:${frostHash ?: focused?.id}" else "art:${item?.id}"
     Box(Modifier.fillMaxSize()) {
-        Crossfade(targetState = item?.id, animationSpec = tween(Aurora.motion.duration(500))) { id ->
-            val target = if (id == item?.id) item else null
-            ArtworkImage(target?.let { api.images.backdrop(it, backdropPx) }, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
+        Crossfade(targetState = key, animationSpec = tween(Aurora.motion.duration(if (frostedNow) 350 else 500))) { k ->
+            if (k.startsWith("frost:")) {
+                FrostedField(k.removePrefix("frost:"))
+            } else {
+                // Captured when this layer appeared, so the outgoing image stays while it fades out.
+                val target = remember { item?.takeIf { k == "art:${it.id}" } }
+                ArtworkImage(target?.let { api.images.backdrop(it, backdropPx) }, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopEnd)
+            }
         }
+        // The frosted field carries its own shading; artwork needs scrims to keep text readable.
+        if (!frostedNow) ArtworkScrims(accent)
+    }
+}
+
+@Composable
+private fun ArtworkScrims(accent: Color) {
+    val colors = Aurora.colors
+    Box(Modifier.fillMaxSize()) {
         // Left and bottom scrims keep text readable; the accent tints the shadow side like ambient light.
         // tvOS keeps artwork bright; only the lower-left, where text sits, is shaded.
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to colors.background.copy(alpha = 0.85f), 0.45f to colors.background.copy(alpha = 0.25f), 0.7f to accent.copy(alpha = 0.06f), 1f to Color.Transparent)))
@@ -302,6 +327,13 @@ private fun Hero(
     val api = LocalSession.current.api
     var heroFocused by remember { mutableStateOf(false) }
 
+    // Coming back up to the featured title shows the whole banner, not just enough to see its buttons.
+    LaunchedEffect(heroFocused) {
+        val list = model.listState
+        if (heroFocused && (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0)) {
+            list.animateScrollToItem(0)
+        }
+    }
     // Auto-advance the featured carousel, pausing while the user is interacting with it.
     LaunchedEffect(model.hero.size, heroFocused) {
         if (model.hero.size < 2) return@LaunchedEffect

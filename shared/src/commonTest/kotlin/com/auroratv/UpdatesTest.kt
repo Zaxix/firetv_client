@@ -70,23 +70,33 @@ class UpdatesTest {
         val files = MemoryFileStore()
         val server = FakeServer { json(versionJson(40)) }
         val m = manager(server, FakeUpdater(30), files, clock = { now }, scope = this)
-        m.checkIfDue()?.join()
+        m.checkOnLaunch()?.join()
         assertNotNull(m.prompt.value)
         m.later()
         assertNull(m.prompt.value)
-        // Next start a few hours later: no new check, no prompt.
+        // Opened again a few hours later: it checks, but the build you put off stays quiet.
         val m2 = manager(server, FakeUpdater(30), files, clock = { now + 3 * 3_600_000L }, scope = this)
-        m2.checkIfDue()?.join()
-        assertEquals(1, server.requests.size)
-        // A day later it checks again and offers it again.
+        m2.checkOnLaunch()?.join()
+        assertEquals(2, server.requests.size)
+        assertNull(m2.prompt.value)
+        // ...while a newer build is offered at once.
+        val newer = FakeServer { json(versionJson(41)) }
+        val m2b = manager(newer, FakeUpdater(30), files, clock = { now + 4 * 3_600_000L }, scope = this)
+        m2b.checkOnLaunch()?.join()
+        assertNotNull(m2b.prompt.value)
+        // A day later the put-off build is offered again.
         now += 25 * 3_600_000L
         val m3 = manager(server, FakeUpdater(30), files, clock = { now }, scope = this)
-        m3.checkIfDue()?.join()
+        m3.checkOnLaunch()?.join()
         assertNotNull(m3.prompt.value)
+        // Re-opened within a minute (e.g. switching user): no second request.
+        val m4 = manager(server, FakeUpdater(30), files, clock = { now + 10_000L }, scope = this)
+        m4.checkOnLaunch()?.join()
+        assertEquals(3, server.requests.size)
         // Turned off in settings: no network at all.
         val off = manager(server, FakeUpdater(30), MemoryFileStore(), Settings(autoCheckUpdates = false), scope = this)
-        off.checkIfDue()?.join()
-        assertEquals(2, server.requests.size)
+        off.checkOnLaunch()?.join()
+        assertEquals(3, server.requests.size)
     }
 
     @Test
