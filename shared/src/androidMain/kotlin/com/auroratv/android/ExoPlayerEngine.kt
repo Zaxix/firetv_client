@@ -15,7 +15,7 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.SeekParameters
@@ -52,6 +52,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/** A resume may start this far before the saved position (to the previous keyframe), never further. */
+private const val MAX_KEYFRAME_REWIND_MS = 12_000L
+
 /**
  * Media3 ExoPlayer engine with hardware MediaCodec decoding, the Jellyfin FFmpeg audio extension as
  * fallback, automatic HDMI passthrough, and libass (ass-media) rendering for ASS/SSA subtitles with
@@ -82,11 +85,13 @@ class ExoPlayerEngine(
         }
     }
 
-    private val httpFactory = DefaultHttpDataSource.Factory()
-        .setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)")
-        .setAllowCrossProtocolRedirects(true)
-        .setConnectTimeoutMs(15_000)
-        .setReadTimeoutMs(30_000)
+    // The app's shared OkHttp pool (see SharedOkHttp): the stream reuses connections the API already opened.
+    private val httpFactory = OkHttpDataSource.Factory(
+        com.auroratv.jellyfin.SharedOkHttp.client.newBuilder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    ).setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)")
 
     private val trackSelector = DefaultTrackSelector(context).apply {
         setParameters(buildUponParameters().setTunnelingEnabled(false).build())
@@ -162,6 +167,13 @@ class ExoPlayerEngine(
     private var videoDecoder: String? = null
     private var audioDecoder: String? = null
     private var droppedFrames = 0
+    /**
+     * Resuming a direct-played file: where we were asked to start, until the file's index is read and
+     * we can move to the keyframe just before it (see [startAtKeyframe]). 0 when there's nothing to do.
+     */
+    private var keyframeStartMs = 0L
+    /** Set while that keyframe move is in flight, to undo it if the file's index points far back. */
+    private var keyframeCheckMs = 0L
     private val frameRate = if (matchFrameRate) (context as? android.app.Activity)?.let { FrameRateMatcher(it) } else null
 
     init {
@@ -179,14 +191,33 @@ class ExoPlayerEngine(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 val name = when (playbackState) { Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; else -> "ended" }
                 Log.i(tag, "state=$name pos=${player.currentPosition} buffered=${player.bufferedPosition}")
+                // The keyframe move is settled by now (adjustments arrive before READY); later seeks are the viewer's.
+                if (playbackState == Player.STATE_READY) keyframeCheckMs = 0
             }
 
             override fun onTracksChanged(tracks: Tracks) {
                 frameRate?.let { m -> player.videoFormat?.frameRate?.takeIf { it > 0f }?.let(m::match) }
+                if (!tracks.isEmpty) startAtKeyframe()
                 if (!pendingApplied && !tracks.isEmpty) {
                     pendingApplied = true
                     pendingAudio?.let { selectAudio(it) }
                     selectSubtitle(pendingSubtitle)
+                }
+            }
+
+            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                val asked = keyframeCheckMs
+                if (asked <= 0 || reason != Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) return
+                keyframeCheckMs = 0
+                val back = asked - newPosition.positionMs
+                if (back > MAX_KEYFRAME_REWIND_MS) {
+                    // Keyframes (or the file's index) are too sparse: go to the exact spot after all.
+                    Log.i(tag, "Resume keyframe was ${back / 1000} s back; starting at the exact position instead")
+                    player.setSeekParameters(SeekParameters.EXACT)
+                    player.seekTo(asked)
+                    player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                } else {
+                    Log.i(tag, "Resuming from the keyframe $back ms before the saved position")
                 }
             }
 
@@ -287,10 +318,32 @@ class ExoPlayerEngine(
         pendingSubtitle = source.subtitle
         pendingApplied = false
         videoDecoder = null; audioDecoder = null; droppedFrames = 0
+        // Transcodes already begin exactly at the start position (the server cuts a keyframe there).
+        keyframeStartMs = if (!source.isHls && source.startPositionMs > 0) source.startPositionMs else 0L
+        keyframeCheckMs = 0
         _state.update { EngineState(isBuffering = true) }
         player.setMediaItem(item, source.startPositionMs)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /**
+     * Resume speed. Media3 always opens a file at the exact start position: it loads from the keyframe
+     * before it, decodes every frame in between without showing them, and only then counts its 1.5 s
+     * of start-up buffer. With keyframes 5–10 s apart that's tens of MB and seconds of hidden decoding,
+     * which a fresh start (already on a keyframe) never pays. Once the file's index is known, move the
+     * start back to that keyframe: the data being fetched already begins there, so playback can start
+     * as soon as 1.5 s of it has arrived, a few seconds before where the viewer stopped.
+     */
+    private fun startAtKeyframe() {
+        val asked = keyframeStartMs
+        if (asked <= 0) return
+        keyframeStartMs = 0
+        if (!player.isCurrentMediaItemSeekable || player.playbackState == Player.STATE_READY) return
+        keyframeCheckMs = asked
+        player.setSeekParameters(SeekParameters.PREVIOUS_SYNC)
+        player.seekTo(asked)
+        player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
     }
 
     override fun play() { if (player.playbackState == Player.STATE_ENDED) player.seekTo(0); player.play() }

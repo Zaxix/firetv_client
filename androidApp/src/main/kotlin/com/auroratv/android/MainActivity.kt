@@ -21,7 +21,11 @@ class MainActivity : ComponentActivity() {
         // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.
         intent?.getStringExtra("player")?.let { p ->
             com.auroratv.settings.PlayerEngineChoice.entries.firstOrNull { it.name.equals(p, ignoreCase = true) }
-                ?.let { choice -> container.settings.update { it.copy(playerEngine = choice) } }
+                ?.let { choice ->
+                    val change: (com.auroratv.settings.Settings) -> com.auroratv.settings.Settings = { it.copy(playerEngine = choice) }
+                    container.settings.update(change)
+                    container.launchSettingsOverride = change // and again once the profile's settings load
+                }
         }
         // Back presses that Compose didn't consume (e.g. nothing focused) still go through app navigation.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

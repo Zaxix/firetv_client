@@ -55,11 +55,15 @@ class AppContainer(val platform: Platform) {
     /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */
     var pendingSettingsPage: String? = null
 
+    /** A change asked for at launch (e.g. `--es player mpv`), re-applied once a profile's own settings load. */
+    var launchSettingsOverride: ((com.auroratv.settings.Settings) -> com.auroratv.settings.Settings)? = null
+
     init {
         // Opening a profile loads its own settings and local data before any screen reads them.
         sessions.onActivate = { profile ->
             val key = profile.key
             settings.switchProfile(key)
+            launchSettingsOverride?.let { settings.update(it) }
             trackMemory.switchProfile(key)
             ratingsKeys.switchProfile(key)
             ratingsStore.switchProfile(key)

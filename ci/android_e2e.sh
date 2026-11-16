@@ -53,7 +53,7 @@ key KEYCODE_DPAD_CENTER; sleep 3; shot android-27-profiles-from-app
 key KEYCODE_DPAD_DOWN KEYCODE_DPAD_CENTER; sleep 2; shot android-28-profiles-manage
 key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 4; shot android-29-profiles-back
 # Search: typing with typos still finds the title, as you type.
-open "section:Search"; sleep 8; adb shell input text "glas%smeridan"; sleep 5; shot android-30-search-typo
+adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "section:Search"; sleep 8; adb shell input text "glas%smeridan"; sleep 5; shot android-30-search-typo
 key KEYCODE_DPAD_DOWN; sleep 1; shot android-31-search-results
 
 # Deep links (session is restored from the Keystore vault on relaunch).
@@ -108,5 +108,6 @@ grep -E " [VDIWE] mpv +:" "$OUT/logcat-full.txt" | grep -E ":(error|warn|fatal)\
 grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libass|AndroidRuntime|FATAL|AuroraKeys|AuroraFocus|Ready to play|Prewarm|DolbyVision" "$OUT/logcat-full.txt" > "$OUT/logcat-aurora.txt" || true
 echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
 echo "---- Time from Play to engine start ----"; grep -E "Ready to play" "$OUT/logcat-aurora.txt" | sed -E "s/^.*Ready/Ready/" || true
+echo "---- Time from Play to the picture moving ----"; grep -E "Perf *: Playing after" "$OUT/logcat-full.txt" | sed -E "s/^.*Playing/Playing/" || true
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi

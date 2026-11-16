@@ -98,6 +98,9 @@ fun AuroraTextField(
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf(false) }
     var boxFocused by remember { mutableStateOf(false) }
+    // After Escape/Enter the highlight returns to the box; don't start typing again until focus leaves it.
+    var holdAutoEdit by remember { mutableStateOf(false) }
+    var heldWhileFocused by remember { mutableStateOf(false) }
     val fieldFocus = remember { FocusRequester() }
     val boxFocus = remember { FocusRequester() }
     // Keys can arrive faster than the screen recomposes (hardware keyboards, pasted text), so typing
@@ -115,10 +118,12 @@ fun AuroraTextField(
             keyboard?.show()
         }
     }
-    fun stopEditing() {
+    var fieldFocused by remember { mutableStateOf(false) }
+    fun stopEditing(refocus: Boolean = true) {
         closeKeyboard()
         editing = false
-        scope.launch { androidx.compose.runtime.withFrameNanos { }; runCatching { boxFocus.requestFocus() } }
+        holdAutoEdit = true
+        if (refocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; runCatching { boxFocus.requestFocus() } }
     }
     fun isBack(ev: androidx.compose.ui.input.key.KeyEvent) = ev.key == Key.Back || ev.key == Key.Escape
 
@@ -130,7 +135,8 @@ fun AuroraTextField(
             singleLine = true,
             visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType, imeAction = imeAction, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onAny = { stopEditing(); onIme() }),
+            // If the action moved focus on (username → password), leave it there; otherwise back to this box.
+            keyboardActions = KeyboardActions(onAny = { onIme(); stopEditing(refocus = fieldFocused) }),
             textStyle = AuroraType.bodyStrong.copy(color = colors.onBackground),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = colors.focusRing,
@@ -142,7 +148,7 @@ fun AuroraTextField(
             modifier = Modifier.fillMaxWidth()
                 .focusRequester(fieldFocus)
                 .focusProperties { canFocus = editing }
-                .onFocusChanged { if (!it.isFocused && editing) { editing = false; closeKeyboard() } }
+                .onFocusChanged { fieldFocused = it.isFocused; if (!it.isFocused && editing) { editing = false; closeKeyboard() } }
                 // Back reaches us before the keyboard does, so one press closes it and stops typing.
                 .onInterceptKeyBeforeSoftKeyboard { ev ->
                     if (editing && isBack(ev)) { if (ev.type == KeyEventType.KeyUp) stopEditing(); true } else false
@@ -162,7 +168,15 @@ fun AuroraTextField(
             Box(
                 Modifier.matchParentSize()
                     .focusRequester(boxFocus)
-                    .onFocusChanged { boxFocused = it.isFocused }
+                    .onFocusChanged {
+                        boxFocused = it.isFocused
+                        // With a computer keyboard there's no on-screen keyboard to get stuck in: type straight away.
+                        when {
+                            it.isFocused && holdAutoEdit -> heldWhileFocused = true
+                            it.isFocused && platform.typesOnFocus -> startEditing()
+                            !it.isFocused && heldWhileFocused -> { holdAutoEdit = false; heldWhileFocused = false }
+                        }
+                    }
                     .onPreviewKeyEvent { ev ->
                         if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         val code = ev.utf16CodePoint

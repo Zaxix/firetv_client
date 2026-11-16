@@ -12,6 +12,7 @@ mkdir -p "$OUT"
 UID_=$(curl -sf "$URL/Users/Me" -H "$A" | jq -r .Id)
 EP1=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[0].Id')
 GLASS=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Glass%20Meridian" -H "$A" | jq -r '.Items[0].Id')
+SEVEN=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Seven%20Rivers" -H "$A" | jq -r '.Items[0].Id')
 
 # The debug run left EP1 with a resume point inside its trailing (subtitle-only) section of the
 # synthetic file; start it from the beginning so the release build is judged on real playback.
@@ -67,6 +68,20 @@ open "player:$GLASS"; sleep 20; shot release-05-player-hevc
 # The shrunk build must also run libmpv (JNI callbacks need R8 keep rules).
 curl -sf -X POST "$URL/UserItems/$GLASS/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":0}' >/dev/null || true
 adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es player mpv --es route "player:$GLASS"; sleep 22; shot release-06-mpv-hevc
+
+
+# ---- Resume speed: Play → picture moving, resuming 20 s in (ExoPlayer; "Perf: Playing after …") ----
+resume_round() { # label item-id seconds
+  curl -sf -X POST "$URL/UserItems/$2/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d "{\"PlaybackPositionTicks\":$(( $3 * 10000000 ))}" >/dev/null || true
+  adb shell am force-stop "$PKG"; sleep 1
+  adb shell am start -n "$PKG/$ACT" --es player exoplayer --es route "player:$2" >/dev/null; sleep 14
+  echo "$1: $(adb logcat -d -s Perf | tr -d '\r' | grep 'Playing after' | tail -1 | sed -E 's/^.*Perf *: //')" | tee -a "$OUT/perf.txt"
+}
+resume_round "direct play, resume #1" "$SEVEN" 20
+resume_round "direct play, resume #2" "$SEVEN" 20
+resume_round "direct play, from the start" "$SEVEN" 0
+resume_round "transcode, resume" "$GLASS" 20
+adb logcat -d -s ExoEngine | tr -d '\r' | grep -E "keyframe" | sed -E 's/^.*ExoEngine *: /  /' | tail -4 | tee -a "$OUT/perf.txt"
 
 adb logcat -d > "$OUT/logcat-release.txt"
 # The player must reach READY (actually playing) at least once.

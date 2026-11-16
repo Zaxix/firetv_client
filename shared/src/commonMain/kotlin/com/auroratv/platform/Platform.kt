@@ -48,6 +48,12 @@ interface Platform {
     /** Self-update support (null where the app can't update itself). */
     val updater: com.auroratv.update.AppUpdater? get() = null
 
+    /**
+     * Whether text fields take typing as soon as they're highlighted (a computer keyboard). On TVs a
+     * highlighted field waits for Select, so the on-screen keyboard never traps the remote.
+     */
+    val typesOnFocus: Boolean get() = false
+
     /** Whether the user can pick between players (Android 8+ offers ExoPlayer and MPV). */
     val offersPlayerChoice: Boolean get() = false
 

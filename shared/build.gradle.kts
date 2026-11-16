@@ -82,6 +82,8 @@ kotlin {
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.ui)
             implementation(libs.media3.effect)
+            // Video over the app's own OkHttp client: reuses its warm connections to the server.
+            implementation(libs.media3.datasource.okhttp)
             implementation(libs.ass.media)
             implementation(libs.jellyfin.media3.ffmpeg)
             // libmpv for Android (mpv 0.42 + FFmpeg + libass), the optional second player. GPL-3.0.

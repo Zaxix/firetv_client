@@ -172,7 +172,13 @@ class PlayerController(
     fun shouldAskStillWatching(): Boolean =
         StillWatching.shouldAsk(settings().stillWatching, idleMs, _state.value.item?.runtimeMs)
 
+    /** From Play to the picture moving: logged once per start (tag "Perf") so CI can track it. */
+    private var playMark: kotlin.time.TimeMark? = null
+    private var playNote = ""
+
     fun start(itemId: String, startFromBeginning: Boolean = false) {
+        playMark = kotlin.time.TimeSource.Monotonic.markNow()
+        playNote = ""
         currentItemId = itemId
         startReported = false
         stoppedReported = false
@@ -197,6 +203,8 @@ class PlayerController(
                 if (prepared.fonts.isNotEmpty()) { fontsKey = "$itemId/${plan.mediaSource.id}"; fonts = prepared.fonts }
                 _state.update { it.copy(item = item, plan = plan, audioIndex = prepared.audioIndex, subtitleIndex = prepared.subtitleIndex, chapters = item.chapters) }
                 loadEngine(plan, startMs)
+                playNote = "${if (startMs > 0) "resume at ${startMs / 60_000}:${(startMs / 1000 % 60).toString().padStart(2, '0')}" else "from the start"}, " +
+                    "${plan.method.jellyfinName}, ${if (warm != null) "prepared ahead" else "cold"}"
                 Log.i(tag, "Ready to play in ${t0.elapsedNow().inWholeMilliseconds} ms (${if (warm != null) "prepared on the detail page" else "cold"}, ${plan.method.jellyfinName})")
                 // Secondary lookups never block playback.
                 launch {
@@ -309,6 +317,10 @@ class PlayerController(
                 if (es.error != null) {
                     _state.update { it.copy(error = es.error) }
                     return@collect
+                }
+                if (es.isPlaying) playMark?.let { mark ->
+                    playMark = null
+                    Log.i("Perf", "Playing after ${mark.elapsedNow().inWholeMilliseconds} ms ($playNote)")
                 }
                 if (es.isPlaying && !startReported) {
                     startReported = true
