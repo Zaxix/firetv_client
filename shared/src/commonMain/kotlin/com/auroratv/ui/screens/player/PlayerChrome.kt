@@ -562,7 +562,9 @@ fun PlayerChrome(
                         selected = ui.audioIndex, firstFocus = panelFocus,
                         onSelect = { idx -> idx?.let { controller.selectAudio(it) }; panel = Panel.None },
                     )
-                    Panel.Subtitles -> Column {
+                    Panel.Subtitles -> Row {
+                        // Controls and tracks on the left, a sample of the current look in the empty space on the right.
+                        Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             GlassPill(text = "A−", onClick = { controller.setSubtitleScale(ui.subtitleScale - 0.1f) })
                             Text("Size ${(ui.subtitleScale * 100).toInt()}%", style = AuroraType.label, color = Color.White)
@@ -587,6 +589,9 @@ fun PlayerChrome(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             GlassPill(text = "Colour: ${st.color.label}", onClick = { style { it.copy(color = SubtitleColor.entries.cycleAfter(it.color)) } })
                             GlassPill(text = "Edge: ${st.edge.label}", onClick = { style { it.copy(edge = SubtitleEdge.entries.cycleAfter(it.edge)) } })
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             GlassPill(text = "Background: ${st.background.label}", onClick = { style { it.copy(background = SubtitleBackground.entries.cycleAfter(it.background)) } })
                             GlassPill(text = if (st.raisePercent == 0) "Position: Bottom" else "Position: +${st.raisePercent}%", onClick = { style { it.copy(raisePercent = SubtitleStyle.RaiseChoices.cycleAfter(it.raisePercent)) } })
                         }
@@ -595,6 +600,12 @@ fun PlayerChrome(
                             options = listOf<Pair<Int?, String>>(null to "Off") + ui.subtitleStreams.map { it.index to TrackSelector.label(it) },
                             selected = ui.subtitleIndex, firstFocus = panelFocus,
                             onSelect = { idx -> controller.selectSubtitle(idx); panel = Panel.None },
+                        )
+                    }
+                        Spacer(Modifier.width(28.dp))
+                        com.auroratv.ui.components.SubtitlePreview(
+                            s.subtitleStyle, ui.subtitleScale,
+                            Modifier.padding(top = 4.dp).width(340.dp).aspectRatio(16f / 9f),
                         )
                     }
                     Panel.Info -> InfoPanel(controller, panelFocus)

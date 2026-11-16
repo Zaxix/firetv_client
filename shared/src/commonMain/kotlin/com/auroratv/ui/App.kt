@@ -206,6 +206,7 @@ private fun MainShell(container: AppContainer) {
     // Probe the decoders (a few hundred ms on a Fire TV) once Home is up, not when Play is first pressed.
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_500); container.capabilities() }
     val updatePrompt by container.updates.prompt.collectAsState()
+    val promptKeys = remember(updatePrompt?.build) { com.auroratv.ui.screens.UpdatePromptKeys(container.updates) }
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack
         onDispose { container.backHandler = { false } }
@@ -214,6 +215,8 @@ private fun MainShell(container: AppContainer) {
     CompositionLocalProvider(LocalNavigator provides navigator, LocalSideBar provides sideBar) {
         Box(
             Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
+                // The update card, when shown, gets every key first (it's modal).
+                if (updatePrompt != null && entry.route !is Route.Player) return@onPreviewKeyEvent promptKeys.onKey(ev)
                 // Holding Left lets focus move into the sidebar (see SideBarState.allowEntry).
                 if (ev.key == Key.DirectionLeft) sideBar.allowEntry = ev.type == KeyEventType.KeyDown
                 else if (ev.type == KeyEventType.KeyDown) sideBar.allowEntry = false
@@ -270,7 +273,7 @@ private fun MainShell(container: AppContainer) {
             }
             val prompt = updatePrompt
             if (prompt != null && !isPlayer) {
-                com.auroratv.ui.screens.UpdatePrompt(container.updates, prompt)
+                com.auroratv.ui.screens.UpdatePrompt(container.updates, prompt, promptKeys)
                 DisposableEffect(prompt.build) {
                     // Give focus back to the screen once the card closes.
                     onDispose { shellScope.launch { kotlinx.coroutines.delay(80); if (runCatching { contentFocus.requestFocus() }.isFailure) sideBar.open() } }

@@ -43,15 +43,39 @@ import com.auroratv.update.UpdateManager
 import com.auroratv.update.UpdateState
 
 /**
- * "Update available" card over the app. Left/Right pick a button, OK activates, Back means Later.
- * Handles its own keys so focus can't wander to the screen underneath.
+ * The remote's keys while the update card is up. The app shell hands it every key before anything
+ * else sees it, so the card works even if focus is still on the screen underneath (Home grabs focus
+ * for its banner as it opens, which is exactly when the card appears).
  */
+class UpdatePromptKeys(private val updates: UpdateManager) {
+    var selected by mutableIntStateOf(0)
+    private val busy get() = updates.state.value.let { it is UpdateState.Downloading || it is UpdateState.Installing }
+
+    fun activate(index: Int) {
+        if (busy) return
+        if (index == 0) updates.install() else updates.later()
+    }
+
+    /** Consumes every key (nothing behind the card reacts); Left/Right choose, OK activates, Back = Later. */
+    fun onKey(ev: androidx.compose.ui.input.key.KeyEvent): Boolean {
+        val up = ev.type == KeyEventType.KeyUp
+        when (ev.key) {
+            Key.DirectionLeft -> if (up) selected = 0
+            Key.DirectionRight -> if (up) selected = 1
+            Key.Enter, Key.DirectionCenter, Key.NumPadEnter, Key.Spacebar -> if (up) activate(selected)
+            Key.Back, Key.Escape -> if (up && !busy) updates.later()
+        }
+        return true
+    }
+}
+
+/** "Update available" card over the app. Left/Right pick a button, OK activates, Back means Later. */
 @Composable
-fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo) {
+fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo, keys: UpdatePromptKeys) {
     val state by updates.state.collectAsState()
     val colors = Aurora.colors
     val focus = remember { FocusRequester() }
-    var selected by remember { mutableIntStateOf(0) }
+    val selected = keys.selected
     val busy = state is UpdateState.Downloading || state is UpdateState.Installing
     val selfInstall = (state as? UpdateState.Available)?.asset != null || updates.updater?.pickAsset(info.assets.keys) != null
     val primaryLabel = when {
@@ -59,27 +83,13 @@ fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo) {
         selfInstall -> "Update now"
         else -> "Open download page"
     }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-
-    fun activate(index: Int) {
-        if (busy) return
-        if (index == 0) updates.install() else updates.later()
-    }
+    // Also take focus (keeps the screen underneath from showing a focused card through the scrim);
+    // the keys work regardless, see UpdatePromptKeys.
+    LaunchedEffect(Unit) { repeat(10) { runCatching { focus.requestFocus() }; kotlinx.coroutines.delay(100) } }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f))
             .focusRequester(focus)
-            .onKeyEvent { ev ->
-                val up = ev.type == KeyEventType.KeyUp
-                when (ev.key) {
-                    Key.DirectionLeft -> { if (up) selected = 0; true }
-                    Key.DirectionRight -> { if (up) selected = 1; true }
-                    Key.DirectionUp, Key.DirectionDown -> true
-                    Key.Enter, Key.DirectionCenter, Key.NumPadEnter -> { if (up) activate(selected); true }
-                    Key.Back, Key.Escape -> { if (up && !busy) updates.later(); true }
-                    else -> false
-                }
-            }
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
@@ -115,8 +125,8 @@ fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo) {
             if (!busy) {
                 Spacer(Modifier.height(22.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    PromptButton(primaryLabel, selected == 0) { selected = 0; activate(0) }
-                    PromptButton("Later", selected == 1) { selected = 1; activate(1) }
+                    PromptButton(primaryLabel, selected == 0) { keys.selected = 0; keys.activate(0) }
+                    PromptButton("Later", selected == 1) { keys.selected = 1; keys.activate(1) }
                 }
             }
         }
