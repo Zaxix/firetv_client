@@ -153,19 +153,18 @@ fun HomeScreen() {
     LaunchedEffect(reloadKey) {
         if (model.rails != null && reloadKey == 0) return@LaunchedEffect
         model.error = null
-        // Instant Home: last session's rows straight from disk while the fresh ones load.
-        if (model.rails == null) {
+        // Instant Home: last session's rows from disk, read alongside (not before) the server requests
+        // and shown only if they win the race.
+        val savedJob = if (model.rails == null) launch {
             val readStart = kotlin.time.TimeSource.Monotonic.markNow()
             val saved = homeCache.read()
             com.auroratv.core.Log.i("Perf", "Saved Home ${if (saved == null) "not found" else "read"} in ${readStart.elapsedNow().inWholeMilliseconds} ms")
-            saved?.let { cached ->
-                if (model.rails == null) {
-                    model.hero = cached.hero
-                    model.rails = cached.rails
-                    container.logHomeReady("from the saved copy")
-                }
+            if (saved != null && model.rails == null) {
+                model.hero = saved.hero
+                model.rails = saved.rails
+                container.logHomeReady("from the saved copy")
             }
-        }
+        } else null
         try {
             coroutineScope {
                 // Brand tiles load on their own; Home never waits for them.
@@ -219,6 +218,7 @@ fun HomeScreen() {
             throw e
         } catch (t: Throwable) {
             container.onError(t.toAppError())
+            savedJob?.join() // offline: the saved Home (if any) is better than an error screen
             model.error = t.toAppError().userMessage
         }
     }
@@ -288,6 +288,7 @@ fun HomeScreen() {
 
 private const val HERO_WAIT_MS = 4_000L
 private const val PREWARM_DELAY_MS = 700L
+private const val SAVED_PER_ROW = 12
 
 /**
  * The last Home this user saw on this device (banner titles and each row's items), so the next
@@ -296,6 +297,24 @@ private const val PREWARM_DELAY_MS = 700L
  */
 private class HomeCache(private val files: com.auroratv.platform.FileStore, serverId: String, userId: String) {
     private val name = "home-cache-$serverId-$userId.json"
+    private val json = kotlinx.serialization.json.Json(com.auroratv.core.AuroraJson) { encodeDefaults = false }
+
+    private fun slim(item: BaseItemDto, keepText: Boolean): BaseItemDto {
+        val usedTags = buildSet {
+            addAll(item.imageTags.values); addAll(item.backdropImageTags); addAll(item.parentBackdropImageTags)
+            item.seriesPrimaryImageTag?.let(::add); item.parentThumbImageTag?.let(::add)
+        }
+        return item.copy(
+            overview = item.overview.takeIf { keepText },
+            genres = if (keepText) item.genres else emptyList(),
+            taglines = emptyList(), providerIds = emptyMap(), studios = emptyList(), people = emptyList(),
+            mediaSources = emptyList(), mediaStreams = emptyList(), chapters = emptyList(), trickplay = null,
+            imageBlurHashes = item.imageBlurHashes
+                .filterKeys { it == "Primary" || it == "Backdrop" || it == "Thumb" }
+                .mapValues { (_, byTag) -> byTag.filterKeys { it in usedTags } }
+                .filterValues { it.isNotEmpty() },
+        )
+    }
 
     @kotlinx.serialization.Serializable
     private data class Saved(val hero: List<BaseItemDto>, val rails: List<SavedRail>)
@@ -306,7 +325,7 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
     suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
         runCatching {
             val text = files.read(name) ?: return@runCatching null
-            val saved = com.auroratv.core.AuroraJson.decodeFromString(Saved.serializer(), text)
+            val saved = json.decodeFromString(Saved.serializer(), text)
             HomeSnapshot(
                 hero = saved.hero,
                 rails = saved.rails.mapNotNull { r ->
@@ -320,8 +339,15 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
 
     suspend fun write(hero: List<BaseItemDto>, rails: List<RailState>) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
         runCatching {
-            val saved = Saved(hero, rails.mapNotNull { r -> r.items?.takeIf { it.isNotEmpty() && !r.failed }?.let { SavedRail(r.key, r.title, r.style.name, it) } })
-            files.write(name, com.auroratv.core.AuroraJson.encodeToString(Saved.serializer(), saved))
+            // Only what the first screens draw: a dozen cards per row, card fields only (the banner
+            // keeps its text), so the copy is small and quick to read back.
+            val saved = Saved(
+                hero.map { slim(it, keepText = true) },
+                rails.mapNotNull { r ->
+                    r.items?.takeIf { it.isNotEmpty() && !r.failed }?.let { items -> SavedRail(r.key, r.title, r.style.name, items.take(SAVED_PER_ROW).map { slim(it, keepText = false) }) }
+                },
+            )
+            files.write(name, json.encodeToString(Saved.serializer(), saved))
         }.onFailure { com.auroratv.core.Log.w("Home", "Couldn't save Home: ${it.message}") }
     }
 }

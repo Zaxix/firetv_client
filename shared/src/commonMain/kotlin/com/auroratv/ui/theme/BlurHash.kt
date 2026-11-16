@@ -68,7 +68,11 @@ object BlurHash {
     }
 
     /** Decodes to a small [width]x[height] bitmap (keep it tiny, e.g. 32x18; it's scaled up and blurred). */
-    fun decode(hash: String?, width: Int = 32, height: Int = 18, punch: Double = 1.0): ImageBitmap? {
+    fun decode(hash: String?, width: Int = 32, height: Int = 18, punch: Double = 1.0): ImageBitmap? =
+        decodePixels(hash, width, height, punch)?.let { pixelsToImageBitmap(it, width, height) }
+
+    /** The decoded ARGB pixels (for callers that post-process them before making a bitmap). */
+    fun decodePixels(hash: String?, width: Int = 32, height: Int = 18, punch: Double = 1.0): IntArray? {
         if (hash == null || hash.length < 6) return null
         return runCatching {
             val sizeFlag = decode83(hash, 0, 1)
@@ -108,7 +112,7 @@ object BlurHash {
                 }
                 pixels[x + y * width] = (0xFF shl 24) or (toSrgb(r) shl 16) or (toSrgb(g) shl 8) or toSrgb(b)
             }
-            pixelsToImageBitmap(pixels, width, height)
+            pixels
         }.getOrNull()
     }
 
