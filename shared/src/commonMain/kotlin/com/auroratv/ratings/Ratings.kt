@@ -65,14 +65,32 @@ data class RatingsKeys(val mdblist: String = "", val trakt: String = "") {
  * profile (DisplayPreferences) so a key typed once on a PC also appears on the TV.
  */
 class RatingsKeyStore(private val vault: SecureVault) {
-    private val _keys = MutableStateFlow(RatingsKeys(vault.get(MDBLIST).orEmpty(), vault.get(TRAKT).orEmpty()))
+    /** Vault entry suffix for the open profile ("" before one is chosen). */
+    private var suffix = ""
+    private val _keys = MutableStateFlow(read())
     val keys: StateFlow<RatingsKeys> = _keys.asStateFlow()
     private var pulledFrom: String? = null
 
+    private fun read() = RatingsKeys(vault.get(MDBLIST + suffix).orEmpty(), vault.get(TRAKT + suffix).orEmpty())
+
+    /** Each profile has its own keys; keys saved before profiles existed go to the first profile opened. */
+    fun switchProfile(profile: String) {
+        val next = ":$profile"
+        if (next == suffix) return
+        vault.get(MDBLIST)?.let { if (vault.get(MDBLIST + next) == null) vault.put(MDBLIST + next, it); vault.remove(MDBLIST) }
+        vault.get(TRAKT)?.let { if (vault.get(TRAKT + next) == null) vault.put(TRAKT + next, it); vault.remove(TRAKT) }
+        suffix = next
+        pulledFrom = null
+        _keys.value = read()
+    }
+
+    /** Forgets a removed profile's keys. */
+    fun forgetProfile(profile: String) { vault.remove("$MDBLIST:$profile"); vault.remove("$TRAKT:$profile") }
+
     fun save(keys: RatingsKeys) {
         val clean = RatingsKeys(keys.mdblist.trim(), keys.trakt.trim())
-        if (clean.mdblist.isBlank()) vault.remove(MDBLIST) else vault.put(MDBLIST, clean.mdblist)
-        if (clean.trakt.isBlank()) vault.remove(TRAKT) else vault.put(TRAKT, clean.trakt)
+        if (clean.mdblist.isBlank()) vault.remove(MDBLIST + suffix) else vault.put(MDBLIST + suffix, clean.mdblist)
+        if (clean.trakt.isBlank()) vault.remove(TRAKT + suffix) else vault.put(TRAKT + suffix, clean.trakt)
         _keys.value = clean
     }
 
@@ -113,6 +131,8 @@ class RatingsKeyStore(private val vault: SecureVault) {
 class RatingsService(
     private val http: HttpClient,
     private val keys: () -> RatingsKeys,
+    /** Ratings kept between sessions (per profile, a week); null keeps them for this run only. */
+    private val store: com.auroratv.profiles.RatingsStore? = null,
 ) {
     private val mutex = Mutex()
     private val cache = HashMap<String, Cached>()
@@ -148,11 +168,18 @@ class RatingsService(
         val tmdb = tmdbId(item)
         if (key.isBlank() || tmdb == null || !supports(item)) return fallback
         val type = if (item.isSeries) "show" else "movie"
+        val storeKey = "${type.first()}$tmdb"
+        store?.get(storeKey)?.let { saved ->
+            return (if (saved.tomatometer == null && fallback?.tomatometer != null) saved.copy(tomatometer = fallback.tomatometer) else saved)
+                .takeUnless { it.isEmpty } ?: fallback
+        }
         val fetched = cached("ratings:$type:$tmdb") {
             val response = http.get("https://api.mdblist.com/tmdb/$type/$tmdb") { parameter("apikey", key) }
             response.ensure("MDBList")
             parseMdbList(response.bodyAsText())
         } as ExternalRatings?
+        // (Back on the caller's thread here: the network part ran on Default inside cached().)
+        fetched?.let { r -> store?.put(storeKey, r) }
         // Keep Jellyfin's critic score if MDBList lacks one.
         return fetched?.let { if (it.tomatometer == null && fallback?.tomatometer != null) it.copy(tomatometer = fallback.tomatometer) else it }
             ?.takeUnless { it.isEmpty } ?: fallback

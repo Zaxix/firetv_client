@@ -67,22 +67,45 @@ data class Settings(
 )
 
 /** Persists [Settings] as JSON and exposes them as a [StateFlow]. */
+/**
+ * Settings belong to a profile (`settings-<profile>.json`). `settings.json` mirrors whichever
+ * profile was used last, so the app looks right (theme, interface size) before anyone has picked a
+ * profile; a profile opened for the first time starts from that, which is also how the settings of
+ * the single user from before profiles carry over.
+ */
 class SettingsRepository(private val files: FileStore) {
     private val fileName = "settings.json"
-    private val _settings = MutableStateFlow(load())
+    private var profileFile: String? = null
+    private val _settings = MutableStateFlow(load(fileName) ?: Settings())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
     val current: Settings get() = _settings.value
 
-    private fun load(): Settings = files.read(fileName)?.let {
+    private fun load(name: String): Settings? = files.read(name)?.let {
         runCatching { AuroraJson.decodeFromString(Settings.serializer(), it) }
-            .onFailure { e -> Log.w("Settings", "Corrupt settings, using defaults", e) }
+            .onFailure { e -> Log.w("Settings", "Corrupt settings in $name, using defaults", e) }
             .getOrNull()
-    } ?: Settings()
+    }
+
+    /** Loads [profile]'s settings (or gives a new profile the current ones as a starting point). */
+    fun switchProfile(profile: String) {
+        val name = com.auroratv.profiles.ProfileFiles.name("settings", profile)
+        if (name == profileFile) return
+        profileFile = name
+        _settings.value = load(name) ?: _settings.value
+        save()
+    }
 
     fun update(transform: (Settings) -> Settings) {
         _settings.update(transform)
-        runCatching { files.write(fileName, AuroraJson.encodeToString(Settings.serializer(), _settings.value)) }
-            .onFailure { Log.e("Settings", "Failed to save settings", it) }
+        save()
+    }
+
+    private fun save() {
+        val text = AuroraJson.encodeToString(Settings.serializer(), _settings.value)
+        runCatching {
+            files.write(fileName, text)
+            profileFile?.let { files.write(it, text) }
+        }.onFailure { Log.e("Settings", "Failed to save settings", it) }
     }
 }
 

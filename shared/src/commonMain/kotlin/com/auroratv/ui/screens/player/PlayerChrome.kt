@@ -32,6 +32,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -183,6 +184,11 @@ fun PlayerChrome(
     val scrubFocus = remember { FocusRequester() }
     val skipFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
+    val episodesButton = remember { FocusRequester() }
+    val chaptersButton = remember { FocusRequester() }
+    val audioButton = remember { FocusRequester() }
+    val subtitlesButton = remember { FocusRequester() }
+    val infoButton = remember { FocusRequester() }
 
     val showUpNext = ui.ended && ui.nextEpisode != null
     val isEpisode = ui.item?.isEpisode == true
@@ -202,16 +208,27 @@ fun PlayerChrome(
 
     fun exit() { controller.stop(); onExit() }
     fun poke() { interaction++ }
-    fun focusLater(r: FocusRequester) { scope.launch { delay(30); runCatching { r.requestFocus() } } }
+    /** Focus [r] once it's on screen (it may be appearing in this very frame), retrying briefly. */
+    fun focusLater(r: FocusRequester) {
+        scope.launch { repeat(12) { delay(30); if (runCatching { r.requestFocus() }.isSuccess) return@launch } }
+    }
     fun showControls() { controlsVisible = true; poke(); focusLater(scrubFocus) }
     fun hideControls() { controlsVisible = false; panel = Panel.None; runCatching { rootFocus.requestFocus() } }
     fun togglePlay() {
         flash = if (esState.value.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
         controller.togglePlayPause(); poke()
     }
-    fun openPanel(p: Panel) {
+    /** Where focus goes back to when the open panel closes (the button that opened it, or the timeline). */
+    var panelOpener by remember { mutableStateOf<FocusRequester?>(null) }
+    fun openPanel(p: Panel, opener: FocusRequester? = null) {
         if (p == Panel.Episodes) controller.loadEpisodes()
+        panelOpener = opener
         panel = p; poke()
+    }
+    fun closePanel() {
+        panel = Panel.None
+        controlsVisible = true; poke()
+        focusLater(panelOpener ?: scrubFocus)
     }
     fun commitScrub() {
         scrubJob?.cancel()
@@ -305,7 +322,12 @@ fun PlayerChrome(
         }
     }
     LaunchedEffect(Unit) { focusLater(scrubFocus) }
-    LaunchedEffect(panel) { if (panel != Panel.None) { delay(80); runCatching { panelFocus.requestFocus() } } }
+    // Move focus into a newly opened panel; it may still be loading (Episodes), so keep trying briefly.
+    LaunchedEffect(panel) {
+        if (panel == Panel.None) return@LaunchedEffect
+        delay(40)
+        repeat(40) { if (runCatching { panelFocus.requestFocus() }.isSuccess) return@LaunchedEffect; delay(50) }
+    }
     LaunchedEffect(showSkip, controlsVisible) {
         if (controlsVisible || panel != Panel.None) return@LaunchedEffect
         delay(50)
@@ -345,7 +367,7 @@ fun PlayerChrome(
                 // (leaving the paused picture clean), and only then the player itself.
                 if (up) when {
                     scrubTarget != null -> cancelScrub()
-                    panel != Panel.None -> { panel = Panel.None; showControls() }
+                    panel != Panel.None -> closePanel()
                     controlsVisible && !showUpNext && ui.error == null -> hideControls()
                     else -> exit()
                 }
@@ -401,7 +423,7 @@ fun PlayerChrome(
             }
             .pointerInput(panel) {
                 // Clicking the picture closes a panel, otherwise toggles play/pause (mouse on Windows).
-                detectTapGestures(onTap = { if (panel != Panel.None) panel = Panel.None else togglePlay() })
+                detectTapGestures(onTap = { if (panel != Panel.None) closePanel() else togglePlay() })
             }
     ) {
         // Until the first frame: the title's backdrop and logo instead of a black screen, faded out
@@ -430,7 +452,9 @@ fun PlayerChrome(
         }
 
         // ---- Controls ----
-        AnimatedVisibility(controlsVisible && !showUpNext && ui.error == null, enter = fadeIn(tween(Aurora.motion.duration(200))), exit = fadeOut(tween(Aurora.motion.duration(350)))) {
+        // Hidden while a panel is open: the panel covers them anyway, and with nothing focusable behind
+        // it, the remote can't wander into the player controls from a menu.
+        AnimatedVisibility(controlsVisible && panel == Panel.None && !showUpNext && ui.error == null, enter = fadeIn(tween(Aurora.motion.duration(200))), exit = fadeOut(tween(Aurora.motion.duration(150)))) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.18f to Color.Transparent, 0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
 
@@ -455,12 +479,12 @@ fun PlayerChrome(
                         GlassIcon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (isPlaying) "Pause" else "Play", ::togglePlay)
                         GlassIcon(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { scrubBy(-s.seekBackSeconds * 1000L) })
                         GlassIcon(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { scrubBy(s.seekForwardSeconds * 1000L) })
-                        if (isEpisode) GlassIcon(com.auroratv.ui.components.EpisodesIcon, "Episodes & Seasons", { openPanel(Panel.Episodes) }, showLabel = true)
+                        if (isEpisode) GlassIcon(com.auroratv.ui.components.EpisodesIcon, "Episodes & Seasons", { openPanel(Panel.Episodes, episodesButton) }, showLabel = true, modifier = Modifier.focusRequester(episodesButton))
                         Spacer(Modifier.width(14.dp))
-                        if (ui.chapters.size > 1) GlassPill(text = "Chapters", onClick = { openPanel(Panel.Chapters) })
-                        if (ui.audioStreams.size > 1) GlassPill(text = "Audio", onClick = { openPanel(Panel.Audio) })
-                        GlassPill(text = "Subtitles", onClick = { openPanel(Panel.Subtitles) })
-                        GlassPill(text = "Info", onClick = { openPanel(Panel.Info) })
+                        if (ui.chapters.size > 1) GlassPill(text = "Chapters", onClick = { openPanel(Panel.Chapters, chaptersButton) }, modifier = Modifier.focusRequester(chaptersButton))
+                        if (ui.audioStreams.size > 1) GlassPill(text = "Audio", onClick = { openPanel(Panel.Audio, audioButton) }, modifier = Modifier.focusRequester(audioButton))
+                        GlassPill(text = "Subtitles", onClick = { openPanel(Panel.Subtitles, subtitlesButton) }, modifier = Modifier.focusRequester(subtitlesButton))
+                        GlassPill(text = "Info", onClick = { openPanel(Panel.Info, infoButton) }, modifier = Modifier.focusRequester(infoButton))
                         Spacer(Modifier.weight(1f))
                         if (nextAvailable) GlassPill(text = "Next Episode", onClick = { controller.playNext() }, icon = Icons.Filled.SkipNext)
                     }
@@ -545,7 +569,8 @@ fun PlayerChrome(
             Column(
                 Modifier.fillMaxWidth().height(360.dp)
                     .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(Color(0xE6121214))
+                    .background(com.auroratv.ui.components.Glass.fill(Color(0xFF121214), opaque = true))
+                    .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                     .padding(start = 56.dp, end = 56.dp, top = 22.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -566,9 +591,16 @@ fun PlayerChrome(
                         // Controls and tracks on the left, a sample of the current look in the empty space on the right.
                         Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            GlassPill(text = "A−", onClick = { controller.setSubtitleScale(ui.subtitleScale - 0.1f) })
+                            // Size is saved for this profile and used for everything watched next.
+                            val sizeRepo = com.auroratv.ui.LocalContainer.current.settings
+                            fun resize(delta: Float) {
+                                controller.setSubtitleScale(ui.subtitleScale + delta)
+                                val v = controller.state.value.subtitleScale
+                                sizeRepo.update { it.copy(subtitleScale = v) }
+                            }
+                            GlassPill(text = "A−", onClick = { resize(-0.1f) })
                             Text("Size ${(ui.subtitleScale * 100).toInt()}%", style = AuroraType.label, color = Color.White)
-                            GlassPill(text = "A+", onClick = { controller.setSubtitleScale(ui.subtitleScale + 0.1f) })
+                            GlassPill(text = "A+", onClick = { resize(0.1f) })
                             if (controller.supportsSubtitleDelay && ui.subtitleIndex != null) {
                                 Spacer(Modifier.width(24.dp))
                                 GlassPill(text = "−0.1s", onClick = { controller.adjustSubtitleDelay(-100) })
@@ -664,9 +696,9 @@ private fun GlassPill(text: String, onClick: () -> Unit, icon: ImageVector? = nu
 }
 
 @Composable
-private fun GlassIcon(icon: ImageVector, description: String, onClick: () -> Unit, showLabel: Boolean = false) {
+private fun GlassIcon(icon: ImageVector, description: String, onClick: () -> Unit, showLabel: Boolean = false, modifier: Modifier = Modifier) {
     var labelShown by remember { mutableStateOf(false) }
-    Box(contentAlignment = Alignment.Center) {
+    Box(modifier, contentAlignment = Alignment.Center) {
         FocusSurface(
             onClick = onClick, shape = CircleShape, sheen = false,
             modifier = Modifier.size(46.dp).onFocusChanged { labelShown = showLabel && it.isFocused },
@@ -717,12 +749,24 @@ private fun EpisodesPanel(controller: PlayerController, focus: FocusRequester, o
     var season by remember { mutableStateOf(current.seasonId) }
     LaunchedEffect(season) { controller.loadEpisodes(season) }
     val episodes = season?.let { ui.episodesBySeason[it] }
+    // The panel opens on the episode that's playing; after that, focus stays where the user puts it
+    // (picking another season keeps you on the season row).
+    var openedOnEpisode by remember { mutableStateOf(false) }
+    val seasonFocus = remember { FocusRequester() }
+    val episodeFocus = remember { FocusRequester() }
 
     if (ui.seasons.size > 1) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // Coming up from the episodes lands on the season being shown, not the first one.
+            modifier = Modifier.focusRestorer(seasonFocus),
+        ) {
             items(ui.seasons, key = { it.id }) { sn ->
                 val selected = sn.id == season
-                FocusSurface(onClick = { season = sn.id }, shape = RoundedCornerShape(50), sheen = false) { focused ->
+                FocusSurface(
+                    onClick = { season = sn.id }, shape = RoundedCornerShape(50), sheen = false,
+                    modifier = if (selected) Modifier.focusRequester(seasonFocus) else Modifier,
+                ) { focused ->
                     Text(
                         sn.name ?: "Season ${sn.indexNumber}", style = AuroraType.label,
                         color = if (focused) Color.Black else Color.White,
@@ -733,36 +777,63 @@ private fun EpisodesPanel(controller: PlayerController, focus: FocusRequester, o
         }
         Spacer(Modifier.height(14.dp))
     }
-    if (episodes == null) { Box(Modifier.fillMaxWidth().height(180.dp)) { LoadingState() }; return }
-    val currentIndex = episodes.indexOfFirst { it.id == current.id }.coerceAtLeast(0)
-    val listState = rememberLazyListState((currentIndex - 1).coerceAtLeast(0))
-    LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
-        itemsIndexed(episodes, key = { _, e -> e.id }) { i, ep ->
-            val playing = ep.id == current.id
-            Column(Modifier.width(CardStyle.Landscape.width)) {
-                FocusSurface(
-                    onClick = { controller.playEpisode(ep.id); onClose() },
-                    shape = RoundedCornerShape(12.dp),
-                    // Over video: a focus ring instead of zoom + shadow, which is cheaper to draw on TV GPUs.
-                    scaleOnFocus = false, sheen = false, ringWidth = 3.dp,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (i == currentIndex) Modifier.focusRequester(focus) else Modifier),
-                ) {
-                    Box(Modifier.fillMaxSize()) {
-                        ArtworkImage(api.images.landscape(ep, CardStyle.Landscape.requestWidth()), ep.name, Modifier.fillMaxSize())
-                        if (playing) {
-                            Text(
-                                "NOW PLAYING", style = AuroraType.caption, color = Color.Black,
-                                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(SkipYellow).padding(horizontal = 8.dp, vertical = 3.dp),
-                            )
-                        }
-                        ep.progressFraction?.takeIf { !playing && ep.userData?.played != true }?.let {
-                            ProgressStrip(it, Modifier.align(Alignment.BottomCenter).padding(10.dp))
+    if (episodes == null) {
+        // Holds focus inside the menu while the episodes load, so the remote never reaches the player.
+        Box(
+            Modifier.fillMaxWidth().height(180.dp)
+                .then(if (!openedOnEpisode) Modifier.focusRequester(focus) else Modifier)
+                .focusable()
+        ) { LoadingState() }
+        return
+    }
+    val currentIndex = episodes.indexOfFirst { it.id == current.id }
+    val target = if (currentIndex >= 0) currentIndex else 0
+    LaunchedEffect(Unit) {
+        if (openedOnEpisode) return@LaunchedEffect
+        repeat(20) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { episodeFocus.requestFocus() }.isSuccess) { openedOnEpisode = true; return@LaunchedEffect }
+        }
+    }
+    // A fresh row per season, so each one opens scrolled to its own start (or the playing episode).
+    androidx.compose.runtime.key(season) {
+        val listState = rememberLazyListState((target - 1).coerceAtLeast(0))
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            contentPadding = PaddingValues(vertical = 10.dp),
+            // Coming down from the seasons lands on the playing episode (or the first).
+            modifier = Modifier.focusRestorer(episodeFocus),
+        ) {
+            itemsIndexed(episodes, key = { _, e -> e.id }) { i, ep ->
+                val playing = ep.id == current.id
+                Column(Modifier.width(CardStyle.Landscape.width)) {
+                    FocusSurface(
+                        onClick = { controller.playEpisode(ep.id); onClose() },
+                        shape = RoundedCornerShape(12.dp),
+                        // Over video: a focus ring instead of zoom + shadow, which is cheaper to draw on TV GPUs.
+                        scaleOnFocus = false, sheen = false, ringWidth = 3.dp,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                            .then(if (i == target) Modifier.focusRequester(episodeFocus) else Modifier)
+                            .then(if (i == target && !openedOnEpisode) Modifier.focusRequester(focus) else Modifier),
+                    ) {
+                        Box(Modifier.fillMaxSize()) {
+                            ArtworkImage(api.images.landscape(ep, CardStyle.Landscape.requestWidth()), ep.name, Modifier.fillMaxSize())
+                            if (playing) {
+                                Text(
+                                    "NOW PLAYING", style = AuroraType.caption, color = Color.Black,
+                                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(SkipYellow).padding(horizontal = 8.dp, vertical = 3.dp),
+                                )
+                            }
+                            ep.progressFraction?.takeIf { !playing && ep.userData?.played != true }?.let {
+                                ProgressStrip(it, Modifier.align(Alignment.BottomCenter).padding(10.dp))
+                            }
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(listOfNotNull(ep.indexNumber?.let { "Episode $it" }, formatRuntime(ep.runtimeMs)).joinToString(" · "), style = AuroraType.caption, color = Color.White.copy(alpha = 0.6f))
+                    Text(ep.name.orEmpty(), style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(listOfNotNull(ep.indexNumber?.let { "Episode $it" }, formatRuntime(ep.runtimeMs)).joinToString(" · "), style = AuroraType.caption, color = Color.White.copy(alpha = 0.6f))
-                Text(ep.name.orEmpty(), style = AuroraType.label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

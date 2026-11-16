@@ -142,6 +142,8 @@ class PlayerController(
     preview: BaseItemDto? = null,
     /** Per-series audio/subtitle choices (null: don't remember). */
     private val trackMemory: TrackMemory? = null,
+    /** Detected skip markers kept for episodes in progress (null: don't keep). */
+    private val skipMarkers: com.auroratv.profiles.SkipMarkerStore? = null,
 ) {
     private val tag = "Player"
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
@@ -200,11 +202,19 @@ class PlayerController(
                 launch {
                     _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
                     // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
-                    val detector = skipDetector ?: return@launch
                     val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
                     if (have.containsAll(listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits))) return@launch
+                    // Resuming an episode: markers worked out last time are still here, no need to detect again.
+                    skipMarkers?.get(itemId)?.let { (ranges, source) ->
+                        if (currentItemId == itemId) _state.update { it.copy(detectedSkips = ranges, detectedSource = "$source, remembered") }
+                        return@launch
+                    }
+                    val detector = skipDetector ?: return@launch
                     val found = runCatching { detector.detect(item, have) }.getOrNull() ?: return@launch
-                    if (currentItemId == itemId) _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
+                    if (currentItemId == itemId) {
+                        _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
+                        if (item.isEpisode) skipMarkers?.put(itemId, found.ranges, found.source)
+                    }
                 }
                 launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }
             }
@@ -373,6 +383,8 @@ class PlayerController(
         reportJob?.cancel()
         val es = engine.state.value
         val pos = if (ended && es.durationMs > 0) es.durationMs else es.positionMs
+        // Finished (the server counts 90% as watched): its temporary skip markers can go.
+        if (ended || (es.durationMs > 0 && pos >= es.durationMs * 9 / 10)) currentItemId?.let { skipMarkers?.finished(it) }
         val r = buildReport(plan, es, pos)
         val sessionId = plan.playSessionId
         val transcoding = plan.method != PlayMethod.DirectPlay

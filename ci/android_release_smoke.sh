@@ -38,7 +38,8 @@ perf_round() {
   local label="$1"
   for i in 1 2 3; do
     adb shell am force-stop "$PKG"; sleep 2; adb logcat -c
-    t=$(adb shell am start -W -n "$PKG/$ACT" | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
+    # Straight to Home (a link skips "Who's watching?"), so this measures the app, not a person picking.
+    t=$(adb shell am start -W -n "$PKG/$ACT" --es route section:Home | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
     sleep 12
     p=$(adb logcat -d -s Perf | tr -d '\r')
     h=$(echo "$p" | grep -o 'Home ready in [0-9]* ms ([a-z ]*)' | head -1 | sed 's/Home ready in //')

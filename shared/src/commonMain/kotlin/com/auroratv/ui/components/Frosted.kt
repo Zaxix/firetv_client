@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.debounce
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -96,4 +99,34 @@ object Glass {
     private fun Color.compositeOverWhite(amount: Float) = Color(
         red = red + (1f - red) * amount, green = green + (1f - green) * amount, blue = blue + (1f - blue) * amount, alpha = alpha,
     )
+}
+
+/** Sharkfin's own colours as a BlurHash (soft purple → blue): the frosted backdrop when nothing is focused. */
+const val BRAND_FROST = "LF7-,j@txbbdz:tpoMnjRgSdaeoM"
+
+/** What the app-wide frosted backdrop shows: the BlurHash of the focused card's artwork (null = brand colours). */
+class BackdropState {
+    var hash by androidx.compose.runtime.mutableStateOf<String?>(null)
+}
+
+/** Provided by the app shell; cards publish their artwork's colours here when focused. */
+val LocalBackdrop = androidx.compose.runtime.staticCompositionLocalOf<BackdropState?> { null }
+
+/**
+ * The frosted glass behind every screen in the shell (Home and detail pages draw their own on top):
+ * the focused card's colours, settling 120 ms after focus stops moving so scrolling fast through a
+ * grid doesn't start a fade per card.
+ */
+@OptIn(kotlinx.coroutines.FlowPreview::class)
+@Composable
+fun ShellBackdrop(state: BackdropState) {
+    var shown by remember { androidx.compose.runtime.mutableStateOf(state.hash ?: BRAND_FROST) }
+    androidx.compose.runtime.LaunchedEffect(state) {
+        androidx.compose.runtime.snapshotFlow { state.hash ?: BRAND_FROST }
+            .debounce(120)
+            .collect { shown = it }
+    }
+    androidx.compose.animation.Crossfade(shown, animationSpec = androidx.compose.animation.core.tween(Aurora.motion.duration(350))) { hash ->
+        FrostedField(hash)
+    }
 }

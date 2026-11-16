@@ -44,19 +44,37 @@ key KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT; sleep 2; shot android-07-back-to-sideba
 key KEYCODE_DPAD_DOWN; sleep 1; shot android-07b-sidebar-down
 key KEYCODE_DPAD_CENTER; sleep 6; shot android-07c-sidebar-select
 
+# Profiles: a plain launch asks who's watching; OK opens the highlighted (last used) profile.
+adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT"; sleep 10; shot android-24-profiles
+key KEYCODE_DPAD_CENTER; sleep 8; shot android-25-profile-opened
+# The profile button at the top right (Up from the banner) opens the same screen; Back returns.
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 1; shot android-26-profile-button
+key KEYCODE_DPAD_CENTER; sleep 3; shot android-27-profiles-from-app
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_CENTER; sleep 2; shot android-28-profiles-manage
+key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 4; shot android-29-profiles-back
+# Search: typing with typos still finds the title, as you type.
+open "section:Search"; sleep 8; adb shell input text "glas%smeridan"; sleep 5; shot android-30-search-typo
+key KEYCODE_DPAD_DOWN; sleep 1; shot android-31-search-results
+
 # Deep links (session is restored from the Keystore vault on relaunch).
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
 # Turn subtitles on (English, always) the same way the Settings screen persists them.
 adb shell am force-stop "$PKG"
-echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}' | adb shell "run-as $PKG sh -c 'cat > files/settings.json'"
+# Settings belong to the profile now (files/settings-<profile>.json); write both.
+echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}' | adb shell "run-as $PKG sh -c 'cat > files/settings.json; for f in files/settings-*.json; do cp files/settings.json \$f; done'"
+adb shell "run-as $PKG ls files" || true
 adb shell "run-as $PKG cat files/settings.json" || true
 open "detail:$SERIES"; sleep 14; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; shot android-08-series-detail
+# Back up to the buttons: the whole title and description must be on screen again.
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 2; shot android-08b-detail-back-to-top
 open "player:$EP1"; sleep 22; shot android-09-player-ass-typesetting
 sleep 4; shot android-10-player-ass-later
 key KEYCODE_DPAD_UP; sleep 2; shot android-11-player-controls
 key KEYCODE_BACK; sleep 1
 open "player:$EP3"; sleep 9; key KEYCODE_DPAD_DOWN; sleep 3; shot android-12-player-episode-browser
 key KEYCODE_DPAD_RIGHT; sleep 1; shot android-13-player-episode-focus
+# Up inside the menu stays in the menu (seasons row, or nowhere), never the player behind it.
+key KEYCODE_DPAD_UP; sleep 1; shot android-13c-player-episode-menu-up
 # Scrubbing: run the key presses and the capture inside the device in one shell, because each
 # separate `adb shell input` takes seconds on a loaded emulator and the controls would time out.
 open "player:$SEVEN"; sleep 9

@@ -104,6 +104,12 @@ data class ItemQuery(
     val studioIds: List<String> = emptyList(),
     /** Ask the server to count all matches (a second, sometimes slow, query on big libraries). */
     val totalCount: Boolean = true,
+    /** Only items featuring these people (Jellyfin person ids). */
+    val personIds: List<String> = emptyList(),
+    /** Include watched state/progress (skipped for lightweight lists such as the search index). */
+    val userData: Boolean = true,
+    /** Image kinds to include tags for (fewer = smaller responses). */
+    val imageTypes: String = Fields.IMAGE_TYPES,
 )
 
 /**
@@ -214,11 +220,25 @@ class JellyfinApi(
             if (query.genres.isNotEmpty()) parameter("genres", query.genres.joinToString("|"))
             query.isFavorite?.let { parameter("isFavorite", it) }
             if (query.studioIds.isNotEmpty()) parameter("studioIds", query.studioIds.joinToString("|"))
+            if (query.personIds.isNotEmpty()) parameter("personIds", query.personIds.joinToString("|"))
+            if (!query.userData) parameter("enableUserData", false)
             parameter("fields", query.fields)
             parameter("imageTypeLimit", 1)
-            parameter("enableImageTypes", Fields.IMAGE_TYPES)
+            parameter("enableImageTypes", query.imageTypes)
             parameter("enableTotalRecordCount", query.totalCount)
         }.read()
+
+    /** People (actors, directors…) whose name matches [term]. */
+    suspend fun persons(term: String, limit: Int = 8): List<BaseItemDto> =
+        http.get(url("/Persons")) {
+            auth()
+            parameter("userId", requireUser())
+            parameter("searchTerm", term)
+            parameter("limit", limit)
+            parameter("enableImages", true)
+            parameter("imageTypeLimit", 1)
+            parameter("enableUserData", false)
+        }.read<QueryResult<BaseItemDto>>().items
 
     /** Studios and networks used by the user's movies and series (for brand tiles), with any images. */
     suspend fun studios(): List<BaseItemDto> =

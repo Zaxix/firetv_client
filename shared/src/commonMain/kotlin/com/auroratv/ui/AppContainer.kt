@@ -34,7 +34,16 @@ class AppContainer(val platform: Platform) {
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
     /** Optional MDBList / Trakt keys (secure vault, synced through the user's Jellyfin profile). */
     val ratingsKeys = com.auroratv.ratings.RatingsKeyStore(platform.vault)
-    val ratings = com.auroratv.ratings.RatingsService(http) { ratingsKeys.keys.value }
+    private fun today() = com.auroratv.profiles.epochDay(com.auroratv.playback.wallClockMs())
+    /** Ratings remembered for a week, per profile. */
+    val ratingsStore = com.auroratv.profiles.RatingsStore(platform.files, ::today)
+    val ratings = com.auroratv.ratings.RatingsService(http, { ratingsKeys.keys.value }, ratingsStore)
+    /** Detected skip markers for episodes in progress, per profile (deleted once watched). */
+    val skipMarkers = com.auroratv.profiles.SkipMarkerStore(platform.files, ::today)
+    /** Recent searches, per profile. */
+    val searchHistory = com.auroratv.profiles.SearchHistory(platform.files)
+    /** The on-device title index behind search (per signed-in user, refreshed every 30 minutes). */
+    val search = com.auroratv.search.SearchService(appScope)
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
@@ -45,6 +54,26 @@ class AppContainer(val platform: Platform) {
     val brands = com.auroratv.brands.BrandService(appScope)
     /** Settings page to open next time Settings is shown (e.g. "Ratings" from a detail page hint). */
     var pendingSettingsPage: String? = null
+
+    init {
+        // Opening a profile loads its own settings and local data before any screen reads them.
+        sessions.onActivate = { profile ->
+            val key = profile.key
+            settings.switchProfile(key)
+            trackMemory.switchProfile(key)
+            ratingsKeys.switchProfile(key)
+            ratingsStore.switchProfile(key)
+            skipMarkers.switchProfile(key)
+            searchHistory.switchProfile(key)
+            prewarmer.invalidate()
+            Log.i("Profiles", "Opened profile ${profile.displayName}")
+        }
+        sessions.onProfileRemoved = { profile ->
+            com.auroratv.profiles.ProfileFiles.deleteAll(platform.files, profile.key)
+            platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}.json")
+            ratingsKeys.forgetProfile(profile.key)
+        }
+    }
 
     /** Starts preparing [itemId] for playback in the background (main thread; no-op if already prepared). */
     fun prewarmPlayback(api: com.auroratv.jellyfin.JellyfinApi, itemId: String) {

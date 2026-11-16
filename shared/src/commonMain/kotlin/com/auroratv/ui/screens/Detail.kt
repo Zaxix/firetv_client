@@ -42,6 +42,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -203,7 +204,18 @@ fun DetailScreen(route: Route.Detail) {
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "header") {
-                Box(Modifier.fillMaxWidth().height(headerHeight), contentAlignment = Alignment.BottomStart) {
+                // Returning to the buttons from any row below scrolls the page all the way back up, so
+                // the title, logo and description are fully on screen again (focus alone only brings
+                // the buttons themselves into view).
+                Box(
+                    Modifier.fillMaxWidth().height(headerHeight).onFocusChanged { f ->
+                        val list = model.listState
+                        if (f.hasFocus && (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0)) {
+                            scope.launch { list.animateScrollToItem(0) }
+                        }
+                    },
+                    contentAlignment = Alignment.BottomStart,
+                ) {
                 DetailHeader(
                     item = item,
                     ratings = model.ratings,

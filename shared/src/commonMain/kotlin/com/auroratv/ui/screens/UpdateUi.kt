@@ -1,6 +1,7 @@
 package com.auroratv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -93,7 +94,12 @@ fun UpdatePrompt(updates: UpdateManager, info: ReleaseInfo, keys: UpdatePromptKe
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
-        Column(Modifier.widthIn(max = 760.dp).fillMaxWidth(0.62f).clip(RoundedCornerShape(24.dp)).background(colors.surfaceRaised).padding(36.dp)) {
+        Column(
+            Modifier.widthIn(max = 760.dp).fillMaxWidth(0.62f).clip(RoundedCornerShape(24.dp))
+                .background(com.auroratv.ui.components.Glass.fill(colors.surfaceRaised, opaque = true))
+                .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(24.dp))
+                .padding(36.dp)
+        ) {
             Text("Update available", style = AuroraType.caption, color = colors.onSurfaceFaint)
             Spacer(Modifier.height(6.dp))
             Text("${com.auroratv.AppInfo.NAME} ${info.version}", style = AuroraType.title, color = colors.onBackground)

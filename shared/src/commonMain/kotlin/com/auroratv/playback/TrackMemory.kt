@@ -60,9 +60,17 @@ data class RememberedTracks(val audioIndex: Int?, val subtitle: SubtitlePick?) {
 class TrackMemory(private val files: FileStore, private val now: () -> Long) {
     private val serializer = MapSerializer(String.serializer(), TrackChoice.serializer())
     private var cache: MutableMap<String, TrackChoice>? = null
+    private var file = FILE
+
+    /** Each profile remembers its own choices; the pre-profiles file goes to the first profile opened. */
+    fun switchProfile(profile: String) {
+        com.auroratv.profiles.ProfileFiles.claimLegacy(files, FILE.removeSuffix(".json"), profile)
+        file = com.auroratv.profiles.ProfileFiles.name(FILE.removeSuffix(".json"), profile)
+        cache = null
+    }
 
     private fun all(): MutableMap<String, TrackChoice> = cache ?: (
-        files.read(FILE)?.let { runCatching { AuroraJson.decodeFromString(serializer, it).toMutableMap() }.getOrNull() } ?: mutableMapOf()
+        files.read(file)?.let { runCatching { AuroraJson.decodeFromString(serializer, it).toMutableMap() }.getOrNull() } ?: mutableMapOf()
     ).also { cache = it }
 
     fun key(item: BaseItemDto): String = item.seriesId ?: item.id
@@ -84,7 +92,7 @@ class TrackMemory(private val files: FileStore, private val now: () -> Long) {
         persist()
     }
 
-    private fun persist() { runCatching { files.write(FILE, AuroraJson.encodeToString(serializer, all())) } }
+    private fun persist() { runCatching { files.write(file, AuroraJson.encodeToString(serializer, all())) } }
 
     companion object {
         private const val FILE = "track-memory.json"

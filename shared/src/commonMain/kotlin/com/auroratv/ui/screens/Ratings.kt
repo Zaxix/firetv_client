@@ -301,7 +301,10 @@ fun ReviewOverlay(review: Review, onClose: () -> Unit) {
     ) {
         Column(
             Modifier.widthIn(max = 920.dp).fillMaxWidth(0.8f).heightIn(max = 640.dp)
-                .clip(RoundedCornerShape(24.dp)).background(colors.surfaceRaised).padding(36.dp),
+                .clip(RoundedCornerShape(24.dp))
+                .background(com.auroratv.ui.components.Glass.fill(colors.surfaceRaised, opaque = true))
+                .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(24.dp))
+                .padding(36.dp),
         ) {
             ReviewHeader(review)
             review.date?.let { Text(it, style = AuroraType.caption, color = colors.onSurfaceFaint) }

@@ -74,8 +74,13 @@ fun MediaCard(
     // of a screen isn't left with its text cut off at the bottom edge.
     val wholeCard = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val backdrop = LocalBackdrop.current
     Column(
         modifier.width(style.width)
+            .onFocusChanged {
+                // The screen's frosted backdrop takes on this card's colours.
+                if (it.hasFocus) artwork?.blurHash?.let { h -> backdrop?.hash = h }
+            }
             .then(if (showTitle) Modifier.bringIntoViewRequester(wholeCard).onFocusChanged {
                 if (it.hasFocus) scope.launch { wholeCard.bringIntoView() }
             } else Modifier)

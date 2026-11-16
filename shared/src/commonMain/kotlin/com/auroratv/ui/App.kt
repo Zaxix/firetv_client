@@ -129,11 +129,12 @@ fun AuroraApp(container: AppContainer) {
         ) {
             Box(Modifier.fillMaxSize().background(Aurora.colors.background).arrowKeyNavigation()) {
                 val state by container.sessions.state.collectAsState()
-                LaunchedEffect(Unit) { container.sessions.restore() }
+                LaunchedEffect(Unit) { container.sessions.start(skipPicker = container.initialRoute != null) }
                 when (val s = state) {
                     SessionState.Starting -> Splash()
                     SessionState.NeedsServer -> ConnectScreen(container)
-                    is SessionState.NeedsLogin -> key(s.server.id) { LoginScreen(container, s.server, s.message) }
+                    is SessionState.NeedsLogin -> key(s.server.id, s.username) { LoginScreen(container, s.server, s.message, s.username, s.canCancel) }
+                    is SessionState.ChoosingProfile -> com.auroratv.ui.screens.ProfilesScreen(container, s)
                     is SessionState.Ready -> key(s.session.server.id, s.session.user.id) {
                         CompositionLocalProvider(LocalSession provides s.session) { MainShell(container) }
                     }
@@ -207,6 +208,7 @@ private fun MainShell(container: AppContainer) {
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_500); container.capabilities() }
     val updatePrompt by container.updates.prompt.collectAsState()
     val promptKeys = remember(updatePrompt?.build) { com.auroratv.ui.screens.UpdatePromptKeys(container.updates) }
+    val backdrop = remember { com.auroratv.ui.components.BackdropState() }
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack
         onDispose { container.backHandler = { false } }
@@ -236,12 +238,17 @@ private fun MainShell(container: AppContainer) {
             val isPlayer = entry.route is Route.Player
             val motion = Aurora.motion
             if (!isPlayer) {
+                // Frosted glass behind every screen (Home and detail pages paint their own over it).
+                LaunchedEffect(entry) { backdrop.hash = null }
+                // Home and detail pages cover the whole screen with their own; skip the hidden layer.
+                val ownBackground = entry.route is Route.Detail || entry.route == Route.Root(Section.Home)
+                if (!ownBackground) com.auroratv.ui.components.ShellBackdrop(backdrop)
                 Box(Modifier.fillMaxSize().focusRequester(contentFocus).focusGroup().focusRestorer()) {
                     AnimatedContent(
                         targetState = entry,
                         transitionSpec = { fadeIn(tween(motion.duration(220))) togetherWith fadeOut(tween(motion.duration(120))) },
                     ) { e ->
-                        CompositionLocalProvider(LocalEntry provides e) { RouteContent(container, e.route) }
+                        CompositionLocalProvider(LocalEntry provides e, com.auroratv.ui.components.LocalBackdrop provides backdrop) { RouteContent(container, e.route) }
                     }
                 }
                 SideBar(navigator, sideBar) { sameScreen ->
@@ -257,6 +264,12 @@ private fun MainShell(container: AppContainer) {
                         }
                     }
                 }
+                // Who's watching: switch, add, edit or remove profiles (Up from the top of a screen).
+                val session = LocalSession.current
+                com.auroratv.ui.screens.ProfileButton(
+                    container, com.auroratv.data.Profile(session.server, session.user),
+                    Modifier.align(Alignment.TopEnd).padding(top = 26.dp, end = 34.dp),
+                )
             } else {
                 CompositionLocalProvider(LocalEntry provides entry) { RouteContent(container, entry.route) }
             }
@@ -268,7 +281,10 @@ private fun MainShell(container: AppContainer) {
                 Text(
                     "Press Back again to exit",
                     style = AuroraType.bodyStrong, color = Aurora.colors.onBackground,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Aurora.colors.surface.copy(alpha = 0.95f)).padding(horizontal = 22.dp, vertical = 12.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(50))
+                        .background(com.auroratv.ui.components.Glass.fill(Aurora.colors.surface, opaque = true))
+                        .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(50))
+                        .padding(horizontal = 22.dp, vertical = 12.dp),
                 )
             }
             val prompt = updatePrompt

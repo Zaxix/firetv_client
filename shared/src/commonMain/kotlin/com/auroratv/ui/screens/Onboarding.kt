@@ -51,6 +51,7 @@ import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
@@ -195,7 +196,8 @@ private class TypedText(initial: String) {
 @Composable
 private fun OnboardingFrame(title: String, subtitle: String, content: @Composable () -> Unit) {
     val colors = Aurora.colors
-    Box(Modifier.fillMaxSize().background(colors.background), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        com.auroratv.ui.components.FrostedField(com.auroratv.ui.components.BRAND_FROST)
         Column(
             Modifier.widthIn(max = 620.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -293,10 +295,10 @@ private fun ServerRow(server: SavedServer, onClick: () -> Unit) {
 }
 
 @Composable
-fun LoginScreen(container: AppContainer, server: SavedServer, message: String?) {
+fun LoginScreen(container: AppContainer, server: SavedServer, message: String?, prefillUser: String? = null, canCancel: Boolean = false) {
     val colors = Aurora.colors
     val scope = rememberCoroutineScope()
-    var username by remember { mutableStateOf(server.users.firstOrNull { it.id == server.lastUserId }?.name ?: "") }
+    var username by remember { mutableStateOf(prefillUser ?: server.users.firstOrNull { it.id == server.lastUserId }?.name ?: "") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(message) }
@@ -328,7 +330,12 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?) 
         }
     }
 
-    OnboardingFrame("Sign in to ${server.name}", server.url) {
+    // From "Add profile" (or a signed-out profile), Back returns to "Who's watching?".
+    val backModifier = if (canCancel) Modifier.onKeyEvent { ev ->
+        if (ev.type == KeyEventType.KeyUp && (ev.key == Key.Back || ev.key == Key.Escape)) { container.sessions.cancelLogin(); true } else false
+    } else Modifier
+    Box(backModifier) {
+    OnboardingFrame(if (canCancel && prefillUser.isNullOrEmpty()) "Add a profile" else "Sign in to ${server.name}", if (canCancel && prefillUser.isNullOrEmpty()) "Sign in with another ${server.name} account" else server.url) {
         if (publicUsers.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 items(publicUsers, key = { it.id }) { user ->
@@ -369,7 +376,9 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?) 
         Spacer(Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             AuroraButton(if (busy) "Signing in…" else "Sign in", ::signIn, icon = Icons.Filled.Login, primary = true)
-            AuroraButton("Change server", { container.sessions.showAddServer() })
+            if (canCancel) AuroraButton("Cancel", { container.sessions.cancelLogin() })
+            AuroraButton(if (canCancel) "Other server" else "Change server", { container.sessions.showAddServer() })
         }
+    }
     }
 }

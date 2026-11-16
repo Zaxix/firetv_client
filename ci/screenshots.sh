@@ -24,7 +24,9 @@ JSON
 printf '{"token:%s:%s":"%s"}' "$SID" "$UID_" "$(printf %s "$TOKEN" | base64 -w0)" > "$CFG/vault.json"
 echo '{"x":0.0,"y":0.0,"width":1920.0,"height":1080.0}' > "$CFG/window.json"
 
-theme() { echo "{\"theme\":\"$1\",\"subtitleMode\":\"Always\",\"preferredSubtitleLanguage\":\"eng\"}" > "$CFG/settings.json"; }
+# Settings are per profile (settings-<profile>.json, created from settings.json the first time a
+# profile opens), so drop the profile copies to make a new theme take effect.
+theme() { echo "{\"theme\":\"$1\",\"subtitleMode\":\"Always\",\"preferredSubtitleLanguage\":\"eng\"}" > "$CFG/settings.json"; rm -f "$CFG"/settings-*.json; }
 
 shoot() { # name route seconds [keys...]
   local name=$1 route=$2 wait=$3; shift 3
@@ -36,6 +38,7 @@ shoot() { # name route seconds [keys...]
   for k in "$@"; do
     case "$k" in
       mouse:*) xy=${k#mouse:}; xdotool mousemove "${xy%,*}" "${xy#*,}"; sleep 0.3; xdotool mousemove_relative 4 0; sleep 1.2;;
+      type:*) t=${k#type:}; xdotool type --delay 80 "${t//%s/ }"; sleep 4;;
       *) xdotool key --delay 150 "$k"; sleep 1.2;;
     esac
   done
@@ -46,13 +49,15 @@ shoot() { # name route seconds [keys...]
 }
 
 theme Dark
-shoot 01-home-dark "" 25
-shoot 02-home-rails-dark "" 22 Down Right
+shoot 00-profiles "" 12
+shoot 01-home-dark "section:Home" 25
+shoot 02-home-rails-dark "section:Home" 22 Down Right
 shoot 03-movie-detail "detail:$GLASS" 15
 shoot 03b-brand-hub "brand:netflix" 15
 shoot 04-series-detail "detail:$SERIES" 15 Down Down
 shoot 05-movies-library "section:Movies" 15 Down
 shoot 06-search "section:Search" 12
+shoot 06b-search-typo "section:Search" 12 type:glas%smeridan
 shoot 07-settings "section:Settings" 10 Down
 shoot 08-about-capabilities "section:Settings" 12 Down Down Down Down Down
 shoot 08b-settings-ratings "section:Settings" 12 Down Down Down Down
@@ -61,7 +66,7 @@ shoot 10-player-controls "player:$SEVEN" 12 Up
 # Hovering the timeline with a mouse shows the time and the trickplay thumbnail at that point.
 shoot 10b-player-scrub-preview "player:$SEVEN" 12 Up mouse:1150,978
 theme Light
-shoot 11-home-light "" 25
+shoot 11-home-light "section:Home" 25
 shoot 12-detail-light "detail:$SERIES" 15
 theme System
 shoot 13-settings-system-theme "section:Settings" 10
