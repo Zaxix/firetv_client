@@ -403,7 +403,7 @@ class JellyfinApi(
      * [seconds] of an item's sound from [startMs], as 8-bit mono WAV at [sampleRate] (≈4 KB a second
      * at 4 kHz), for intro/credits detection on the device. Reads only what it needs, then hangs up,
      * which ends the server's encode. Uses its own play-session id so it never touches the stream
-     * being watched. Null when the server can't provide it.
+     * being watched (or another window's). Null when the server can't provide it.
      */
     suspend fun audioSample(itemId: String, startMs: Long, seconds: Int, sampleRate: Int): ByteArray? =
         http.prepareGet(url("/Audio/$itemId/stream")) {
@@ -414,7 +414,9 @@ class JellyfinApi(
             parameter("audioChannels", 1)
             parameter("audioSampleRate", sampleRate)
             parameter("startTimeTicks", startMs * 10_000)
-            parameter("playSessionId", "sharkfin-skipscan-$itemId")
+            // Jellyfin names a progressive encode by file + device + play session (not start point), so
+            // each window needs its own session id or it's handed the earlier window's encode.
+            parameter("playSessionId", "sharkfin-scan-${itemId.take(12)}-$startMs")
             timeout { requestTimeoutMillis = 120_000; socketTimeoutMillis = 45_000 }
         }.execute { response ->
             if (!response.status.isSuccess()) {
