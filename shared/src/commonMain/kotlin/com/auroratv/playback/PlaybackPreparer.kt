@@ -10,6 +10,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.coroutineScope
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
@@ -34,6 +36,7 @@ class PreparedPlayback(
 object PlaybackPreparer {
     private const val TAG = "Prepare"
     private const val MAX_FONT_BYTES = 64L * 1024 * 1024
+    private const val FONT_DOWNLOADS_AT_ONCE = 6
 
     suspend fun prepare(
         api: JellyfinApi,
@@ -77,13 +80,22 @@ object PlaybackPreparer {
         if (attachments.isEmpty()) return emptyList()
         var total = 0L
         // Real-time budget (Default dispatcher), independent of the caller's clock.
-        val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { kotlinx.coroutines.withTimeoutOrNull(20_000) {
-            attachments.mapNotNull { a ->
-                if (total > MAX_FONT_BYTES) return@mapNotNull null
-                val url = a.deliveryUrl ?: "/Videos/$itemId/${source.id}/Attachments/${a.index}"
-                runCatching { api.downloadBytes(url) }
-                    .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Font attachment ${a.index} failed: ${it.message}") }
-                    .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }
+        // Several at a time (anime releases often carry 10–30 fonts): far quicker than one by one.
+        val parallel = kotlinx.coroutines.sync.Semaphore(FONT_DOWNLOADS_AT_ONCE)
+        // One thread for the bookkeeping (the downloads themselves still overlap), so the size cap is exact.
+        val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(1)) { kotlinx.coroutines.withTimeoutOrNull(20_000) {
+            coroutineScope {
+                attachments.map { a ->
+                    async {
+                        parallel.withPermit {
+                            if (total > MAX_FONT_BYTES) return@withPermit null
+                            val url = a.deliveryUrl ?: "/Videos/$itemId/${source.id}/Attachments/${a.index}"
+                            runCatching { api.downloadBytes(url) }
+                                .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Font attachment ${a.index} failed: ${it.message}") }
+                                .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }
+                        }
+                    }
+                }.awaitAll().filterNotNull()
             }
         } }.orEmpty()
         Log.i(TAG, "Loaded ${loaded.size}/${attachments.size} font attachments (${total / 1024} KB) for ASS subtitles")

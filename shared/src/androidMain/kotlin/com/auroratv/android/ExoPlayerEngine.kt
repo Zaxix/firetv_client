@@ -104,7 +104,10 @@ class ExoPlayerEngine(
             /* bufferForPlaybackMs = */ 1_500,
             /* bufferForPlaybackAfterRebufferMs = */ 4_000,
         )
-        .setTargetBufferBytes(160 * 1024 * 1024)
+        // Up to 160 MB, but never more than about a third of what this device lets the app use: the
+        // buffer lives on the Java heap, and running it close to the limit means constant garbage
+        // collection pauses (stutter) on 1–1.5 GB Fire TV sticks.
+        .setTargetBufferBytes(minOf(160L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 3).toInt())
         .setPrioritizeTimeOverSizeThresholds(false)
         .setBackBuffer(15_000, /* retainBackBufferFromKeyframe = */ true)
         .build()
@@ -339,6 +342,26 @@ class ExoPlayerEngine(
 
     override fun setSubtitleScale(scale: Float) {
         view.subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
+    }
+
+    override fun setSubtitleStyle(style: com.auroratv.playback.SubtitleStyle, hdr: Boolean) {
+        val sv = view.subtitleView ?: return
+        val edge = when (style.edge) {
+            com.auroratv.playback.SubtitleEdge.Outline -> androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE
+            com.auroratv.playback.SubtitleEdge.Shadow -> androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+            com.auroratv.playback.SubtitleEdge.None -> androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE
+        }
+        sv.setStyle(
+            androidx.media3.ui.CaptionStyleCompat(
+                style.textArgb(hdr).toInt(),
+                (style.background.alpha shl 24), // box behind the text (transparent when off)
+                Color.TRANSPARENT,
+                edge,
+                Color.BLACK,
+                if (style.bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT,
+            )
+        )
+        sv.setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION + style.raisePercent / 100f)
     }
 
     override fun stats(): List<Pair<String, String>> = buildList {

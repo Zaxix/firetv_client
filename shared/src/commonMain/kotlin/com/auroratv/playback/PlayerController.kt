@@ -262,6 +262,7 @@ class PlayerController(
         val st = _state.value
         if (capabilities.supportsSubtitleDelay) engine.setSubtitleDelay(st.subtitleDelayMs)
         engine.setSubtitleScale(st.subtitleScale)
+        engine.setSubtitleStyle(settings().subtitleStyle, isHdr(plan))
         _state.update { it.copy(loading = false, error = null, ended = false) }
     }
 
@@ -461,6 +462,15 @@ class PlayerController(
         _state.update { it.copy(subtitleDelayMs = v) }
         engine.setSubtitleDelay(v)
     }
+
+    /** Applies a new subtitle look at once (the caller saves it in Settings). */
+    fun setSubtitleStyle(style: SubtitleStyle) {
+        engine.setSubtitleStyle(style, _state.value.plan?.let(::isHdr) ?: false)
+    }
+
+    /** HDR reaches the screen (a transcode is usually tone-mapped to SDR by the server). */
+    private fun isHdr(plan: PlaybackPlan): Boolean = plan.method != PlayMethod.Transcode &&
+        plan.mediaSource.videoStream?.videoRangeType?.let { it.isNotBlank() && !it.equals("SDR", ignoreCase = true) } ?: false
 
     fun setSubtitleScale(scale: Float) {
         val v = scale.coerceIn(0.5f, 2.5f)

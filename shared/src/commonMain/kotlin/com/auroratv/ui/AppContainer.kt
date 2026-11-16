@@ -22,10 +22,10 @@ class AppContainer(val platform: Platform) {
     /** When the app started (for the "Perf" timings logged on the way to a usable screen). */
     val startMark = kotlin.time.TimeSource.Monotonic.markNow()
     private var homeReadyLogged = false
-    fun logHomeReady() {
+    fun logHomeReady(how: String = "from the server") {
         if (homeReadyLogged) return
         homeReadyLogged = true
-        Log.i("Perf", "Home ready in ${startMark.elapsedNow().inWholeMilliseconds} ms")
+        Log.i("Perf", "Home ready in ${startMark.elapsedNow().inWholeMilliseconds} ms ($how)")
     }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val http = createJellyfinHttpClient()

@@ -108,7 +108,8 @@ fun AuroraApp(container: AppContainer) {
     val settings by container.settings.settings.collectAsState()
     val cacheDir = container.platform.info.cacheDir
     setSingletonImageLoaderFactory { context ->
-        val imageHttp = HttpClient()
+        // Its own connection pool, so posters never queue behind API calls (or the other way round).
+        val imageHttp = com.auroratv.jellyfin.platformHttpEngine(maxRequestsPerHost = 12)?.let { HttpClient(it) } ?: HttpClient()
         ImageLoader.Builder(context)
             .components { add(KtorNetworkFetcherFactory({ imageHttp })) }
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.20).build() }
@@ -202,6 +203,8 @@ private fun MainShell(container: AppContainer) {
     LaunchedEffect(Unit) { keyboard?.hide(); container.platform.hideKeyboard() }
     // Look for a newer build every time the app opens (the prompt waits for the player to close).
     LaunchedEffect(Unit) { container.updates.checkOnLaunch() }
+    // Probe the decoders (a few hundred ms on a Fire TV) once Home is up, not when Play is first pressed.
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_500); container.capabilities() }
     val updatePrompt by container.updates.prompt.collectAsState()
     DisposableEffect(navigator) {
         container.backHandler = ::handleBack

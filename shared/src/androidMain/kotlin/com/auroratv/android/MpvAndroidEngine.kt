@@ -158,8 +158,15 @@ class MpvAndroidEngine(
         opt("user-agent", "${AppInfo.NAME}/${AppInfo.VERSION} (Android; mpv)")
         // Buffering: same tuning as the Windows mpv engine, sized for TV-box RAM.
         opt("cache", "yes")
-        opt("demuxer-max-bytes", "150MiB")
-        opt("demuxer-max-back-bytes", "50MiB")
+        // Smaller read-ahead on 1–2 GB devices (Fire TV sticks), where 200 MB of cache crowds out the
+        // rest of the system and invites the low-memory killer.
+        val lowRam = runCatching {
+            val am = context.getSystemService(android.app.ActivityManager::class.java)
+            val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+            am.isLowRamDevice || info.totalMem < 2_600L * 1024 * 1024
+        }.getOrDefault(false)
+        opt("demuxer-max-bytes", if (lowRam) "96MiB" else "150MiB")
+        opt("demuxer-max-back-bytes", if (lowRam) "24MiB" else "50MiB")
         opt("demuxer-readahead-secs", "60")
         opt("cache-pause-initial", "no")
         opt("cache-pause-wait", "2")
@@ -380,6 +387,9 @@ class MpvAndroidEngine(
 
     override fun setSubtitleDelay(delayMs: Long) = mpv { it.setPropertyDouble("sub-delay", delayMs / 1000.0) }
     override fun setSubtitleScale(scale: Float) = mpv { it.setPropertyDouble("sub-scale", scale.toDouble()) }
+
+    override fun setSubtitleStyle(style: com.auroratv.playback.SubtitleStyle, hdr: Boolean) =
+        com.auroratv.playback.MpvSubtitleStyle.options(style, hdr).forEach { (k, v) -> mpv { it.setPropertyString(k, v) } }
 
     override fun stats(): List<Pair<String, String>> = buildList {
         if (destroyed || released) return@buildList

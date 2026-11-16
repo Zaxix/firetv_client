@@ -60,6 +60,8 @@ data class Settings(
     val subtitleMode: SubtitleMode = SubtitleMode.Default,
     val preferredSubtitleLanguage: String = "",
     val subtitleScale: Float = 1.0f,
+    /** Look of plain subtitles (colour, edge, background, position, HDR brightness). */
+    val subtitleStyle: com.auroratv.playback.SubtitleStyle = com.auroratv.playback.SubtitleStyle(),
     val subtitleDelayMs: Long = 0,
     val assRenderMode: AssRenderMode = AssRenderMode.Full,
 )

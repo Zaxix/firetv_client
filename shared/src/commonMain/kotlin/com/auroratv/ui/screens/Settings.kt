@@ -1,5 +1,16 @@
 package com.auroratv.ui.screens
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.auroratv.playback.cycleAfter
+import com.auroratv.playback.SubtitleBackground
+import com.auroratv.playback.SubtitleEdge
+import com.auroratv.playback.SubtitleColor
+import com.auroratv.playback.SubtitleStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -235,12 +246,51 @@ private fun SubtitlePage(container: AppContainer) {
         item { SettingRow("Subtitle language", languageName(s.preferredSubtitleLanguage)) { set { it.copy(preferredSubtitleLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredSubtitleLanguage)) } } }
         item { SettingRow("Remember my track choices", onOff(s.rememberTracks), "Audio and subtitles you pick in the player are reused for the rest of that series (and when you return to a movie)") { set { it.copy(rememberTracks = !it.rememberTracks) } } }
         item { SettingRow("Text size", "${(s.subtitleScale * 100).toInt()}%", "Applies to SRT/VTT; styled ASS keeps its own sizes unless the engine can scale it") { set { it.copy(subtitleScale = listOf(0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).after(it.subtitleScale)) } } }
+        // Style of plain subtitles, with a live sample. Styled ASS/SSA subtitles keep their own look.
+        val st = s.subtitleStyle
+        fun style(t: (SubtitleStyle) -> SubtitleStyle) = set { it.copy(subtitleStyle = t(it.subtitleStyle)) }
+        item { SubtitlePreview(st, s.subtitleScale) }
+        item { SettingRow("Text colour", st.color.label) { style { it.copy(color = SubtitleColor.entries.cycleAfter(it.color)) } } }
+        item { SettingRow("Edge", st.edge.label, "An outline or shadow keeps text readable on bright scenes") { style { it.copy(edge = SubtitleEdge.entries.cycleAfter(it.edge)) } } }
+        item { SettingRow("Background", st.background.label, "A box behind the text, like streaming apps") { style { it.copy(background = SubtitleBackground.entries.cycleAfter(it.background)) } } }
+        item { SettingRow("Bold", onOff(st.bold)) { style { it.copy(bold = !it.bold) } } }
+        item { SettingRow("Position", if (st.raisePercent == 0) "Bottom" else "Raised ${st.raisePercent}%", "Lift subtitles off the bottom edge (overscan, soundbars)") { style { it.copy(raisePercent = SubtitleStyle.RaiseChoices.cycleAfter(it.raisePercent)) } } }
+        item { SettingRow("Brightness in HDR", "${st.hdrBrightnessPercent}%", "Dims subtitle text in HDR videos, where full white can be glaring") { style { it.copy(hdrBrightnessPercent = SubtitleStyle.HdrChoices.cycleAfter(it.hdrBrightnessPercent)) } } }
         if (caps?.supportsSubtitleDelay == true) {
             item { SettingRow("Default subtitle delay", "${s.subtitleDelayMs} ms", "Adjust per video from the player too") { set { it.copy(subtitleDelayMs = listOf(0L, 100L, 250L, 500L, 1000L, -100L, -250L, -500L, -1000L).after(it.subtitleDelayMs)) } } }
         }
         if (container.platform.info.isTv) {
             item { SettingRow("ASS/SSA rendering", if (s.assRenderMode == AssRenderMode.Full) "Full (libass)" else "Simple", "Full keeps fonts, positioning and animation; Simple is lighter for older devices") { set { it.copy(assRenderMode = AssRenderMode.entries.after(it.assRenderMode)) } } }
         }
+    }
+}
+
+/** A sample frame showing how plain subtitles will look with [style] (drawn by the app, so it's approximate). */
+@Composable
+private fun SubtitlePreview(style: SubtitleStyle, scale: Float) {
+    val text = "I'll meet you by the harbour at nine."
+    val fg = Color(style.textArgb(hdr = false))
+    val base = AuroraType.bodyStrong.copy(
+        fontSize = (20 * scale).sp, lineHeight = (26 * scale).sp,
+        fontWeight = if (style.bold) FontWeight.Bold else FontWeight.Medium,
+        shadow = if (style.edge == SubtitleEdge.Shadow) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.8f), androidx.compose.ui.geometry.Offset(3f, 3f), 4f) else null,
+    )
+    Box(
+        Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF5B7BA6), Color(0xFFE2B47A), Color(0xFF2E3C55)))),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Box(
+            Modifier.padding(bottom = 14.dp + (180 * style.raisePercent / 100).dp)
+                .background(Color.Black.copy(alpha = style.background.alpha / 255f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+        ) {
+            if (style.edge == SubtitleEdge.Outline) {
+                Text(text, style = base.copy(color = Color.Black, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+            }
+            Text(text, style = base.copy(color = fg))
+        }
+        Text("Sample", style = AuroraType.caption, color = Color.White.copy(alpha = 0.8f), modifier = Modifier.align(Alignment.TopStart).padding(12.dp))
     }
 }
 

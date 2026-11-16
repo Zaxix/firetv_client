@@ -67,6 +67,8 @@ interface PlaybackEngine {
     /** Positive values show subtitles later. Only called when capabilities report support. */
     fun setSubtitleDelay(delayMs: Long)
     fun setSubtitleScale(scale: Float)
+    /** Look of plain text subtitles; [hdr] dims the text for HDR video. ASS/SSA keep their own styles. */
+    fun setSubtitleStyle(style: SubtitleStyle, hdr: Boolean) {}
     /** Live technical details for the playback info panel (decoder, resolution, dropped frames...). */
     fun stats(): List<Pair<String, String>>
     fun release()

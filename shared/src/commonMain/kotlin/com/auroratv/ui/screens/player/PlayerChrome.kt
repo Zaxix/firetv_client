@@ -1,5 +1,10 @@
 package com.auroratv.ui.screens.player
 
+import com.auroratv.playback.SubtitleStyle
+import com.auroratv.playback.SubtitleColor
+import com.auroratv.playback.SubtitleEdge
+import com.auroratv.playback.SubtitleBackground
+import com.auroratv.playback.cycleAfter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.requiredSize
@@ -274,22 +279,20 @@ fun PlayerChrome(
             loader.execute(coil3.request.ImageRequest.Builder(platformContext).data(url).size(coil3.size.Size.ORIGINAL).build())
         }
     }
+    val appHttp = com.auroratv.ui.LocalContainer.current.http
+    val trickplayFrames = remember(sessionApi) {
+        TrickplayFrames(appHttp, coil3.SingletonImageLoader.get(platformContext).diskCache)
+    }
     LaunchedEffect(ui.item?.id, ui.trickplay) {
         val id = ui.item?.id ?: return@LaunchedEffect
         val (sourceId, info) = ui.trickplay ?: return@LaunchedEffect
         delay(15_000)
-        val loader = coil3.SingletonImageLoader.get(platformContext)
-        val headers = coil3.network.NetworkHeaders.Builder().apply { sessionApi.mediaHeaders().forEach { (k, v) -> set(k, v) } }.build()
+        val headers = sessionApi.mediaHeaders()
         val sheets = (info.thumbnailCount + info.tileWidth * info.tileHeight - 1) / (info.tileWidth * info.tileHeight)
         for (sheet in 0 until sheets.coerceAtMost(40)) {
             awaitHealthyBuffer()
-            val request = coil3.request.ImageRequest.Builder(platformContext)
-                .data(sessionApi.images.trickplayTile(id, sourceId, info.width, sheet))
-                .httpHeaders(headers)
-                .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
-                .size(64, 36)
-                .build()
-            loader.execute(request)
+            // Download only: tiles are decoded one at a time, when you scrub to them.
+            trickplayFrames.prefetch(sessionApi.images.trickplayTile(id, sourceId, info.width, sheet), headers)
             delay(400)
         }
     }
@@ -377,6 +380,7 @@ fun PlayerChrome(
         return false
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalTrickplayFrames provides trickplayFrames) {
     Box(
         Modifier.fillMaxSize()
             .focusRequester(rootFocus)
@@ -570,6 +574,22 @@ fun PlayerChrome(
                                 GlassPill(text = "+0.1s", onClick = { controller.adjustSubtitleDelay(100) })
                             }
                         }
+                        // Look of plain subtitles, changed live and saved for next time (ASS keeps its own style).
+                        Spacer(Modifier.height(8.dp))
+                        val settingsRepo = com.auroratv.ui.LocalContainer.current.settings
+                        val st = s.subtitleStyle
+                        fun style(t: (SubtitleStyle) -> SubtitleStyle) {
+                            val next = t(settingsRepo.current.subtitleStyle)
+                            settingsRepo.update { it.copy(subtitleStyle = next) }
+                            controller.setSubtitleStyle(next)
+                            poke()
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            GlassPill(text = "Colour: ${st.color.label}", onClick = { style { it.copy(color = SubtitleColor.entries.cycleAfter(it.color)) } })
+                            GlassPill(text = "Edge: ${st.edge.label}", onClick = { style { it.copy(edge = SubtitleEdge.entries.cycleAfter(it.edge)) } })
+                            GlassPill(text = "Background: ${st.background.label}", onClick = { style { it.copy(background = SubtitleBackground.entries.cycleAfter(it.background)) } })
+                            GlassPill(text = if (st.raisePercent == 0) "Position: Bottom" else "Position: +${st.raisePercent}%", onClick = { style { it.copy(raisePercent = SubtitleStyle.RaiseChoices.cycleAfter(it.raisePercent)) } })
+                        }
                         Spacer(Modifier.height(10.dp))
                         OptionRow(
                             options = listOf<Pair<Int?, String>>(null to "Off") + ui.subtitleStreams.map { it.index to TrackSelector.label(it) },
@@ -582,6 +602,7 @@ fun PlayerChrome(
                 }
             }
         }
+    }
     }
 }
 
@@ -1014,13 +1035,13 @@ private fun Track(
 }
 
 /**
- * One frame from a Jellyfin trickplay sprite sheet. The sheet is decoded once at its native size
- * and the wanted cell is selected with an alignment offset, so moving the playhead within a sheet
- * costs no network or decode work.
+ * One scrub-preview frame. Only that tile is decoded from its (cached) sprite sheet, so scrubbing
+ * stays light on memory; while the next frame decodes, the previous one stays up.
  */
 @Composable
 private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modifier: Modifier = Modifier) {
     val api = LocalSession.current.api
+    val frames = LocalTrickplayFrames.current
     val info = ref.info
     val perSheet = info.tileWidth * info.tileHeight
     val n = (positionMs / info.interval).toInt().coerceIn(0, (info.thumbnailCount - 1).coerceAtLeast(0))
@@ -1028,30 +1049,21 @@ private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modif
     val cell = n % perSheet
     val col = cell % info.tileWidth
     val row = cell / info.tileWidth
-    val density = LocalDensity.current
-    val scale = with(density) { width.toPx() / info.width }
     val height = width * info.height / info.width
     val headers = remember(api) { api.mediaHeaders() }
     val url = remember(ref, sheet) { api.images.trickplayTile(ref.itemId, ref.mediaSourceId, info.width, sheet) }
-    val cellAlign = remember(col, row) {
-        Alignment { _, _, _ -> IntOffset(-col * info.width, -row * info.height) }
+    var shown by remember(ref) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(url, col, row) {
+        // Restarts on every scrub step, so only the frame you stop on is decoded.
+        frames?.frame(url, headers, col, row, info.width, info.height)?.let { shown = it }
     }
     Box(modifier.size(width, height).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
-        Box(
-            Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
-                .requiredSize(with(density) { info.width.toDp() }, with(density) { info.height.toDp() })
-                .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }
-                .clipToBounds()
-        ) {
-            ArtworkImage(
-                Artwork(url, null), null, Modifier.fillMaxSize(),
-                contentScale = ContentScale.None, alignment = cellAlign, showPlaceholder = false,
-                headers = headers, crossfade = false,
-            )
-        }
+        shown?.let { androidx.compose.foundation.Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
     }
 }
 
+/** The trickplay frame source for the current player (null outside it). */
+private val LocalTrickplayFrames = androidx.compose.runtime.staticCompositionLocalOf<TrickplayFrames?> { null }
 
 /** Shown while a title starts: dimmed backdrop with its logo (or name). */
 @Composable

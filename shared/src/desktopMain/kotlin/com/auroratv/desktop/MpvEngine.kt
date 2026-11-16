@@ -282,6 +282,9 @@ class MpvEngine(private val settings: Settings) : PlaybackEngine {
     override fun setSubtitleDelay(delayMs: Long) = set("sub-delay", String.format(Locale.ROOT, "%.3f", delayMs / 1000.0))
     override fun setSubtitleScale(scale: Float) = set("sub-scale", String.format(Locale.ROOT, "%.2f", scale))
 
+    override fun setSubtitleStyle(style: com.auroratv.playback.SubtitleStyle, hdr: Boolean) =
+        com.auroratv.playback.MpvSubtitleStyle.options(style, hdr).forEach { (k, v) -> set(k, v) }
+
     override fun stats(): List<Pair<String, String>> = buildList {
         prop("video-codec")?.let { add("Video codec" to it) }
         prop("hwdec-current")?.let { add("Hardware decoder" to if (it == "no" || it.isBlank()) "none (software)" else it) }

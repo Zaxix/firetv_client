@@ -100,22 +100,22 @@ class SessionManager(
         if (user == null || token == null) { _state.value = SessionState.NeedsLogin(server); return }
 
         val api = JellyfinApi(http, server.url, identity, token, user.id)
+        // Open the app straight away with the saved session (Home starts loading at once) and check
+        // the token alongside, instead of waiting a round trip before showing anything.
+        val session = UserSession(server, user, api)
+        _state.value = SessionState.Ready(session)
         try {
             api.currentUser()
-            _state.value = SessionState.Ready(UserSession(server, user, api))
         } catch (e: CancellationException) {
             throw e
         } catch (t: Throwable) {
             when (val err = t.toAppError()) {
                 is AppError.SessionExpired, is AppError.InvalidCredentials -> {
                     vault.remove(tokenKey(server.id, user.id))
-                    _state.value = SessionState.NeedsLogin(server, err.userMessage)
+                    if ((_state.value as? SessionState.Ready)?.session === session) _state.value = SessionState.NeedsLogin(server, err.userMessage)
                 }
                 // Keep the session when merely offline: screens show retryable errors instead of logging out.
-                else -> {
-                    Log.w(tag, "Server unreachable at startup; continuing with cached session", t)
-                    _state.value = SessionState.Ready(UserSession(server, user, api))
-                }
+                else -> Log.w(tag, "Server unreachable at startup; continuing with cached session", t)
             }
         }
     }

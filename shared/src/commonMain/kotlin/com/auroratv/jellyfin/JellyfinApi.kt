@@ -53,7 +53,10 @@ data class ClientIdentity(
     private fun String.headerSafe() = encodeURLQueryComponent()
 }
 
-/** Shared HTTP client configured for Jellyfin. The engine comes from the classpath (OkHttp) or a test. */
+/** The platform HTTP engine tuned for talking to one media server (null = Ktor's default from the classpath). */
+expect fun platformHttpEngine(maxRequestsPerHost: Int): io.ktor.client.engine.HttpClientEngine?
+
+/** Shared HTTP client configured for Jellyfin. The engine is the tuned platform one, or a test's. */
 fun createJellyfinHttpClient(base: HttpClient? = null): HttpClient {
     val config: io.ktor.client.HttpClientConfig<*>.() -> Unit = {
         expectSuccess = false
@@ -70,7 +73,8 @@ fun createJellyfinHttpClient(base: HttpClient? = null): HttpClient {
             socketTimeoutMillis = 30_000
         }
     }
-    return base?.config(config) ?: HttpClient(config)
+    if (base != null) return base.config(config)
+    return platformHttpEngine(maxRequestsPerHost = 16)?.let { HttpClient(it, config) } ?: HttpClient(config)
 }
 
 /** Common item fields requested for cards and detail pages. */

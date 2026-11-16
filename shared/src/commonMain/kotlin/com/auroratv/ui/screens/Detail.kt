@@ -112,13 +112,18 @@ fun DetailScreen(route: Route.Detail) {
     LaunchedEffect(reload, entry) {
         try {
             coroutineScope {
+                // Everything that only needs the id starts together with the item itself (the card we
+                // came from already says whether it's a series), instead of one request after another.
+                val knownSeries = route.preview?.isSeries == true
+                val similar = async { runCatching { api.similar(route.itemId) }.getOrDefault(emptyList()) }
+                val seasonsEarly = if (knownSeries) async { api.seasons(route.itemId) } else null
+                val nextEarly = if (knownSeries) async { runCatching { api.nextUp(limit = 1, seriesId = route.itemId).firstOrNull() }.getOrNull() } else null
                 val item = api.item(route.itemId)
                 model.item = item
                 model.error = null
-                val similar = async { runCatching { api.similar(item.id) }.getOrDefault(emptyList()) }
                 if (item.isSeries) {
-                    val seasons = async { api.seasons(item.id) }
-                    val next = async { runCatching { api.nextUp(limit = 1, seriesId = item.id).firstOrNull() }.getOrNull() }
+                    val seasons = seasonsEarly ?: async { api.seasons(item.id) }
+                    val next = nextEarly ?: async { runCatching { api.nextUp(limit = 1, seriesId = item.id).firstOrNull() }.getOrNull() }
                     model.seasons = seasons.await()
                     model.nextUp = next.await()
                     if (model.selectedSeason == null) {

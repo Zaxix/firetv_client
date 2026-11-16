@@ -79,6 +79,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 
 /**
@@ -89,15 +90,18 @@ import kotlinx.coroutines.delay
 class RailState(val key: String, val title: String, val style: CardStyle, val loader: suspend () -> List<BaseItemDto>) {
     var items by mutableStateOf<List<BaseItemDto>?>(null)
     var failed by mutableStateOf(false)
+    /** [items] came from the last session (Instant Home): shown at once, replaced when fresh ones arrive. */
+    var stale = false
     private val lock = kotlinx.coroutines.sync.Mutex()
     suspend fun ensureLoaded(): List<BaseItemDto> = lock.withLock {
-        items?.takeIf { !failed }?.let { return@withLock it }
+        items?.takeIf { !failed && !stale }?.let { return@withLock it }
         failed = false
         if (items?.isEmpty() == true) items = null // show the skeleton again while retrying
         repeat(RAIL_ATTEMPTS) { attempt ->
             try {
                 val loaded = loader()
                 items = loaded
+                stale = false
                 return@withLock loaded
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
@@ -106,6 +110,7 @@ class RailState(val key: String, val title: String, val style: CardStyle, val lo
                 if (attempt < RAIL_ATTEMPTS - 1) delay(1_500L * (attempt + 1))
             }
         }
+        if (stale) return@withLock items.orEmpty() // offline: keep showing last session's row
         failed = true
         items = emptyList()
         emptyList()
@@ -137,9 +142,27 @@ fun HomeScreen() {
     var reloadKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
+    val homeCache = remember(session) { HomeCache(container.platform.files, session.server.id, session.user.id) }
+    // Moving onto the featured title or a Continue Watching / Next Up card gets Play ready in the
+    // background (after a short pause, so scrolling past cards costs nothing).
+    val prewarmRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
+    LaunchedEffect(Unit) {
+        prewarmRequests.collectLatest { id -> if (id != null) { delay(PREWARM_DELAY_MS); container.prewarmPlayback(api, id) } }
+    }
+
     LaunchedEffect(reloadKey) {
         if (model.rails != null && reloadKey == 0) return@LaunchedEffect
         model.error = null
+        // Instant Home: last session's rows straight from disk while the fresh ones load.
+        if (model.rails == null) {
+            homeCache.read()?.let { cached ->
+                if (model.rails == null) {
+                    model.hero = cached.hero
+                    model.rails = cached.rails
+                    container.logHomeReady("from the saved copy")
+                }
+            }
+        }
         try {
             coroutineScope {
                 // Brand tiles load on their own; Home never waits for them.
@@ -169,9 +192,19 @@ fun HomeScreen() {
                         api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                     })
                 }
-                model.hero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
+                val freshHero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
+                // Rows that haven't loaded yet keep showing last session's items until they do.
+                val shown = model.rails?.associateBy { it.key }.orEmpty()
+                rails.forEach { r -> if (r.items == null) shown[r.key]?.items?.takeIf { it.isNotEmpty() }?.let { r.items = it; r.stale = true } }
+                // Keep a saved banner that's already on screen rather than swapping it under the user.
+                if (model.hero.isEmpty()) model.hero = freshHero
                 model.rails = rails
                 container.logHomeReady()
+                launch {
+                    heroLoads.awaitAll()
+                    delay(1_500)
+                    homeCache.write(if (freshHero.isNotEmpty()) freshHero else model.hero, rails)
+                }
                 // A library that was too slow for the hero still joins it once its rail has loaded.
                 if (model.hero.size < 6) launch {
                     val late = heroLoads.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
@@ -196,17 +229,13 @@ fun HomeScreen() {
     }
 
     val heroItem = model.hero.getOrNull(model.heroIndex % model.hero.size.coerceAtLeast(1))
-    val backdropItem = model.focused ?: heroItem
-    val accentTarget = if (settings.artworkAccents) backdropItem?.let { item ->
-        val tag = item.backdropImageTags.firstOrNull() ?: item.parentBackdropImageTags.firstOrNull()
-        BlurHash.accentFrom(tag?.let { item.imageBlurHashes["Backdrop"]?.get(it) }, Aurora.colors.isDark)
-    } else null
-    val accent by animateColorAsState(accentTarget ?: Aurora.colors.accent, tween(Aurora.motion.duration(600)))
 
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val heroHeight = maxHeight * 0.80f
         if (settings.showBackdrops) {
-            HomeBackdrop(heroItem, model.focused, settings.frostedBackground, accent)
+            // Reads the focused card itself, so moving between cards redraws only the background,
+            // not the whole of Home.
+            HomeBackdrop(heroItem, model, settings.frostedBackground, settings.artworkAccents)
         }
         LazyColumn(
             state = model.listState,
@@ -216,7 +245,8 @@ fun HomeScreen() {
         ) {
             if (settings.showHeroCarousel) {
                 item(key = "hero") {
-                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) })
+                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) },
+                        onFocusItem = { if (!it.isSeries) prewarmRequests.value = it.id })
                 }
             }
             if (settings.showBrandTiles && model.brands.isNotEmpty()) {
@@ -228,7 +258,7 @@ fun HomeScreen() {
                 items(3) { SkeletonRail(if (it < 1) CardStyle.Landscape else CardStyle.Poster) }
             } else {
                 items(rails, key = { it.key }) { rail ->
-                    LaunchedEffect(rail.key) { rail.ensureLoaded() }
+                    LaunchedEffect(rail) { rail.ensureLoaded() }
                     val items = rail.items
                     when {
                         items == null -> SkeletonRail(rail.style)
@@ -241,7 +271,10 @@ fun HomeScreen() {
                             style = rail.style,
                             railKey = rail.key,
                             onItemClick = { item -> openItem(navigator, item) },
-                            onItemFocused = { model.focused = it },
+                            onItemFocused = {
+                                model.focused = it
+                                if (rail.key == "resume" || rail.key == "nextup") prewarmRequests.value = it.id
+                            },
                         )
                     }
                 }
@@ -251,6 +284,46 @@ fun HomeScreen() {
 }
 
 private const val HERO_WAIT_MS = 4_000L
+private const val PREWARM_DELAY_MS = 700L
+
+/**
+ * The last Home this user saw on this device (banner titles and each row's items), so the next
+ * launch can show it before the server has answered. Artwork URLs are identical, so posters come
+ * straight from the image cache too.
+ */
+private class HomeCache(private val files: com.auroratv.platform.FileStore, serverId: String, userId: String) {
+    private val name = "home-cache-$serverId-$userId.json"
+
+    @kotlinx.serialization.Serializable
+    private data class Saved(val hero: List<BaseItemDto>, val rails: List<SavedRail>)
+
+    @kotlinx.serialization.Serializable
+    private data class SavedRail(val key: String, val title: String, val style: String, val items: List<BaseItemDto>)
+
+    suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        runCatching {
+            val text = files.read(name) ?: return@runCatching null
+            val saved = com.auroratv.core.AuroraJson.decodeFromString(Saved.serializer(), text)
+            HomeSnapshot(
+                hero = saved.hero,
+                rails = saved.rails.mapNotNull { r ->
+                    val style = CardStyle.entries.firstOrNull { it.name == r.style } ?: return@mapNotNull null
+                    // Waits for the fresh rows (which replace these) instead of loading anything itself.
+                    RailState(r.key, r.title, style) { kotlinx.coroutines.awaitCancellation() }.also { it.items = r.items; it.stale = true }
+                },
+            )
+        }.onFailure { com.auroratv.core.Log.w("Home", "Saved Home unreadable: ${it.message}") }.getOrNull()
+    }
+
+    suspend fun write(hero: List<BaseItemDto>, rails: List<RailState>) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        runCatching {
+            val saved = Saved(hero, rails.mapNotNull { r -> r.items?.takeIf { it.isNotEmpty() && !r.failed }?.let { SavedRail(r.key, r.title, r.style.name, it) } })
+            files.write(name, com.auroratv.core.AuroraJson.encodeToString(Saved.serializer(), saved))
+        }.onFailure { com.auroratv.core.Log.w("Home", "Couldn't save Home: ${it.message}") }
+    }
+}
+
+private class HomeSnapshot(val hero: List<BaseItemDto>, val rails: List<RailState>)
 
 /** A rail that couldn't load (server busy or offline): say so and offer another go instead of vanishing. */
 @Composable
@@ -279,8 +352,15 @@ fun openItem(navigator: com.auroratv.ui.nav.Navigator, item: BaseItemDto) {
  * that title's backdrop or (default) frosted glass in the colours of its poster.
  */
 @Composable
-private fun HomeBackdrop(hero: BaseItemDto?, focused: BaseItemDto?, frosted: Boolean, accent: Color) {
+private fun HomeBackdrop(hero: BaseItemDto?, model: HomeModel, frosted: Boolean, accents: Boolean) {
     val api = LocalSession.current.api
+    val focused = model.focused
+    val backdropItem = focused ?: hero
+    val accentTarget = if (accents) backdropItem?.let { item ->
+        val tag = item.backdropImageTags.firstOrNull() ?: item.parentBackdropImageTags.firstOrNull()
+        BlurHash.accentFrom(tag?.let { item.imageBlurHashes["Backdrop"]?.get(it) }, Aurora.colors.isDark)
+    } else null
+    val accent by animateColorAsState(accentTarget ?: Aurora.colors.accent, tween(Aurora.motion.duration(600)))
     val colors = Aurora.colors
     val backdropPx = screenArtworkPx()
     val item = focused ?: hero
@@ -323,11 +403,13 @@ private fun Hero(
     height: androidx.compose.ui.unit.Dp,
     onPlay: (BaseItemDto) -> Unit,
     onInfo: (BaseItemDto) -> Unit,
+    onFocusItem: (BaseItemDto) -> Unit = {},
 ) {
     val colors = Aurora.colors
     val api = LocalSession.current.api
     var heroFocused by remember { mutableStateOf(false) }
 
+    LaunchedEffect(heroFocused, item?.id) { if (heroFocused && item != null) onFocusItem(item) }
     // Coming back up to the featured title shows the whole banner, not just enough to see its buttons.
     LaunchedEffect(heroFocused) {
         val list = model.listState

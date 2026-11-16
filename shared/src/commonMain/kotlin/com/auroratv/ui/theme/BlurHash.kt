@@ -125,3 +125,9 @@ object BlurHash {
 
 /** Platform conversion from ARGB pixels to an [ImageBitmap]. */
 expect fun pixelsToImageBitmap(pixels: IntArray, width: Int, height: Int): ImageBitmap
+
+/**
+ * Decodes just the [w]×[h] region at ([x], [y]) of an encoded image (a trickplay sprite sheet),
+ * without decoding the rest. Null if the image can't be read.
+ */
+expect fun decodeImageRegion(bytes: ByteArray, x: Int, y: Int, w: Int, h: Int): ImageBitmap?
