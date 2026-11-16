@@ -155,7 +155,10 @@ fun HomeScreen() {
         model.error = null
         // Instant Home: last session's rows straight from disk while the fresh ones load.
         if (model.rails == null) {
-            homeCache.read()?.let { cached ->
+            val readStart = kotlin.time.TimeSource.Monotonic.markNow()
+            val saved = homeCache.read()
+            com.auroratv.core.Log.i("Perf", "Saved Home ${if (saved == null) "not found" else "read"} in ${readStart.elapsedNow().inWholeMilliseconds} ms")
+            saved?.let { cached ->
                 if (model.rails == null) {
                     model.hero = cached.hero
                     model.rails = cached.rails

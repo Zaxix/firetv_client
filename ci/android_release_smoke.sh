@@ -40,8 +40,11 @@ perf_round() {
     adb shell am force-stop "$PKG"; sleep 2; adb logcat -c
     t=$(adb shell am start -W -n "$PKG/$ACT" | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
     sleep 12
-    h=$(adb logcat -d -s Perf | grep -o 'Home ready in [0-9]* ms' | head -1 | grep -o '[0-9]*')
-    echo "$label cold start #$i: first frame ${t:-?} ms, Home rows ${h:-?} ms" | tee -a "$OUT/perf.txt"
+    p=$(adb logcat -d -s Perf | tr -d '\r')
+    h=$(echo "$p" | grep -o 'Home ready in [0-9]* ms ([a-z ]*)' | head -1 | sed 's/Home ready in //')
+    f=$(echo "$p" | grep -o 'Home rows from the server in [0-9]* ms' | head -1 | grep -o '[0-9]* ms')
+    c=$(echo "$p" | grep -o 'Saved Home [a-z ]* in [0-9]* ms' | head -1 | sed 's/Saved Home //')
+    echo "$label cold start #$i: first frame ${t:-?} ms, Home shown ${h:-?}, server rows ${f:-?}, saved copy ${c:-?}" | tee -a "$OUT/perf.txt"
   done
   adb shell dumpsys gfxinfo "$PKG" reset >/dev/null
   adb shell 'for k in 20 20 22 22 22 22 22 22 22 22 22 22 20 22 22 22 22 22 22 22 19 21 21 21 21 21 21 21 21 21 21 19 19; do input keyevent $k; sleep 0.18; done'
