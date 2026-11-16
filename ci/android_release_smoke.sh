@@ -12,6 +12,7 @@ mkdir -p "$OUT"
 UID_=$(curl -sf "$URL/Users/Me" -H "$A" | jq -r .Id)
 EP1=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[0].Id')
 GLASS=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Glass%20Meridian" -H "$A" | jq -r '.Items[0].Id')
+TIDE=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Tidewater" -H "$A" | jq -r '.Items[0].Id')
 SEVEN=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Movie&searchTerm=Seven%20Rivers" -H "$A" | jq -r '.Items[0].Id')
 
 # The debug run left EP1 with a resume point inside its trailing (subtitle-only) section of the
@@ -70,20 +71,6 @@ curl -sf -X POST "$URL/UserItems/$GLASS/UserData?userId=$UID_" -H "$A" -H "Conte
 adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es player mpv --es route "player:$GLASS"; sleep 22; shot release-06-mpv-hevc
 
 
-# ---- Resume speed: Play → picture moving, resuming 17 s in (7 s past a keyframe: the samples have one every 10 s) (ExoPlayer; "Perf: Playing after …") ----
-resume_round() { # label item-id seconds [extra am-start args]
-  curl -sf -X POST "$URL/UserItems/$2/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d "{\"PlaybackPositionTicks\":$(( $3 * 10000000 ))}" >/dev/null || true
-  adb shell am force-stop "$PKG"; sleep 1
-  adb shell am start -n "$PKG/$ACT" --es player exoplayer "${@:4}" --es route "player:$2" >/dev/null; sleep 14
-  echo "$1: $(adb logcat -d -s Perf | tr -d '\r' | grep 'Playing after' | tail -1 | sed -E 's/^.*Perf *: //')" | tee -a "$OUT/perf.txt"
-}
-resume_round "direct play, resume #1" "$SEVEN" 17
-resume_round "direct play, resume #2" "$SEVEN" 17
-resume_round "direct play, resume at the exact spot (old way)" "$SEVEN" 17 --ez exactResume true
-resume_round "direct play, from the start" "$SEVEN" 0
-resume_round "transcode, resume" "$GLASS" 17
-adb logcat -d -s ExoEngine | tr -d '\r' | grep -E "keyframe" | sed -E 's/^.*ExoEngine *: /  /' | tail -4 | tee -a "$OUT/perf.txt"
-
 adb logcat -d > "$OUT/logcat-release.txt"
 # The player must reach READY (actually playing) at least once.
 grep -q "ExoEngine: state=ready" "$OUT/logcat-release.txt" || { echo "Release build never started playback"; FAIL=1; }
@@ -98,4 +85,41 @@ grep -E "ExoEngine|MpvEngine|Negotiator|PlayerController|font attachments" "$OUT
 docker exec jellyfin sh -c 'ls -t /config/log/FFmpeg.Transcode-*.log 2>/dev/null | head -3 | while read f; do echo "== $f"; head -c 600 "$f" | tr -d "\r" | grep -E "^/|-ss|ffmpeg" | sed -E "s/(api_key|ApiKey)=[^& ]+/\1=REDACTED/g" | head -3; tail -5 "$f"; done' > "$OUT/jellyfin-transcodes.txt" 2>&1 || true
 cat "$OUT/jellyfin-transcodes.txt" | head -60
 [ "${FAIL:-0}" = 1 ] && exit 1
+
+# ---- Resume speed, before/after: Resume → picture moving, on a 3-minute 1080p file (~6 Mbps, a keyframe
+# every 10 s, two audio tracks, ASS + embedded fonts), resuming at 2:37 (7 s past a keyframe). Each round
+# then plays for ~20 s to check it stays smooth. Levels (ResumeTuning): 0 = original, 1 = previous
+# build, 2 = now. "deeplink" opens the player cold; "detail" is the usual path: the details page
+# prepares playback while it's open, then Select on Resume.
+resume_round() { # level how item-id seconds label
+  curl -sf -X POST "$URL/UserItems/$3/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d "{\"PlaybackPositionTicks\":$(( $4 * 10000000 ))}" >/dev/null || true
+  adb shell am force-stop "$PKG"; sleep 1; adb logcat -c
+  if [ "$2" = detail ]; then
+    adb shell am start -n "$PKG/$ACT" --es player exoplayer --ei resumeLevel "$1" --es route "detail:$3" >/dev/null; sleep 8
+    adb shell input keyevent KEYCODE_DPAD_CENTER
+  else
+    adb shell am start -n "$PKG/$ACT" --es player exoplayer --ei resumeLevel "$1" --es route "player:$3" >/dev/null
+  fi
+  sleep 26
+  L=$(adb logcat -d | tr -d '\r'); echo "$L" >> "$OUT/logcat-resume.txt"
+  f() { echo "$L" | grep -m1 -E "$1" | sed -E 's/^.*(Perf|ExoEngine) *: //'; }
+  local play eng prep kf pos rebuf
+  play=$(f "Perf *: Playing after"); eng=$(f "Perf *: Engine start"); prep=$(f "Perf *: Prepared in"); kf=$(f "ExoEngine.*keyframe")
+  pos=$(echo "$L" | grep -m1 "ExoEngine: state=ready" | sed -E 's/.*pos=([0-9]+).*/\1/')
+  rebuf=$(echo "$L" | awk '/ExoEngine: state=ready/{r=1;next} r&&/ExoEngine: state=buffering/{n++} END{print n+0}')
+  echo "L$1 $2 $5: ${play:-no playback logged} | first READY at ${pos:-?} ms (asked $(( $4 * 1000 ))) | stalls after start: $rebuf | ${eng:-} | ${prep:-} | ${kf:-}" | tee -a "$OUT/perf.txt"
+}
+echo "---- Resume: Tidewater at 2:37 (Direct Play) ----" | tee -a "$OUT/perf.txt"
+for round in 1 2; do
+  for lvl in 0 1 2; do resume_round $lvl deeplink "$TIDE" 157 "resume 2:37"; done
+done
+for round in 1 2; do
+  for lvl in 0 2; do resume_round $lvl detail "$TIDE" 157 "resume 2:37"; done
+done
+resume_round 2 deeplink "$TIDE" 0 "from the start (for comparison)"
+echo "---- Resume: Glass Meridian at 0:17 (server transcode) ----" | tee -a "$OUT/perf.txt"
+for lvl in 0 2; do resume_round $lvl deeplink "$GLASS" 17 "resume 0:17"; done
+if grep -qE "FATAL EXCEPTION" "$OUT/logcat-resume.txt"; then
+  echo "Crash during the resume rounds:"; grep -E -A25 "FATAL EXCEPTION" "$OUT/logcat-resume.txt" | head -60; exit 1
+fi
 echo "Release smoke test passed"

@@ -56,6 +56,12 @@ data class UserItemData(
     @SerialName("IsFavorite") val isFavorite: Boolean = false,
     @SerialName("UnplayedItemCount") val unplayedItemCount: Int? = null,
     @SerialName("PlayCount") val playCount: Int = 0,
+    /** Thumbs up/down from this user (Jellyfin "Likes"), when set. */
+    @SerialName("Likes") val likes: Boolean? = null,
+    /** This user's own rating (0–10), when set. */
+    @SerialName("Rating") val rating: Double? = null,
+    /** ISO-8601, when this user last played it. */
+    @SerialName("LastPlayedDate") val lastPlayedDate: String? = null,
 )
 
 @Serializable

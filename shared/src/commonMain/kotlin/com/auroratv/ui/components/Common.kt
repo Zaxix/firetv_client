@@ -1,5 +1,7 @@
 package com.auroratv.ui.components
 
+import com.auroratv.ui.nav.focusRow
+
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -161,7 +163,7 @@ fun ContentRail(
             state = state,
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp),
-            modifier = Modifier.focusRestorer(),
+            modifier = Modifier.focusRow().focusRestorer(),
         ) {
             itemsIndexed(items, key = { _, it -> it.id }) { _, item ->
                 MediaCard(

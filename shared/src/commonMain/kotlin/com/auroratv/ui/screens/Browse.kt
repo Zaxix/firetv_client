@@ -1,5 +1,7 @@
 package com.auroratv.ui.screens
 
+import com.auroratv.ui.nav.focusRow
+
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import kotlinx.coroutines.launch
@@ -219,7 +221,7 @@ private fun SearchChips(title: String?, chips: List<String>, trailing: Pair<Stri
             Text(title, style = AuroraType.label, color = colors.onSurfaceMuted)
             Spacer(Modifier.height(10.dp))
         }
-        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRow()) {
             items(chips, key = { it }) { chip -> SearchChip(chip) { onPick(chip) } }
             trailing?.let { (label, action) -> item(key = "trailing") { SearchChip(label, subtle = true, onClick = action) } }
         }

@@ -1,5 +1,7 @@
 package com.auroratv.ui.screens
 
+import com.auroratv.ui.nav.focusRow
+
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -108,7 +110,7 @@ fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.focusRestorer(),
+        modifier = Modifier.focusRow().focusRestorer(),
     ) {
         items(brands, key = { it.brand.id }) { b -> BrandTile(b, onFocused = { focusedBrand = b }) { onOpen(b) } }
     }

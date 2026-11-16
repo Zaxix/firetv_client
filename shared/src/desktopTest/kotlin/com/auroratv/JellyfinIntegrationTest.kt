@@ -20,7 +20,10 @@ import com.auroratv.playback.PlaybackPlan
 import com.auroratv.playback.TrackSelector
 import com.auroratv.playback.VideoCodecSupport
 import com.auroratv.settings.SubtitleMode
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.runBlocking
@@ -216,6 +219,7 @@ class JellyfinIntegrationTest {
             assertEquals(PlayMethod.DirectPlay, plan(movie("Ember Field"), mpvDesktop).method); "DirectPlay"
         }
         dolbyVisionChecks()
+        recommendationChecks(http, sm)
         record("MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv") {
             val m = movie("Old Reel")
             val tv = plan(m, fireTv4k); val pc = plan(m, mpvDesktop)
@@ -334,6 +338,65 @@ class JellyfinIntegrationTest {
                 assertEquals(listOf(c.dvTv, c.hdr10Tv, c.sdrTv, true), got, "DirectPlay for [DV TV, HDR10 TV, SDR TV, mpv]")
                 val names = listOf("DV TV", "HDR10 TV", "SDR TV", "mpv")
                 "${v.codec} ${v.videoRangeType}: " + names.zip(got).joinToString { (n, d) -> "$n=${if (d) "Direct Play" else "server converts"}" }
+            }
+        }
+    }
+
+    /**
+     * "Because You Watched" / "Recommended For You" against the real server with two profiles that
+     * watch different things: each gets rows from its own history only, and never its own watched titles.
+     */
+    private fun recommendationChecks(http: io.ktor.client.HttpClient, sm: SessionManager) {
+        val base = api.baseUrl.trimEnd('/')
+        var userB: UserSession? = null
+        val played = mutableListOf<Pair<JellyfinApi, String>>()
+        try {
+            record("Recommendations stay per profile (two users, different histories)") {
+                // Profile B: a second Jellyfin user on the same server (as "Add profile" would sign in).
+                http.post("$base/Users/New") {
+                    header("Authorization", api.authHeader)
+                    setBody(io.ktor.http.content.TextContent("""{"Name":"aurora-b","Password":"aurora-b-ci"}""", io.ktor.http.ContentType.Application.Json))
+                }
+                val smB = SessionManager(http, MemoryFileStore(), MemoryVault(), "Aurora CI")
+                smB.addServer(base, smB.discover(base.removePrefix("http://")).second)
+                val b = smB.login(smB.servers.value.first(), "aurora-b", "aurora-b-ci").also { userB = it }
+                suspend fun watch(a: JellyfinApi, title: String) {
+                    val id = a.items(ItemQuery(includeItemTypes = listOf("Movie"), searchTerm = title, limit = 5)).items.first { it.name == title }.id
+                    a.setPlayed(id, true); played += a to id
+                    kotlinx.coroutines.delay(1_100) // distinct "last played" times
+                }
+                // A: sci-fi thrillers and mystery dramas. B: comedy and family adventure.
+                watch(api, "Glass Meridian"); watch(api, "Harbor Lights")
+                watch(b.api, "Seven Rivers"); watch(b.api, "Old Reel")
+
+                val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+                val svc = com.auroratv.recommend.RecommendationService(com.auroratv.search.SearchService(scope), scope)
+                val planA = svc.plan(api, api.resumeItems())
+                val planB = svc.plan(b.api, b.api.resumeItems())
+                val namesA = planA.titles.map { it.name }; val namesB = planB.titles.map { it.name }
+                assertEquals("Harbor Lights", planA.seeds.first().name, "A's newest title leads"); assertTrue("Glass Meridian" in namesA)
+                assertEquals("Old Reel", planB.seeds.first().name, "B's newest title leads"); assertTrue("Seven Rivers" in namesB)
+                assertTrue(namesA.none { it in setOf("Seven Rivers", "Old Reel") }, "B's history never reaches A: $namesA")
+                assertTrue(namesB.none { it in setOf("Glass Meridian", "Harbor Lights") }, "A's history never reaches B: $namesB")
+
+                val rowsA = svc.rows(api, "A", planA).await().orEmpty()
+                val rowsB = svc.rows(b.api, "B", planB).await().orEmpty()
+                assertTrue(rowsA.isNotEmpty(), "A gets recommendations")
+                fun titles(rows: List<com.auroratv.recommend.RecommendationService.Row>) = rows.flatMap { r -> r.items.mapNotNull { it.name } }
+                assertTrue(titles(rowsA).none { it in namesA }, "A isn't offered what A watched: ${titles(rowsA)}")
+                assertTrue(titles(rowsB).none { it in namesB }, "B isn't offered what B watched: ${titles(rowsB)}")
+                rowsA.forEach { r -> assertEquals(r.items.size, r.items.distinctBy { it.id }.size) }
+                assertTrue(titles(rowsA).toSet().size == titles(rowsA).size, "no title repeated across A's rows")
+                // Taste: A's "For You" leans to thrillers/dramas; B's to family/comedy, never A's thrillers first.
+                rowsA.firstOrNull { it.key == "foryou" }?.let { r -> assertTrue(r.items.first().genres.any { it in setOf("Thriller", "Drama", "Mystery", "Science Fiction") }, "A's top pick: ${r.items.first().name} ${r.items.first().genres}") }
+                rowsB.firstOrNull { it.key == "foryou" }?.let { r -> assertTrue(r.items.first().genres.none { it == "Thriller" }, "B's top pick: ${r.items.first().name} ${r.items.first().genres}") }
+                fun show(rows: List<com.auroratv.recommend.RecommendationService.Row>) = rows.joinToString("; ") { r -> "${r.title}: " + r.items.take(4).joinToString { it.name.orEmpty() } }
+                "A → ${show(rowsA)} ‖ B → ${show(rowsB).ifEmpty { "(nothing that fits B's taste in this small library)" }}"
+            }
+        } finally {
+            runBlocking {
+                played.forEach { (a, id) -> runCatching { a.setPlayed(id, false) } }
+                userB?.let { b -> runCatching { http.delete("$base/Users/${b.user.id}") { header("Authorization", api.authHeader) } } }
             }
         }
     }

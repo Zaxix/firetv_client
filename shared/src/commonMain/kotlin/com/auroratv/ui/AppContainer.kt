@@ -44,6 +44,8 @@ class AppContainer(val platform: Platform) {
     val searchHistory = com.auroratv.profiles.SearchHistory(platform.files)
     /** The on-device title index behind search (per signed-in user, refreshed every 30 minutes). */
     val search = com.auroratv.search.SearchService(appScope)
+    /** Home's "Because You Watched" / "Recommended For You" rows, per profile (see RecommendationService). */
+    val recommendations = com.auroratv.recommend.RecommendationService(search, appScope)
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
@@ -76,6 +78,7 @@ class AppContainer(val platform: Platform) {
             com.auroratv.profiles.ProfileFiles.deleteAll(platform.files, profile.key)
             platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}.json")
             ratingsKeys.forgetProfile(profile.key)
+            recommendations.forget(profile.key)
         }
     }
 

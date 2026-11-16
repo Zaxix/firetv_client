@@ -47,7 +47,18 @@ object PlaybackPreparer {
         knownItem: BaseItemDto? = null,
         trackMemory: TrackMemory? = null,
     ): PreparedPlayback = coroutineScope {
+        val t0 = TimeSource.Monotonic.markNow()
+        // Ask how to play the file while the item details are still on their way (one round trip
+        // instead of two). Direct Play doesn't depend on the start point, and the player picks the
+        // tracks itself, so that answer is kept when it fits the tracks chosen below; anything else
+        // (a transcode, a track that needs the server) is negotiated again with the real choices.
+        val early = if (knownItem == null && ResumeTuning.parallelPrepare) async {
+            try {
+                negotiator.negotiate(itemId, null, 0L, null, null, settings.maxBitrateMbps, settings.enableDirectPlay)
+            } catch (c: CancellationException) { throw c } catch (t: Throwable) { null }
+        } else null
         val item = knownItem ?: api.item(itemId)
+        val itemMs = t0.elapsedNow().inWholeMilliseconds
         val source = item.mediaSources.firstOrNull()
         val streams = source?.mediaStreams ?: item.mediaStreams
         // Tracks picked by hand earlier in this series (or movie) win over the general preferences.
@@ -61,7 +72,13 @@ object PlaybackPreparer {
         }
         val startMs = if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
         val fonts = source?.takeIf { needsFonts(it) }?.let { s -> async { downloadFonts(api, itemId, s) } }
-        val plan = negotiator.negotiate(itemId, source?.id, startMs, audio, subtitle, settings.maxBitrateMbps, settings.enableDirectPlay)
+        val earlyPlan = early?.await()?.takeIf { p ->
+            (source == null || p.mediaSource.id == source.id) && negotiator.directPlayFits(p, audio, subtitle)
+        }
+        val plan = earlyPlan?.copy(audioIndex = audio, subtitleIndex = subtitle)
+            ?: negotiator.negotiate(itemId, source?.id, startMs, audio, subtitle, settings.maxBitrateMbps, settings.enableDirectPlay)
+        Log.i("Perf", "Prepared in ${t0.elapsedNow().inWholeMilliseconds} ms (item ${if (knownItem != null) "known" else "$itemMs ms"}, " +
+            "${if (earlyPlan != null) "PlaybackInfo alongside it" else if (early != null) "PlaybackInfo again for this start/tracks" else "PlaybackInfo after it"}, ${plan.method.jellyfinName})")
         val loadedFonts = when {
             fonts == null -> emptyList()
             plan.method == PlayMethod.DirectPlay || !hasAss(plan.subtitleStreams) -> { fonts.cancel(); emptyList() }

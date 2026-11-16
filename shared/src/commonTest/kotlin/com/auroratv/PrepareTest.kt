@@ -82,4 +82,38 @@ class PrepareTest {
         assertEquals(requests + 2, apiRequests(), "one item + one PlaybackInfo request")
         assertEquals("ep1", again.item.id)
     }
+
+    private fun FakeServer.playbackInfoCalls() = requests.count { it.url.encodedPath.endsWith("/PlaybackInfo") }
+
+    @Test
+    fun resumingDirectPlayNegotiatesWhileTheItemLoads() = runTest {
+        val s = server(transcode = false)
+        val p = PlaybackPreparer.prepare(api(s), PlaybackNegotiator(api(s), fireTv4k), Settings(), "ep1", startFromBeginning = false)
+        assertEquals(PlayMethod.DirectPlay, p.plan.method)
+        assertEquals(300_000L, p.startMs, "resume point still comes from the item")
+        assertEquals(1, s.playbackInfoCalls(), "the early answer is used: Direct Play doesn't depend on the start point")
+        assertEquals(p.audioIndex, p.plan.audioIndex, "the player still gets the chosen tracks")
+        assertEquals(p.subtitleIndex, p.plan.subtitleIndex)
+    }
+
+    @Test
+    fun aTranscodeIsNegotiatedAgainForTheResumePoint() = runTest {
+        val s = server(transcode = true)
+        val p = PlaybackPreparer.prepare(api(s), PlaybackNegotiator(api(s), oldStick), Settings(), "ep1", startFromBeginning = false)
+        assertEquals(PlayMethod.Transcode, p.plan.method)
+        assertEquals(2, s.playbackInfoCalls(), "the server must start the transcode at the resume point")
+    }
+
+    @Test
+    fun originalPathAsksOneAfterTheOther() = runTest {
+        val before = com.auroratv.playback.ResumeTuning.level
+        try {
+            com.auroratv.playback.ResumeTuning.level = 0
+            val s = server(transcode = false)
+            PlaybackPreparer.prepare(api(s), PlaybackNegotiator(api(s), fireTv4k), Settings(), "ep1", startFromBeginning = false)
+            assertEquals(1, s.playbackInfoCalls())
+        } finally {
+            com.auroratv.playback.ResumeTuning.level = before
+        }
+    }
 }

@@ -100,6 +100,25 @@ class PlaybackNegotiator(
         return PlaybackPlan(source, playSessionId, method, url, headers, audioIndex, subtitleIndex, reasons)
     }
 
+    /**
+     * Whether a Direct Play [plan] that was negotiated without track choices (see
+     * PlaybackPreparer's parallel start) also suits these ones. The player switches tracks itself in
+     * Direct Play, so it does unless a picked track would have made the server step in: an audio
+     * codec this device can't decode or pass through, or subtitles it can't show without burning in.
+     */
+    fun directPlayFits(plan: PlaybackPlan, audioIndex: Int?, subtitleIndex: Int?): Boolean {
+        if (plan.method != PlayMethod.DirectPlay) return false
+        val streams = plan.mediaSource.mediaStreams
+        val audioOk = audioIndex == null || audioIndex == plan.mediaSource.defaultAudioStreamIndex ||
+            streams.firstOrNull { it.index == audioIndex }?.codec?.lowercase()?.let { it in capabilities.audioCodecs } == true
+        val subtitleOk = subtitleIndex == null || streams.firstOrNull { it.index == subtitleIndex }?.let { st ->
+            val codec = (st.codec ?: "").lowercase()
+            (st.deliveryMethod == "External" && st.deliveryUrl != null && codec in capabilities.subtitleExternal) ||
+                (!st.isExternal && codec in capabilities.subtitleEmbedded)
+        } == true
+        return audioOk && subtitleOk
+    }
+
     companion object {
         fun parseTranscodeReasons(url: String): List<String> {
             val value = url.substringAfter("?", "").split('&')

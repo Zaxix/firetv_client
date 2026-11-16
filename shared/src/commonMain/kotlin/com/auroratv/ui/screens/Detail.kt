@@ -1,5 +1,7 @@
 package com.auroratv.ui.screens
 
+import com.auroratv.ui.nav.focusRow
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -172,7 +174,7 @@ fun DetailScreen(route: Route.Detail) {
     fun toggleFavorite() {
         val fav = !(item.userData?.isFavorite ?: false)
         scope.launch {
-            runCatching { api.setFavorite(item.id, fav) }
+            runCatching { api.setFavorite(item.id, fav) }.onSuccess { com.auroratv.data.WatchActivity.changed() }
                 .onSuccess { model.item = item.copy(userData = (item.userData ?: com.auroratv.jellyfin.model.UserItemData()).copy(isFavorite = fav)) }
                 .onFailure { container.onError(it.toAppError()) }
         }
@@ -181,7 +183,7 @@ fun DetailScreen(route: Route.Detail) {
         container.prewarmer.invalidate() // resume point changes
         val played = !(item.userData?.played ?: false)
         scope.launch {
-            runCatching { api.setPlayed(item.id, played) }
+            runCatching { api.setPlayed(item.id, played) }.onSuccess { com.auroratv.data.WatchActivity.changed() }
                 .onSuccess { reload++ }
                 .onFailure { container.onError(it.toAppError()) }
         }
@@ -360,7 +362,7 @@ private fun DetailHeader(
 
 @Composable
 private fun SeasonPicker(seasons: List<BaseItemDto>, selected: String?, onSelect: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusRow()) {
         items(seasons, key = { it.id }) { season ->
             AuroraChip(season.name ?: "Season ${season.indexNumber}", season.id == selected, onClick = { onSelect(season.id) }, focusKey = "season/${season.id}")
         }
@@ -379,7 +381,7 @@ private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Un
     LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(22.dp),
-        modifier = Modifier.focusRestorer(),
+        modifier = Modifier.focusRow().focusRestorer(),
     ) {
         items(episodes, key = { it.id }) { ep ->
             Column(Modifier.width(CardStyle.Landscape.width)) {
@@ -398,7 +400,7 @@ private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: c
     val personPx = artworkPx(104.dp)
     Column {
         Text("Cast", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
-        LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+        LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.focusRow()) {
             items(cast, key = { (it.id ?: it.name) + it.role }) { person ->
                 Column(Modifier.width(120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     FocusSurface(onClick = {}, shape = CircleShape, modifier = Modifier.size(104.dp)) {

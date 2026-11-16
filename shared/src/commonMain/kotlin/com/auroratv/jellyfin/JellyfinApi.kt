@@ -110,6 +110,8 @@ data class ItemQuery(
     val userData: Boolean = true,
     /** Image kinds to include tags for (fewer = smaller responses). */
     val imageTypes: String = Fields.IMAGE_TYPES,
+    /** Only these items (e.g. a ranked list worked out on the device), in the server's order. */
+    val ids: List<String> = emptyList(),
 )
 
 /**
@@ -221,6 +223,7 @@ class JellyfinApi(
             query.isFavorite?.let { parameter("isFavorite", it) }
             if (query.studioIds.isNotEmpty()) parameter("studioIds", query.studioIds.joinToString("|"))
             if (query.personIds.isNotEmpty()) parameter("personIds", query.personIds.joinToString("|"))
+            if (query.ids.isNotEmpty()) parameter("ids", query.ids.joinToString(","))
             if (!query.userData) parameter("enableUserData", false)
             parameter("fields", query.fields)
             parameter("imageTypeLimit", 1)

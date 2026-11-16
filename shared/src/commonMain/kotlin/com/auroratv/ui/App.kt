@@ -49,6 +49,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
+import com.auroratv.ui.nav.contentRegion
 import androidx.compose.foundation.focusGroup
 import kotlinx.coroutines.launch
 import androidx.compose.ui.focus.FocusRequester
@@ -175,8 +176,10 @@ private fun MainShell(container: AppContainer) {
     val entry = navigator.current
 
     val sideBar = remember { SideBarState() }
+    /** Sidebar / content / profile-button focus rules (see FocusRegions). */
+    val regions = remember { com.auroratv.ui.nav.FocusRegions() }
     /** The screen area; requesting focus here returns to the card/button that had it before the sidebar. */
-    val contentFocus = remember { FocusRequester() }
+    val contentFocus = regions.content
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -186,6 +189,10 @@ private fun MainShell(container: AppContainer) {
     var exitArmed by remember { mutableStateOf(false) }
     LaunchedEffect(exitArmed) { if (exitArmed) { kotlinx.coroutines.delay(2_500); exitArmed = false } }
     fun navigateBack(): Boolean = when {
+        regions.headerHasFocus -> {
+            if (!regions.focusContent()) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+            true
+        }
         sideBar.hasFocus -> {
             if (runCatching { contentFocus.requestFocus() }.isFailure) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
             true
@@ -214,9 +221,27 @@ private fun MainShell(container: AppContainer) {
         onDispose { container.backHandler = { false } }
     }
 
-    CompositionLocalProvider(LocalNavigator provides navigator, LocalSideBar provides sideBar) {
+    // Safety net: if focus ends up nowhere (the focused card was removed when a row reloaded, a
+    // screen changed under it), the D-pad would do nothing. Put it back on the screen's content.
+    var shellFocused by remember { mutableStateOf(true) }
+    LaunchedEffect(shellFocused, entry, updatePrompt) {
+        if (shellFocused || entry.route is Route.Player || updatePrompt != null) return@LaunchedEffect
+        kotlinx.coroutines.delay(250)
+        if (!shellFocused) runCatching { contentFocus.requestFocus() }
+    }
+
+    // Which region holds focus, logged on change (CI's remote-control tests read it; cheap otherwise).
+    val focusRegion = when {
+        regions.headerHasFocus -> "header"
+        sideBar.hasFocus -> "sidebar"
+        shellFocused -> "content"
+        else -> "none"
+    }
+    LaunchedEffect(focusRegion) { com.auroratv.core.Log.i("AuroraFocus", "region=$focusRegion") }
+
+    CompositionLocalProvider(LocalNavigator provides navigator, LocalSideBar provides sideBar, com.auroratv.ui.nav.LocalFocusRegions provides regions) {
         Box(
-            Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
+            Modifier.fillMaxSize().onFocusChanged { shellFocused = it.hasFocus }.onPreviewKeyEvent { ev ->
                 // The update card, when shown, gets every key first (it's modal).
                 if (updatePrompt != null && entry.route !is Route.Player) return@onPreviewKeyEvent promptKeys.onKey(ev)
                 // Holding Left lets focus move into the sidebar (see SideBarState.allowEntry).
@@ -229,6 +254,12 @@ private fun MainShell(container: AppContainer) {
                     if (!handleBack()) container.platform.exitApp()
                     true
                 } else if ((ev.key == Key.Back || ev.key == Key.Escape) && ev.type == KeyEventType.KeyDown) {
+                    true
+                } else if (ev.key == Key.DirectionUp && ev.type == KeyEventType.KeyDown && entry.route !is Route.Player &&
+                    !regions.headerHasFocus && !sideBar.hasFocus) {
+                    // Up that nothing on screen used: move up if there's somewhere to go, otherwise this is
+                    // the top of the screen, and Up from there (only) reaches the profile button.
+                    if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) regions.openHeader()
                     true
                 } else if (ev.key == Key.F11 && ev.type == KeyEventType.KeyUp) {
                     container.platform.toggleFullscreen(); true
@@ -243,15 +274,19 @@ private fun MainShell(container: AppContainer) {
                 // Home and detail pages cover the whole screen with their own; skip the hidden layer.
                 val ownBackground = entry.route is Route.Detail || entry.route == Route.Root(Section.Home)
                 if (!ownBackground) com.auroratv.ui.components.ShellBackdrop(backdrop)
-                Box(Modifier.fillMaxSize().focusRequester(contentFocus).focusGroup().focusRestorer()) {
+                Box(Modifier.fillMaxSize().contentRegion()) { Box(Modifier.fillMaxSize().focusRequester(contentFocus).focusGroup().focusRestorer()) {
                     AnimatedContent(
                         targetState = entry,
                         transitionSpec = { fadeIn(tween(motion.duration(220))) togetherWith fadeOut(tween(motion.duration(120))) },
                     ) { e ->
                         CompositionLocalProvider(LocalEntry provides e, com.auroratv.ui.components.LocalBackdrop provides backdrop) { RouteContent(container, e.route) }
                     }
-                }
-                SideBar(navigator, sideBar) { sameScreen ->
+                } }
+                SideBar(
+                    navigator, sideBar,
+                    // Right closes the sidebar exactly like Back: back to the card/button you were on.
+                    onClose = { if (runCatching { contentFocus.requestFocus() }.isFailure) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right) },
+                ) { sameScreen ->
                     if (sameScreen) {
                         // Choosing the section you're already on just closes the sidebar and goes back
                         // to where you were on that screen.
@@ -268,7 +303,7 @@ private fun MainShell(container: AppContainer) {
                 val session = LocalSession.current
                 com.auroratv.ui.screens.ProfileButton(
                     container, com.auroratv.data.Profile(session.server, session.user),
-                    Modifier.align(Alignment.TopEnd).padding(top = 26.dp, end = 34.dp),
+                    Modifier.align(Alignment.TopEnd).padding(top = 26.dp, end = 34.dp).then(regions.headerModifier()),
                 )
             } else {
                 CompositionLocalProvider(LocalEntry provides entry) { RouteContent(container, entry.route) }
@@ -368,7 +403,7 @@ private fun Section.short(): String = when (this) {
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: (sameScreen: Boolean) -> Unit) {
+private fun SideBar(navigator: Navigator, bar: SideBarState, onClose: () -> Unit, onSelected: (sameScreen: Boolean) -> Unit) {
     val colors = Aurora.colors
     val motion = Aurora.motion
     val expanded = bar.hasFocus
@@ -391,6 +426,9 @@ private fun SideBar(navigator: Navigator, bar: SideBarState, onSelected: (sameSc
                 .background(com.auroratv.ui.components.Glass.fill(colors.surface, opaque = expanded))
                 .border(1.dp, com.auroratv.ui.components.Glass.edge, RoundedCornerShape(26.dp))
                 .onFocusChanged { bar.hasFocus = it.hasFocus }
+                .onPreviewKeyEvent { ev ->
+                    if (ev.key == Key.DirectionRight && bar.hasFocus) { if (ev.type == KeyEventType.KeyDown) onClose(); true } else false
+                }
                 .focusRestorer(bar.currentItem)
                 .padding(vertical = 14.dp, horizontal = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),

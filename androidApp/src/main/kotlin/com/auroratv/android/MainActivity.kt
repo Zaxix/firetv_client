@@ -18,8 +18,8 @@ class MainActivity : ComponentActivity() {
         container = AppContainer(AndroidPlatform(this))
         // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
         container.initialRoute = intent?.getStringExtra("route")
-        // `--ez exactResume true` (CI only): resume at the exact saved position, to time it against the keyframe start.
-        ExoPlayerEngine.exactResume = intent?.getBooleanExtra("exactResume", false) == true
+        // `--ei resumeLevel 0|1|2` (CI only): time the original Play/resume path against the current one.
+        com.auroratv.playback.ResumeTuning.level = intent?.getIntExtra("resumeLevel", com.auroratv.playback.ResumeTuning.CURRENT) ?: com.auroratv.playback.ResumeTuning.CURRENT
         // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.
         intent?.getStringExtra("player")?.let { p ->
             com.auroratv.settings.PlayerEngineChoice.entries.firstOrNull { it.name.equals(p, ignoreCase = true) }

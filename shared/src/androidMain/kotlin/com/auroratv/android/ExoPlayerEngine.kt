@@ -85,13 +85,30 @@ class ExoPlayerEngine(
         }
     }
 
+    /** What the stream fetched until the first frame: HTTP requests opened and bytes (loader threads). */
+    private val startRequests = java.util.concurrent.atomic.AtomicInteger()
+    private val startBytes = java.util.concurrent.atomic.AtomicLong()
+    private val transferCounter = object : androidx.media3.datasource.TransferListener {
+        override fun onTransferInitializing(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) = Unit
+        override fun onTransferStart(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) { if (isNetwork) startRequests.incrementAndGet() }
+        override fun onBytesTransferred(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean, bytesTransferred: Int) { if (isNetwork) startBytes.addAndGet(bytesTransferred.toLong()) }
+        override fun onTransferEnd(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) = Unit
+    }
+
     // The app's shared OkHttp pool (see SharedOkHttp): the stream reuses connections the API already opened.
-    private val httpFactory = OkHttpDataSource.Factory(
-        com.auroratv.jellyfin.SharedOkHttp.client.newBuilder()
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-    ).setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)")
+    private val httpFactory: androidx.media3.datasource.HttpDataSource.Factory =
+        if (com.auroratv.playback.ResumeTuning.sharedConnections) OkHttpDataSource.Factory(
+            com.auroratv.jellyfin.SharedOkHttp.client.newBuilder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        ).setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)").setTransferListener(transferCounter)
+        else androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setUserAgent("${AppInfo.NAME}/${AppInfo.VERSION} (Android)")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
+            .setTransferListener(transferCounter)
 
     private val trackSelector = DefaultTrackSelector(context).apply {
         setParameters(buildUponParameters().setTunnelingEnabled(false).build())
@@ -174,6 +191,21 @@ class ExoPlayerEngine(
     private var keyframeStartMs = 0L
     /** Set while that keyframe move is in flight, to undo it if the file's index points far back. */
     private var keyframeCheckMs = 0L
+    /** Start-up timeline of the current item (elapsedRealtime ms), logged once at the first frame. */
+    private var loadAt = 0L
+    private var tracksAt = 0L
+    private var readyAt = 0L
+    private var firstFrameAt = 0L
+    private var videoInitMs = -1L
+    private var startLogged = true
+
+    private fun logStartIfDone() {
+        if (startLogged || firstFrameAt == 0L || readyAt == 0L) return
+        startLogged = true
+        fun since(t: Long) = if (t == 0L) "-" else "${t - loadAt} ms"
+        Log.i("Perf", "Engine start: tracks known ${since(tracksAt)}, first frame ${since(firstFrameAt)}, ready ${since(readyAt)}; " +
+            "${startRequests.get()} request(s), ${startBytes.get() / 1024} KB fetched; video decoder set up in ${if (videoInitMs >= 0) "$videoInitMs ms" else "-"}")
+    }
     private val frameRate = if (matchFrameRate) (context as? android.app.Activity)?.let { FrameRateMatcher(it) } else null
 
     init {
@@ -192,11 +224,15 @@ class ExoPlayerEngine(
                 val name = when (playbackState) { Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; else -> "ended" }
                 Log.i(tag, "state=$name pos=${player.currentPosition} buffered=${player.bufferedPosition}")
                 // The keyframe move is settled by now (adjustments arrive before READY); later seeks are the viewer's.
-                if (playbackState == Player.STATE_READY) keyframeCheckMs = 0
+                if (playbackState == Player.STATE_READY) {
+                    keyframeCheckMs = 0
+                    if (readyAt == 0L) { readyAt = android.os.SystemClock.elapsedRealtime(); logStartIfDone() }
+                }
             }
 
             override fun onTracksChanged(tracks: Tracks) {
                 frameRate?.let { m -> player.videoFormat?.frameRate?.takeIf { it > 0f }?.let(m::match) }
+                if (!tracks.isEmpty && tracksAt == 0L) tracksAt = android.os.SystemClock.elapsedRealtime()
                 if (!tracks.isEmpty) startAtKeyframe()
                 if (!pendingApplied && !tracks.isEmpty) {
                     pendingApplied = true
@@ -229,6 +265,10 @@ class ExoPlayerEngine(
         player.addAnalyticsListener(object : AnalyticsListener {
             override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
                 videoDecoder = decoderName
+                if (videoInitMs < 0) videoInitMs = initializationDurationMs
+            }
+            override fun onRenderedFirstFrame(eventTime: AnalyticsListener.EventTime, output: Any, renderTimeMs: Long) {
+                if (firstFrameAt == 0L) { firstFrameAt = android.os.SystemClock.elapsedRealtime(); logStartIfDone() }
             }
             override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
                 audioDecoder = decoderName
@@ -319,7 +359,9 @@ class ExoPlayerEngine(
         pendingApplied = false
         videoDecoder = null; audioDecoder = null; droppedFrames = 0
         // Transcodes already begin exactly at the start position (the server cuts a keyframe there).
-        keyframeStartMs = if (!source.isHls && source.startPositionMs > 0 && !exactResume) source.startPositionMs else 0L
+        keyframeStartMs = if (!source.isHls && source.startPositionMs > 0 && com.auroratv.playback.ResumeTuning.keyframeStart) source.startPositionMs else 0L
+        loadAt = android.os.SystemClock.elapsedRealtime(); tracksAt = 0; readyAt = 0; firstFrameAt = 0; videoInitMs = -1; startLogged = false
+        startRequests.set(0); startBytes.set(0)
         keyframeCheckMs = 0
         _state.update { EngineState(isBuffering = true) }
         player.setMediaItem(item, source.startPositionMs)
@@ -435,10 +477,5 @@ class ExoPlayerEngine(
         scope.cancel()
         view.player = null
         player.release()
-    }
-
-    companion object {
-        /** CI comparison only (`--ez exactResume true`): open resumes at the exact position, as Media3 does by default. */
-        @Volatile var exactResume = false
     }
 }

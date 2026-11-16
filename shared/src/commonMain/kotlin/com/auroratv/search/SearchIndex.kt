@@ -48,6 +48,11 @@ class SearchIndex(items: List<BaseItemDto>) {
 
     val size: Int get() = entries.size
 
+    /** Every movie, show and collection in the index (lightweight: name, genres, poster). */
+    val titles: List<BaseItemDto> get() = entries.map { it.item }
+    private val byId: Map<String, BaseItemDto> by lazy { entries.associate { it.item.id to it.item } }
+    fun title(id: String): BaseItemDto? = byId[id]
+
     data class Hit(val item: BaseItemDto, val score: Int, val kind: Kind)
 
     enum class Kind { Exact, Prefix, Words, Fuzzy, Genre }

@@ -1,5 +1,7 @@
 package com.auroratv.ui.screens
 
+import com.auroratv.ui.nav.focusRow
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -195,7 +197,7 @@ fun ReviewsRow(reviews: List<Review>, rowFocus: FocusRequester, onOpen: (Review)
         LazyRow(
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
+            modifier = Modifier.focusRow().focusRequester(rowFocus).focusRestorer(),
         ) {
             items(reviews, key = { it.id }) { review -> ReviewCard(review) { onOpen(review) } }
         }

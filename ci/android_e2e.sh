@@ -87,6 +87,40 @@ open "brand:netflix"; sleep 10; shot android-17-brand-hub
 # Home: scroll to the last row (titles under the cards must stay on screen), then back up to the banner.
 open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-22-home-bottom
 key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 2; shot android-23-home-back-to-top
+# ---- Directional focus with the remote: Right out of the sidebar, Right at the end of rows, and the
+# profile button only through Up from the top. Each step checks which region has focus (the app logs
+# "AuroraFocus: region=…") and takes a screenshot.
+: > "$OUT/navigation.txt"
+region() { adb logcat -d -s AuroraFocus:I | tr -d '\r' | grep -o 'region=[a-z]*' | tail -1 | cut -d= -f2; }
+expect() { # step expected-region
+  sleep 1; local got; got=$(region)
+  if [ "$got" = "$2" ]; then echo "✅ $1: focus in $got" | tee -a "$OUT/navigation.txt"
+  else echo "❌ $1: expected $2, focus in ${got:-?}" | tee -a "$OUT/navigation.txt"; NAVFAIL=1; fi
+}
+open "section:Home"; sleep 14
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; expect "Down onto a row" content; shot nav-01-on-a-row
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; key KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT; expect "Left from the first card opens the sidebar" sidebar; shot nav-02-sidebar-open
+key KEYCODE_DPAD_RIGHT; expect "Right in the sidebar closes it (like Back)" content; shot nav-03-sidebar-right-closes
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+expect "Right past the end of a row stays on the last card" content; shot nav-04-row-end
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; expect "Up from the top of Home reaches the profile button" header; shot nav-05-up-to-profile
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_LEFT KEYCODE_DPAD_UP; expect "Left/Right/Up on the profile button go nowhere" header
+key KEYCODE_DPAD_DOWN; expect "Down from the profile button returns to the screen" content; shot nav-06-profile-down
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; key KEYCODE_BACK; expect "Back on the profile button returns to the screen" content
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot nav-07-home-recommendations
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+expect "Right past the end of a recommendation row" content
+# Search: results arrive while typing; the end of a result row and empty results must not escape.
+open "section:Search"; sleep 8; adb shell input text "thriller"; sleep 5
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+expect "Right past the end of a search result row" content; shot nav-08-search-row-end
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; expect "Up from the search box reaches the profile button" header
+key KEYCODE_DPAD_DOWN; expect "Down returns to search" content
+open "section:Search"; sleep 8; adb shell input text "zzqxv"; sleep 4
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT; expect "Keys on empty search results stay on the screen" content; shot nav-09-search-empty
+# A single-title row (detail page cast/seasons rows vary): Right at the only item stays.
+open "detail:$SERIES"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; expect "Right at the end of a short row on a details page" content; shot nav-10-detail-row-end
+adb logcat -d -s Recommend:I | tr -d '\r' | tail -5 | tee -a "$OUT/navigation.txt"
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
@@ -111,3 +145,4 @@ echo "---- Time from Play to engine start ----"; grep -E "Ready to play" "$OUT/l
 echo "---- Time from Play to the picture moving ----"; grep -E "Perf *: Playing after" "$OUT/logcat-full.txt" | sed -E "s/^.*Playing/Playing/" || true
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi
+if [ "${NAVFAIL:-0}" = 1 ]; then echo "Navigation checks failed:"; cat "$OUT/navigation.txt"; exit 1; fi

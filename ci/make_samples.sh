@@ -134,6 +134,23 @@ ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 30 1280x720 25)" \
   -metadata:s:s:2 language=spa -metadata:s:s:2 title="Spanish" \
   "$D/Seven Rivers (2019).mkv"
 
+# ---------- 3b) Episode-length resume test: 3 min of 1080p H.264 at ~6 Mbps, a keyframe every 10 s ----------
+# Resume timing needs what real releases have and the short samples don't: long keyframe gaps,
+# several MB a second, two audio tracks, ASS subtitles with embedded fonts (stored before the video).
+D="$OUT/movies/Tidewater (2017)"; mkdir -p "$D"
+ATTACH=(); i=0
+for f in /usr/share/fonts/truetype/dejavu/DejaVuSans*.ttf; do
+  [ -f "$f" ] || continue
+  ATTACH+=(-attach "$f" -metadata:s:t:$i mimetype=application/x-truetype-font -metadata:s:t:$i "filename=$(basename "$f")"); i=$((i+1))
+done
+ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=180:size=1920x1080:rate=25,noise=alls=12:allf=t" \
+  -f lavfi -i "sine=frequency=440:duration=180" -f lavfi -i "sine=frequency=330:duration=180" -i "$TMP/styled.ass" \
+  -map 0 -map 1 -map 2 -map 3 \
+  -c:v libx264 -preset veryfast -b:v 6M -maxrate 8M -bufsize 12M -pix_fmt yuv420p -x264-params keyint=250:min-keyint=250:scenecut=0 \
+  -c:a:0 aac -b:a:0 192k -ac:a:0 2 -c:a:1 ac3 -b:a:1 448k -ac:a:1 6 -c:s ass "${ATTACH[@]}" \
+  -metadata:s:a:0 language=eng -metadata:s:a:1 language=jpn -metadata:s:s:0 language=eng \
+  "$D/Tidewater (2017).mkv"
+
 # ---------- 4) 4K HDR10 HEVC Main10 (short) ----------
 D="$OUT/movies/Ember Field (2024)"; mkdir -p "$D"
 ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 6 3840x2160 24)" -f lavfi -i "sine=frequency=250:duration=6" \

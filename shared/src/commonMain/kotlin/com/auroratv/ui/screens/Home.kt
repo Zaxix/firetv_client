@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -128,6 +129,66 @@ class HomeModel {
     var focused by mutableStateOf<BaseItemDto?>(null)
     var heroIndex by mutableIntStateOf(0)
     val listState = LazyListState()
+    /** The WatchActivity version these rows reflect; a newer one refreshes the personal rows. */
+    var seenWatch = com.auroratv.data.WatchActivity.version.value
+}
+
+/** Continue Watching, Next Up and the recommendation rows: the ones that change as this profile watches. */
+private fun isPersonalRail(key: String) = key == "resume" || key == "nextup" || key == "foryou" || key.startsWith("because-")
+
+/**
+ * Home's rows in order: what you're in the middle of, what's picked for you, the libraries, a second
+ * "Because You Watched", then favourites. Recommendations sit near the top but never above what
+ * you're already watching.
+ */
+private fun arrangeRails(
+    resume: List<BaseItemDto>,
+    nextUp: List<BaseItemDto>,
+    recommendations: List<RailState>,
+    libraries: List<RailState>,
+    favorites: RailState?,
+): List<RailState> = buildList {
+    if (resume.isNotEmpty()) add(RailState("resume", "Continue Watching", CardStyle.Landscape) { resume }.also { it.items = resume })
+    if (nextUp.isNotEmpty()) add(RailState("nextup", "Next Up", CardStyle.Landscape) { nextUp }.also { it.items = nextUp })
+    recommendations.filter { it.key != "because-1" }.forEach(::add)
+    addAll(libraries)
+    recommendations.firstOrNull { it.key == "because-1" }?.let(::add)
+    favorites?.let(::add)
+}
+
+/**
+ * The recommendation rails for this profile. Titles are known from the history right away; the
+ * rows themselves are worked out once (shared by all three rails) when the first of them comes on
+ * screen, and reused until the history changes. A row with too little to show stays hidden.
+ */
+private fun recommendationRails(
+    container: com.auroratv.ui.AppContainer,
+    api: com.auroratv.jellyfin.JellyfinApi,
+    profileKey: String,
+    plan: com.auroratv.recommend.RecommendationService.Plan?,
+): List<RailState> {
+    if (plan == null || plan.seeds.isEmpty()) return emptyList()
+    fun rail(key: String, title: String) = RailState(key, title, CardStyle.Poster) {
+        container.recommendations.rows(api, profileKey, plan).await()?.firstOrNull { it.key == key }?.items.orEmpty()
+    }
+    return buildList {
+        plan.seeds.getOrNull(0)?.let { add(rail("because-0", "Because You Watched ${it.name}")) }
+        if (plan.titles.size >= 2) add(rail("foryou", "Recommended For You"))
+        plan.seeds.getOrNull(1)?.let { add(rail("because-1", "Because You Watched ${it.name}")) }
+    }
+}
+
+/** Swaps in new personal rows, keeping row objects (and focus) where nothing changed. */
+private fun mergeRails(old: List<RailState>, fresh: List<RailState>): List<RailState> {
+    val byKey = old.associateBy { it.key }
+    return fresh.map { f ->
+        val o = byKey[f.key] ?: return@map f
+        when {
+            !isPersonalRail(f.key) -> o
+            o.title == f.title && f.items != null && o.items == f.items -> o
+            else -> f.also { if (it.items == null) o.items?.takeIf { prev -> prev.isNotEmpty() }?.let { prev -> it.items = prev; it.stale = true } }
+        }
+    }
 }
 
 @Composable
@@ -144,6 +205,7 @@ fun HomeScreen() {
     val scope = rememberCoroutineScope()
 
     val homeCache = remember(session) { HomeCache(container.platform.files, session.server.id, session.user.id) }
+    val profileKey = remember(session) { com.auroratv.data.Profile(session.server, session.user).key }
     // Moving onto the featured title or a Continue Watching / Next Up card gets Play ready in the
     // background (after a short pause, so scrolling past cards costs nothing).
     val prewarmRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -173,6 +235,11 @@ fun HomeScreen() {
                 val views = async { api.userViews() }
                 val resume = async { runCatching { api.resumeItems() }.getOrDefault(emptyList()) }
                 val nextUp = async { runCatching { api.nextUp() }.getOrDefault(emptyList()) }
+                // This profile's recent history, for the recommendation rows (one small request).
+                val recPlan = async {
+                    runCatching { container.recommendations.plan(api, resume.await()) }
+                        .onFailure { com.auroratv.core.Log.w("Recommend", "No history: ${it.message}") }.getOrNull()
+                }
                 val libraryViews = views.await().filter { it.collectionType in setOf("movies", "tvshows", "homevideos", "musicvideos", null) }
                 val latestRails = libraryViews.associate { view ->
                     view.id to RailState("latest-${view.id}", "Recently Added in ${view.name}", CardStyle.Poster) { api.latest(view.id, limit = 24) }
@@ -185,15 +252,18 @@ fun HomeScreen() {
                     ?.flatten()
                     ?: heroSources.flatMap { it.items.orEmpty() }
 
-                val rails = buildList {
-                    val r = resume.await()
-                    if (r.isNotEmpty()) add(RailState("resume", "Continue Watching", CardStyle.Landscape) { r }.also { it.items = r })
-                    val n = nextUp.await()
-                    if (n.isNotEmpty()) add(RailState("nextup", "Next Up", CardStyle.Landscape) { n }.also { it.items = n })
-                    libraryViews.forEach { view -> add(latestRails.getValue(view.id)) }
-                    add(RailState("favorites", "Favorites", CardStyle.Poster) {
-                        api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
-                    })
+                val favorites = RailState("favorites", "Favorites", CardStyle.Poster) {
+                    api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
+                }
+                val libraryRails = libraryViews.map { view -> latestRails.getValue(view.id) }
+                // Home doesn't wait long for the history; if it's late, its rows join when it arrives.
+                val plan = kotlinx.coroutines.withTimeoutOrNull(REC_WAIT_MS) { recPlan.await() }
+                val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites)
+                if (plan == null) launch {
+                    val late = recPlan.await() ?: return@launch
+                    val now = model.rails ?: return@launch
+                    model.rails = mergeRails(now, arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, late),
+                        now.filter { it.key.startsWith("latest-") }, now.firstOrNull { it.key == "favorites" }))
                 }
                 val freshHero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
                 // Rows that haven't loaded yet keep showing last session's items until they do.
@@ -222,6 +292,27 @@ fun HomeScreen() {
             savedJob?.join() // offline: the saved Home (if any) is better than an error screen
             model.error = t.toAppError().userMessage
         }
+    }
+
+    // Back from watching something (or after marking it watched): refresh Continue Watching, Next Up
+    // and the recommendations in place, keeping every row (and the focused card) that didn't change.
+    val watchVersion by com.auroratv.data.WatchActivity.version.collectAsState()
+    LaunchedEffect(watchVersion) {
+        if (watchVersion == model.seenWatch) return@LaunchedEffect
+        model.seenWatch = watchVersion
+        if (model.rails == null) return@LaunchedEffect
+        delay(400) // let the server record the stop first
+        runCatching {
+            coroutineScope {
+                val resume = async { api.resumeItems() }
+                val nextUp = async { api.nextUp() }
+                val plan = runCatching { container.recommendations.plan(api, resume.await()) }.getOrNull()
+                val current = model.rails ?: return@coroutineScope
+                val fresh = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan),
+                    current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" })
+                model.rails = mergeRails(current, fresh)
+            }
+        }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Home", "Refresh after watching failed: ${it.message}") }
     }
 
     val rails = model.rails
@@ -288,6 +379,7 @@ fun HomeScreen() {
 }
 
 private const val HERO_WAIT_MS = 4_000L
+private const val REC_WAIT_MS = 2_500L
 private const val PREWARM_DELAY_MS = 700L
 private const val SAVED_PER_ROW = 12
 

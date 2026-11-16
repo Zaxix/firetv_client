@@ -402,6 +402,7 @@ class PlayerController(
         val transcoding = plan.method != PlayMethod.DirectPlay
         appScope.launch {
             runCatching { api.reportStopped(r) }.onFailure { Log.w(tag, "Stop report failed", it) }
+            com.auroratv.data.WatchActivity.changed() // Home: new resume point / history for recommendations
             if (transcoding && sessionId != null) api.stopTranscoding(sessionId)
         }
     }
