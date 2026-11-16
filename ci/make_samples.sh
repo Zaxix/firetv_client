@@ -151,6 +151,50 @@ ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=180:size=1920x
   -metadata:s:a:0 language=eng -metadata:s:a:1 language=jpn -metadata:s:s:0 language=eng \
   "$D/Tidewater (2017).mkv"
 
+# ---------- 3c) Anime-style release for the resume/seek repro: dense typesetting + ~40 MB of fonts ----------
+# Fansub releases carry their fonts as MKV attachments ahead of the video (often 10–40 MB) and keep
+# subtitles on screen almost all the time (dialogue, signs with movement/blur, karaoke).
+D="$OUT/movies/Lantern Festival (2020)"; mkdir -p "$D"
+python3 - "$TMP/lantern.ass" <<'PY'
+import sys, random
+r = random.Random(5)
+def ts(t): return f"{int(t//3600)}:{int(t%3600//60):02d}:{t%60:05.2f}"
+lines = ["[Script Info]", "ScriptType: v4.00+", "PlayResX: 1920", "PlayResY: 1080", "WrapStyle: 0", "",
+         "[V4+ Styles]",
+         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+         "Style: Default,DejaVu Sans,64,&H00FFFFFF,&H000000FF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,3.5,1.5,2,60,60,50,1",
+         "Style: Sign,DejaVu Serif,56,&H00E0F0FF,&H000000FF,&H00402010,&H00000000,0,0,0,0,100,100,2,0,1,2,0,8,60,60,60,1",
+         "Style: Karaoke,DejaVu Sans Mono,52,&H0066CCFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,1,8,60,60,30,1", "",
+         "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"]
+t = 0.5
+while t < 179:
+    d = 1.8 + r.random() * 2
+    lines.append(f"Dialogue: 0,{ts(t)},{ts(t+d)},Default,,0,0,0,,Line {int(t*10)} where the lanterns drift over the harbour")
+    lines.append(f"Dialogue: 0,{ts(t+0.4)},{ts(t+d)},Default,,0,0,120,,{{\\i1}}and a second voice answers {int(t)}")
+    t += d + 0.2
+for k in range(0, 179, 6):
+    x, y = r.randint(300, 1600), r.randint(200, 700)
+    lines.append(f"Dialogue: 1,{ts(k)},{ts(k+5)},Sign,,0,0,0,,{{\\move({x},{y},{x+200},{y-80})\\blur3\\t(0,2000,\\frz15\\fscx130)\\fad(300,300)}}Lantern Street {k}")
+for k in range(0, 179, 12):
+    syl = "".join(f"{{\\k{r.randint(15,40)}}}la" for _ in range(14))
+    lines.append(f"Dialogue: 2,{ts(k)},{ts(k+8)},Karaoke,,0,0,0,,{{\\blur1\\t(\\3c&H0000FF&)}}{syl}")
+open(sys.argv[1], "w").write("\n".join(lines) + "\n")
+PY
+FONTS=(); total=0; i=0
+while IFS= read -r f; do
+  sz=$(stat -c %s "$f"); [ $((total + sz)) -gt 40000000 ] && continue
+  FONTS+=(-attach "$f" -metadata:s:t:$i mimetype=application/x-truetype-font -metadata:s:t:$i "filename=$(basename "$f")")
+  total=$((total + sz)); i=$((i+1))
+done < <(find /usr/share/fonts -type f \( -name '*.ttf' -o -name '*.otf' \) -size +50k 2>/dev/null | sort)
+echo "Lantern Festival: $i fonts attached ($((total / 1048576)) MB)"
+ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=180:size=1920x1080:rate=24,noise=alls=10:allf=t" \
+  -f lavfi -i "sine=frequency=520:duration=180" -f lavfi -i "sine=frequency=390:duration=180" -i "$TMP/lantern.ass" \
+  -map 0 -map 1 -map 2 -map 3 \
+  -c:v libx264 -preset veryfast -b:v 5M -maxrate 7M -bufsize 10M -pix_fmt yuv420p -x264-params keyint=240:min-keyint=240:scenecut=0 \
+  -c:a:0 flac -ac:a:0 2 -c:a:1 aac -b:a:1 160k -ac:a:1 2 -c:s ass "${FONTS[@]}" \
+  -metadata:s:a:0 language=jpn -metadata:s:a:1 language=eng -metadata:s:s:0 language=eng -metadata:s:s:0 "title=Signs & Songs" -disposition:s:0 default \
+  "$D/Lantern Festival (2020).mkv"
+
 # ---------- 4) 4K HDR10 HEVC Main10 (short) ----------
 D="$OUT/movies/Ember Field (2024)"; mkdir -p "$D"
 ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 6 3840x2160 24)" -f lavfi -i "sine=frequency=250:duration=6" \

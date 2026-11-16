@@ -18,6 +18,7 @@ EP1=$(q "includeItemTypes=Episode&sortBy=SortName")
 EP3=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[2].Id')
 SEVEN=$(q "includeItemTypes=Movie&searchTerm=Seven%20Rivers")
 WAVES=$(q "includeItemTypes=Series&searchTerm=Wavelength")
+LANTERN=$(q "includeItemTypes=Movie&searchTerm=Lantern")
 WAVE2=$(curl -sf "$URL/Shows/$WAVES/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[1].Id')
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
@@ -97,6 +98,33 @@ if [ -n "$WAVE2" ] && [ "$WAVE2" != null ]; then
   fi
   key KEYCODE_BACK; sleep 2
 fi
+# Anime-style release (38 MB of fonts ahead of the video, subtitles almost always on screen):
+# resume at 2:37, then skip back and forward with the bar. Each must end up playing, not stuck
+# buffering. Original start-up path (level 0) and the current one (2).
+lantern_round() { # level
+  curl -sf -X POST "$URL/UserItems/$LANTERN/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":1570000000}' >/dev/null || true
+  adb shell am force-stop "$PKG"; sleep 1; adb shell log -t AuroraCI "lantern-$1"
+  adb shell am start -n "$PKG/$ACT" --ei resumeLevel "$1" --es route "player:$LANTERN" >/dev/null; sleep 20
+  local L; L=$(adb logcat -d | tr -d '\r' | sed -n "/AuroraCI.*lantern-$1/,\$p")
+  local resumed; resumed=$(echo "$L" | grep -m1 -E "Perf *: Playing after" | sed -E 's/^.*Perf *: //')
+  local engine; engine=$(echo "$L" | grep -m1 -E "Perf *: Engine start" | sed -E 's/^.*Perf *: //')
+  # Skip back three steps on the bar and commit; then forward three.
+  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
+  sleep 15; adb shell log -t AuroraCI "lantern-$1-back"
+  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
+  sleep 15; shot "android-33-anime-resume-seek-L$1"
+  L=$(adb logcat -d | tr -d '\r' | sed -n "/AuroraCI.*lantern-$1\$/,\$p")
+  local states; states=$(echo "$L" | grep -E "ExoEngine: state=" | sed -E 's/^.*state=([a-z]+) pos=([0-9]+).*/\1@\2/' | tr '\n' ' ')
+  local last; last=$(echo "$L" | grep -E "ExoEngine: state=" | tail -1 | sed -E 's/^.*state=([a-z]+).*/\1/')
+  local stuck; stuck=$(echo "$L" | grep -cE "Stuck buffering|Still stuck")
+  echo "$L" | grep -E "Stuck buffering|Still stuck|Stopped loading while buffering" | sed -E 's/^.*ExoEngine *: /    /' | head -6
+  if [ "$last" = ready ] && [ -n "$resumed" ]; then
+    echo "✅ Anime resume + seeks (level $1): ${resumed} | ${engine} | states: $states| watchdog: $stuck" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Anime resume + seeks (level $1): last state ${last:-?}, ${resumed:-never played} | ${engine} | states: $states| watchdog: $stuck" | tee -a "$OUT/navigation.txt"; NAVFAIL=1
+  fi
+}
+if [ -n "$LANTERN" ] && [ "$LANTERN" != null ]; then lantern_round 0; lantern_round 2; adb shell am force-stop "$PKG"; fi
 open "brand:netflix"; sleep 10; shot android-17-brand-hub
 # Home: scroll to the last row (titles under the cards must stay on screen), then back up to the banner.
 open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-22-home-bottom

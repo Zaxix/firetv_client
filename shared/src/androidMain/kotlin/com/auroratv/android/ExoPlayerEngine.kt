@@ -54,6 +54,10 @@ import kotlinx.coroutines.launch
 
 /** A resume may start this far before the saved position (to the previous keyframe), never further. */
 private const val MAX_KEYFRAME_REWIND_MS = 12_000L
+/** Buffering with at least this much downloaded ahead counts as "stuck", not "waiting for data"… */
+private const val STUCK_AHEAD_MS = 3_000L
+/** …once it has lasted this long. */
+private const val STUCK_AFTER_MS = 6_000L
 
 /**
  * Media3 ExoPlayer engine with hardware MediaCodec decoding, the Jellyfin FFmpeg audio extension as
@@ -267,6 +271,12 @@ class ExoPlayerEngine(
                 videoDecoder = decoderName
                 if (videoInitMs < 0) videoInitMs = initializationDurationMs
             }
+            override fun onRendererReadyChanged(eventTime: AnalyticsListener.EventTime, rendererIndex: Int, rendererTrackType: Int, isRendererReady: Boolean) {
+                rendererReady[rendererIndex] = rendererTrackType to isRendererReady
+            }
+            override fun onIsLoadingChanged(eventTime: AnalyticsListener.EventTime, isLoading: Boolean) {
+                if (!isLoading && player.playbackState == Player.STATE_BUFFERING) Log.i(tag, "Stopped loading while buffering (buffered ${(player.bufferedPosition - player.currentPosition) / 1000.0} s ahead)")
+            }
             override fun onRenderedFirstFrame(eventTime: AnalyticsListener.EventTime, output: Any, renderTimeMs: Long) {
                 if (firstFrameAt == 0L) { firstFrameAt = android.os.SystemClock.elapsedRealtime(); logStartIfDone() }
             }
@@ -292,8 +302,41 @@ class ExoPlayerEngine(
         scope.launch {
             while (isActive) {
                 publish()
+                watchStuck()
                 delay(if (player.isPlaying) 250 else 500)
             }
+        }
+    }
+
+    /** Per renderer: track type and whether it's letting playback be ready (Media3 reports changes). */
+    private val rendererReady = HashMap<Int, Pair<Int, Boolean>>()
+    private var stuckSince = 0L
+    private var stuckNudged = false
+
+    private fun trackTypeName(t: Int) = when (t) { C.TRACK_TYPE_VIDEO -> "video"; C.TRACK_TYPE_AUDIO -> "audio"; C.TRACK_TYPE_TEXT -> "subtitles"; else -> "type $t" }
+
+    /**
+     * Buffering although plenty is downloaded means one renderer (video, audio or subtitles) isn't
+     * ready rather than the network. Logs which, and nudges the player once (a re-seek to where it
+     * is, which resets the renderers); if still stuck, says so in the log for a bug report.
+     */
+    private fun watchStuck() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val ahead = player.bufferedPosition - player.currentPosition
+        val stuck = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && ahead >= STUCK_AHEAD_MS
+        if (!stuck) { stuckSince = 0; if (player.isPlaying) stuckNudged = false; return }
+        if (stuckSince == 0L) { stuckSince = now; return }
+        val forMs = now - stuckSince
+        if (forMs < STUCK_AFTER_MS) return
+        val waiting = rendererReady.values.filter { !it.second }.joinToString { trackTypeName(it.first) }.ifEmpty { "none reported" }
+        if (!stuckNudged) {
+            stuckNudged = true
+            Log.w(tag, "Stuck buffering ${forMs / 1000} s with ${ahead / 1000} s downloaded ahead (loading=${player.isLoading}); waiting on: $waiting. Nudging with a re-seek.")
+            stuckSince = now
+            player.seekTo(player.currentPosition)
+        } else if (forMs >= STUCK_AFTER_MS * 2) {
+            Log.w(tag, "Still stuck after the nudge (${ahead / 1000} s ahead, loading=${player.isLoading}); waiting on: $waiting; video=$videoDecoder audio=$audioDecoder")
+            stuckSince = now
         }
     }
 
@@ -390,7 +433,12 @@ class ExoPlayerEngine(
 
     override fun play() { if (player.playbackState == Player.STATE_ENDED) player.seekTo(0); player.play() }
     override fun pause() = player.pause()
-    override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
+    override fun seekTo(positionMs: Long) {
+        // The viewer's own seek: the resume keyframe check is over (it used to treat a skip back
+        // during a slow start as "keyframe too far back" and jump to the saved spot again).
+        keyframeStartMs = 0; keyframeCheckMs = 0
+        player.seekTo(positionMs)
+    }
 
     private fun groups(type: Int) = player.currentTracks.groups.filter { it.type == type }
 
