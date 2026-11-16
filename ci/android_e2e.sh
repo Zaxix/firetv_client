@@ -66,6 +66,9 @@ adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null 
 open "detail:$SEVEN"; sleep 6; key KEYCODE_DPAD_CENTER; sleep 8; shot android-13b-play-from-detail; key KEYCODE_BACK; sleep 2
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
 open "brand:netflix"; sleep 10; shot android-17-brand-hub
+# Home: scroll to the last row (titles under the cards must stay on screen), then back up to the banner.
+open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-22-home-bottom
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 2; shot android-23-home-back-to-top
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
