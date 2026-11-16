@@ -79,6 +79,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 
@@ -322,7 +323,9 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
     @kotlinx.serialization.Serializable
     private data class SavedRail(val key: String, val title: String, val style: String, val items: List<BaseItemDto>)
 
-    suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+    // On the I/O pool: at launch the CPU pool is busy (start-up work, image decoding) and a read
+    // queued there waited ~0.4 s for a thread, while the read itself takes a few milliseconds.
+    suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             val t0 = kotlin.time.TimeSource.Monotonic.markNow()
             val text = files.read(name) ?: return@runCatching null
