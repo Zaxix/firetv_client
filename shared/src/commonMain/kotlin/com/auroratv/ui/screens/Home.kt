@@ -324,8 +324,11 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
 
     suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
         runCatching {
+            val t0 = kotlin.time.TimeSource.Monotonic.markNow()
             val text = files.read(name) ?: return@runCatching null
+            val t1 = t0.elapsedNow().inWholeMilliseconds
             val saved = json.decodeFromString(Saved.serializer(), text)
+            com.auroratv.core.Log.i("Perf", "Saved Home: ${text.length / 1024} KB, file $t1 ms, decode ${t0.elapsedNow().inWholeMilliseconds - t1} ms")
             HomeSnapshot(
                 hero = saved.hero,
                 rails = saved.rails.mapNotNull { r ->
