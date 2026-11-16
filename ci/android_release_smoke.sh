@@ -70,17 +70,18 @@ curl -sf -X POST "$URL/UserItems/$GLASS/UserData?userId=$UID_" -H "$A" -H "Conte
 adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es player mpv --es route "player:$GLASS"; sleep 22; shot release-06-mpv-hevc
 
 
-# ---- Resume speed: Play → picture moving, resuming 20 s in (ExoPlayer; "Perf: Playing after …") ----
-resume_round() { # label item-id seconds
+# ---- Resume speed: Play → picture moving, resuming 17 s in (7 s past a keyframe: the samples have one every 10 s) (ExoPlayer; "Perf: Playing after …") ----
+resume_round() { # label item-id seconds [extra am-start args]
   curl -sf -X POST "$URL/UserItems/$2/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d "{\"PlaybackPositionTicks\":$(( $3 * 10000000 ))}" >/dev/null || true
   adb shell am force-stop "$PKG"; sleep 1
-  adb shell am start -n "$PKG/$ACT" --es player exoplayer --es route "player:$2" >/dev/null; sleep 14
+  adb shell am start -n "$PKG/$ACT" --es player exoplayer "${@:4}" --es route "player:$2" >/dev/null; sleep 14
   echo "$1: $(adb logcat -d -s Perf | tr -d '\r' | grep 'Playing after' | tail -1 | sed -E 's/^.*Perf *: //')" | tee -a "$OUT/perf.txt"
 }
-resume_round "direct play, resume #1" "$SEVEN" 20
-resume_round "direct play, resume #2" "$SEVEN" 20
+resume_round "direct play, resume #1" "$SEVEN" 17
+resume_round "direct play, resume #2" "$SEVEN" 17
+resume_round "direct play, resume at the exact spot (old way)" "$SEVEN" 17 --ez exactResume true
 resume_round "direct play, from the start" "$SEVEN" 0
-resume_round "transcode, resume" "$GLASS" 20
+resume_round "transcode, resume" "$GLASS" 17
 adb logcat -d -s ExoEngine | tr -d '\r' | grep -E "keyframe" | sed -E 's/^.*ExoEngine *: /  /' | tail -4 | tee -a "$OUT/perf.txt"
 
 adb logcat -d > "$OUT/logcat-release.txt"

@@ -319,7 +319,7 @@ class ExoPlayerEngine(
         pendingApplied = false
         videoDecoder = null; audioDecoder = null; droppedFrames = 0
         // Transcodes already begin exactly at the start position (the server cuts a keyframe there).
-        keyframeStartMs = if (!source.isHls && source.startPositionMs > 0) source.startPositionMs else 0L
+        keyframeStartMs = if (!source.isHls && source.startPositionMs > 0 && !exactResume) source.startPositionMs else 0L
         keyframeCheckMs = 0
         _state.update { EngineState(isBuffering = true) }
         player.setMediaItem(item, source.startPositionMs)
@@ -435,5 +435,10 @@ class ExoPlayerEngine(
         scope.cancel()
         view.player = null
         player.release()
+    }
+
+    companion object {
+        /** CI comparison only (`--ez exactResume true`): open resumes at the exact position, as Media3 does by default. */
+        @Volatile var exactResume = false
     }
 }

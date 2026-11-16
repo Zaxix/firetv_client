@@ -38,7 +38,8 @@ shoot() { # name route seconds [keys...]
   for k in "$@"; do
     case "$k" in
       mouse:*) xy=${k#mouse:}; xdotool mousemove "${xy%,*}" "${xy#*,}"; sleep 0.3; xdotool mousemove_relative 4 0; sleep 1.2;;
-      type:*) t=${k#type:}; xdotool type --delay 80 "${t//%s/ }"; sleep 4;;
+      # One key per character (xdotool type delivers nothing to the JVM window under Xvfb here).
+      type:*) t=${k#type:}; t=${t//%s/ }; for ((i=0; i<${#t}; i++)); do c=${t:i:1}; [ "$c" = " " ] && c=space; xdotool key --delay 60 "$c"; done; sleep 4;;
       *) xdotool key --delay 150 "$k"; sleep 1.2;;
     esac
   done
