@@ -119,7 +119,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-private enum class Panel(val title: String) { None(""), Episodes("Episodes"), Chapters("Chapters"), Audio("Audio"), Subtitles("Subtitles"), Info("Info") }
+private enum class Panel(val title: String) { None(""), Episodes("Episodes & Seasons"), Chapters("Chapters"), Audio("Audio"), Subtitles("Subtitles"), Info("Info") }
 
 /** Intro / recap / credits highlight colour on the timeline. */
 private val SkipYellow = Color(0xFFFFD60A)
@@ -451,8 +451,8 @@ fun PlayerChrome(
                         GlassIcon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (isPlaying) "Pause" else "Play", ::togglePlay)
                         GlassIcon(Icons.Filled.Replay10, "Back ${s.seekBackSeconds} seconds", { scrubBy(-s.seekBackSeconds * 1000L) })
                         GlassIcon(Icons.Filled.Forward30, "Forward ${s.seekForwardSeconds} seconds", { scrubBy(s.seekForwardSeconds * 1000L) })
+                        if (isEpisode) GlassIcon(com.auroratv.ui.components.EpisodesIcon, "Episodes & Seasons", { openPanel(Panel.Episodes) }, showLabel = true)
                         Spacer(Modifier.width(14.dp))
-                        if (isEpisode) GlassPill(text = "Episodes", onClick = { openPanel(Panel.Episodes) })
                         if (ui.chapters.size > 1) GlassPill(text = "Chapters", onClick = { openPanel(Panel.Chapters) })
                         if (ui.audioStreams.size > 1) GlassPill(text = "Audio", onClick = { openPanel(Panel.Audio) })
                         GlassPill(text = "Subtitles", onClick = { openPanel(Panel.Subtitles) })
@@ -632,10 +632,24 @@ private fun GlassPill(text: String, onClick: () -> Unit, icon: ImageVector? = nu
 }
 
 @Composable
-private fun GlassIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
-    FocusSurface(onClick = onClick, shape = CircleShape, sheen = false, modifier = Modifier.size(46.dp)) { focused ->
-        Box(Modifier.fillMaxSize().background(if (focused) Color.White else Color.White.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(icon, description, tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(24.dp))
+private fun GlassIcon(icon: ImageVector, description: String, onClick: () -> Unit, showLabel: Boolean = false) {
+    var labelShown by remember { mutableStateOf(false) }
+    Box(contentAlignment = Alignment.Center) {
+        FocusSurface(
+            onClick = onClick, shape = CircleShape, sheen = false,
+            modifier = Modifier.size(46.dp).onFocusChanged { labelShown = showLabel && it.isFocused },
+        ) { focused ->
+            Box(Modifier.fillMaxSize().background(if (focused) Color.White else Color.White.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                Icon(icon, description, tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(24.dp))
+            }
+        }
+        // Icon-only buttons say what they do while focused (a small tag above, like tvOS).
+        if (labelShown) {
+            Text(
+                description, style = AuroraType.caption, color = Color.Black, maxLines = 1,
+                modifier = Modifier.offset(y = (-40).dp).wrapContentSize(unbounded = true)
+                    .clip(RoundedCornerShape(8.dp)).background(Color.White).padding(horizontal = 8.dp, vertical = 3.dp),
+            )
         }
     }
 }
