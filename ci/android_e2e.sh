@@ -9,13 +9,16 @@ ACT=com.auroratv.android.MainActivity
 URL=http://localhost:8096
 A="Authorization: MediaBrowser Client=\"Aurora CI\", Device=\"CI\", DeviceId=\"aurora-ci\", Version=\"1.0.0\", Token=\"$TOKEN\""
 mkdir -p "$OUT"
+: > "$OUT/navigation.txt"
 UID_=$(curl -sf "$URL/Users/Me" -H "$A" | jq -r .Id)
 q() { curl -sf "$URL/Items?userId=$UID_&recursive=true&$1" -H "$A" | jq -r '.Items[0].Id'; }
 GLASS=$(q "includeItemTypes=Movie&searchTerm=Glass%20Meridian")
-SERIES=$(q "includeItemTypes=Series")
+SERIES=$(q "includeItemTypes=Series&sortBy=SortName&searchTerm=Skylark")
 EP1=$(q "includeItemTypes=Episode&sortBy=SortName")
 EP3=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&sortBy=SortName" -H "$A" | jq -r '.Items[2].Id')
 SEVEN=$(q "includeItemTypes=Movie&searchTerm=Seven%20Rivers")
+WAVES=$(q "includeItemTypes=Series&searchTerm=Wavelength")
+WAVE2=$(curl -sf "$URL/Shows/$WAVES/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[1].Id')
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 key() { for k in "$@"; do adb shell input keyevent "$k"; sleep 1.2; done; }
@@ -83,6 +86,17 @@ adb pull -q /sdcard/scrub.png "$OUT/android-16-player-scrubbing.png" >/dev/null 
 # Detail page → Play with the remote: playback is prepared while the page is open ("Ready to play in … ms").
 open "detail:$SEVEN"; sleep 6; key KEYCODE_DPAD_CENTER; sleep 8; shot android-13b-play-from-detail; key KEYCODE_BACK; sleep 2
 open "player:$GLASS"; sleep 22; shot android-14-player-hevc-main10-ass
+# A non-anime show with no chapters and no server markers: the intro is found by listening
+# (theme shared with episode 1). 16 s in, the Skip Intro button should be up (intro is 8–38 s).
+if [ -n "$WAVE2" ] && [ "$WAVE2" != null ]; then
+  open "player:$WAVE2"; sleep 16; shot android-32-skip-intro-by-listening
+  if adb logcat -d -s SkipDetector:I | grep -q "via matching audio"; then
+    echo "✅ Intro/credits found by listening: $(adb logcat -d -s SkipDetector:I | tr -d '\r' | grep 'via matching audio' | tail -1 | sed -E 's/^.*SkipDetector *: //')" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Intro/credits by listening: nothing detected" | tee -a "$OUT/navigation.txt"; adb logcat -d -s SkipDetector:* JellyfinApi:* | tail -10; NAVFAIL=1
+  fi
+  key KEYCODE_BACK; sleep 2
+fi
 open "brand:netflix"; sleep 10; shot android-17-brand-hub
 # Home: scroll to the last row (titles under the cards must stay on screen), then back up to the banner.
 open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-22-home-bottom
@@ -90,7 +104,6 @@ key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD
 # ---- Directional focus with the remote: Right out of the sidebar, Right at the end of rows, and the
 # profile button only through Up from the top. Each step checks which region has focus (the app logs
 # "AuroraFocus: region=…") and takes a screenshot.
-: > "$OUT/navigation.txt"
 region() { adb logcat -d -s AuroraFocus:I | tr -d '\r' | grep -o 'region=[a-z]*' | tail -1 | cut -d= -f2; }
 expect() { # step expected-region
   sleep 1; local got; got=$(region)

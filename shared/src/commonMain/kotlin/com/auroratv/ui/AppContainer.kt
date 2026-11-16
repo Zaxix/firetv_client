@@ -92,7 +92,7 @@ class AppContainer(val platform: Platform) {
     /** One detector per signed-in server, so its AniList/MAL lookups stay cached between episodes. */
     fun skipDetector(api: JellyfinApi): SkipDetector =
         detector?.takeIf { it.first === api }?.second
-            ?: SkipDetector(api, http) { settings.current.onlineSkipTimes }.also { detector = api to it }
+            ?: SkipDetector(api, http, audioAllowed = { settings.current.audioSkipDetection }, onlineAllowed = { settings.current.onlineSkipTimes }).also { detector = api to it }
 
     private val capsLock = Mutex()
     private var caps: DeviceCapabilities? = null

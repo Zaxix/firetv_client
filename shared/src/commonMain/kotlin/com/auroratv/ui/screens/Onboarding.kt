@@ -252,7 +252,7 @@ fun ConnectScreen(container: AppContainer) {
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                error = t.toAppError().userMessage
+                error = connectionHelp(t.toAppError(), address, container.platform.vpnActive())
             } finally {
                 busy = false
             }
@@ -337,7 +337,7 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?, 
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                error = t.toAppError().userMessage
+                error = connectionHelp(t.toAppError(), server.url, container.platform.vpnActive())
             } finally {
                 busy = false
             }
@@ -394,5 +394,24 @@ fun LoginScreen(container: AppContainer, server: SavedServer, message: String?, 
             AuroraButton(if (canCancel) "Other server" else "Change server", { container.sessions.showAddServer() })
         }
     }
+    }
+}
+
+/**
+ * The error to show when a server can't be reached, with VPN advice when one is on: the usual
+ * reasons are a VPN app that won't let the TV reach its own home network, or the server's
+ * home-network address being used where only its VPN address works (or the other way round).
+ */
+internal fun connectionHelp(error: com.auroratv.core.AppError, address: String, vpnOn: Boolean): String {
+    val unreachable = error is com.auroratv.core.AppError.Unreachable || error is com.auroratv.core.AppError.Timeout
+    if (!unreachable || !vpnOn) return error.userMessage
+    val host = address.substringAfter("://").substringBefore('/').substringBeforeLast(':').removePrefix("[").removeSuffix("]")
+    val homeAddress = Regex("""^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\.""").containsMatchIn(host)
+    return if (homeAddress) {
+        "Can't reach $host while a VPN is on. In your VPN app, allow local network (LAN) access or exclude Sharkfin " +
+            "(split tunnelling), or enter the server's VPN address instead (for Tailscale, its 100.x address or MagicDNS name)."
+    } else {
+        "Can't reach the server through your VPN. Check the VPN is connected and that the server is on it " +
+            "(for Tailscale: same tailnet, address 100.x or name.ts.net, port 8096)."
     }
 }

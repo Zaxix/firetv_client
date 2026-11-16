@@ -54,6 +54,9 @@ interface Platform {
      */
     val typesOnFocus: Boolean get() = false
 
+    /** Whether a VPN is carrying this device's traffic (for clearer "can't reach the server" help). */
+    fun vpnActive(): Boolean = false
+
     /** Whether the user can pick between players (Android 8+ offers ExoPlayer and MPV). */
     val offersPlayerChoice: Boolean get() = false
 

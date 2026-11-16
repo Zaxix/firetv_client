@@ -35,6 +35,13 @@ class AndroidFileStore(private val dir: File) : FileStore {
 }
 
 class AndroidPlatform(private val activity: Activity) : Platform {
+    init {
+        // Home-network servers stay reachable when a VPN app is on (see LanRoute).
+        com.auroratv.jellyfin.LanRoute.attach(activity)
+    }
+
+    override fun vpnActive(): Boolean = com.auroratv.jellyfin.LanRoute.vpnActive()
+
     private val isFireTv = activity.packageManager.hasSystemFeature("amazon.hardware.fire_tv") || Build.MODEL.startsWith("AFT")
     private val isTv = isFireTv || activity.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 

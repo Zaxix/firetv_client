@@ -14,6 +14,8 @@ import com.auroratv.platform.FileStore
 import com.auroratv.platform.SecureVault
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +32,12 @@ data class SavedUser(
     val avatar: String? = null,
 )
 
+/** How long a preferred (earlier) address may still answer after a later one already did. */
+private const val PREFERRED_GRACE_MS = 400L
+/** Other addresses remembered per server. */
+private const val MAX_ADDRESSES = 5
+private const val POLL_MS = 20L
+
 @Serializable
 data class SavedServer(
     val id: String,
@@ -38,7 +46,15 @@ data class SavedServer(
     val version: String? = null,
     val users: List<SavedUser> = emptyList(),
     val lastUserId: String? = null,
-)
+    /**
+     * Other addresses this same server (same Jellyfin id) answered at: e.g. its home-network address
+     * and a VPN one (Tailscale 100.x / MagicDNS, WireGuard). Whichever answers is used.
+     */
+    val addresses: List<String> = emptyList(),
+) {
+    /** [url] first, then the other known addresses. */
+    val allUrls: List<String> get() = (listOf(url) + addresses).distinct()
+}
 
 @Serializable
 private data class ServerStoreFile(
@@ -231,38 +247,95 @@ class SessionManager(
                     if ((_state.value as? SessionState.Ready)?.session === session) _state.value = SessionState.NeedsLogin(server, err.userMessage)
                 }
                 // Keep the session when merely offline: screens show retryable errors instead of logging out.
-                else -> Log.w(tag, "Server unreachable at startup; continuing with cached session", t)
+                // But first try the server's other addresses (home network ↔ VPN, after a network change).
+                else -> {
+                    Log.w(tag, "Server unreachable at ${server.url} at startup: ${err::class.simpleName}")
+                    val other = if (server.addresses.isEmpty()) null else reachableUrl(server)?.takeIf { it != server.url }
+                    if (other != null && (_state.value as? SessionState.Ready)?.session === session) {
+                        Log.i(tag, "Server answers at another known address; switching to it")
+                        val moved = server.copy(url = other, addresses = (server.allUrls - other).take(MAX_ADDRESSES))
+                        store = store.copy(servers = store.servers.map { if (it.id == server.id) moved else it })
+                        save()
+                        activate(UserSession(moved, user, JellyfinApi(http, other, identity, token, user.id)))
+                    }
+                }
             }
         }
     }
 
-    /** Probes candidate URLs for [input]; returns the first that answers as Jellyfin. */
+    /**
+     * Probes the addresses [input] could mean (http/https, default ports) all at once and returns the
+     * preferred one that answers as Jellyfin. Trying them one after another meant that, over a VPN
+     * that silently drops traffic to a wrong port, each wrong guess waited out the full connect timeout.
+     */
     suspend fun discover(input: String): Pair<String, PublicSystemInfo> {
         val candidates = ServerAddress.candidates(input)
         if (candidates.isEmpty()) throw AppError.Unreachable()
-        var lastError: AppError = AppError.Unreachable()
-        for (url in candidates) {
-            try {
-                val (info, resolved) = apiFor(url).publicSystemInfoResolved()
-                if (resolved != url) Log.i(tag, "Server redirected $url → $resolved")
-                Log.i(tag, "Found Jellyfin ${info.version} at $resolved")
-                return resolved to info
-            } catch (e: CancellationException) {
-                throw e
-            } catch (t: Throwable) {
-                lastError = t.toAppError()
-                Log.d(tag, "No server at $url: ${lastError::class.simpleName}")
-            }
-        }
-        throw lastError
+        val (url, found) = raceInOrder(candidates) { apiFor(it).publicSystemInfoResolved() }.getOrElse { throw it.toAppError() }
+        val (info, resolved) = found
+        if (resolved != url) Log.i(tag, "Server redirected $url → $resolved")
+        Log.i(tag, "Found Jellyfin ${info.version} at $resolved")
+        return resolved to info
     }
 
-    /** Saves a discovered server (or updates its URL) and moves to login. */
+    /**
+     * Which of [server]'s known addresses answers right now as that same server (home network, VPN…),
+     * preferring the saved one; null when none does.
+     */
+    suspend fun reachableUrl(server: SavedServer): String? =
+        raceInOrder(server.allUrls) { url ->
+            val (info, resolved) = apiFor(url).publicSystemInfoResolved()
+            if (info.id != server.id) throw AppError.NotJellyfin() // a different server lives there now
+            resolved
+        }.getOrNull()?.second
+
+    /**
+     * Runs [probe] on every URL at once. Returns the first URL in [urls] order that succeeded, without
+     * waiting more than a moment for slower, preferred ones once any has answered. Fails with the most
+     * telling error (refused > not Jellyfin > timeout > unreachable) if none did.
+     */
+    private suspend fun <T> raceInOrder(urls: List<String>, probe: suspend (String) -> T): Result<Pair<String, T>> = coroutineScope {
+        val results = arrayOfNulls<Result<T>>(urls.size)
+        val jobs = urls.mapIndexed { i, url ->
+            launch {
+                results[i] = try { Result.success(probe(url)) } catch (c: CancellationException) { throw c } catch (t: Throwable) {
+                    Log.d(tag, "No server at $url: ${t.toAppError()::class.simpleName}"); Result.failure(t)
+                }
+            }
+        }
+        try {
+            var waitedSinceAnswer = -1L // ms since the first address answered (-1: none yet)
+            while (true) {
+                val winner = urls.indices.firstOrNull { i -> results[i]?.isSuccess == true && (0 until i).all { results[it]?.isFailure == true } }
+                    ?: urls.indices.firstOrNull { results[it]?.isSuccess == true }?.takeIf { waitedSinceAnswer >= PREFERRED_GRACE_MS }
+                if (winner != null) return@coroutineScope Result.success(urls[winner] to results[winner]!!.getOrThrow())
+                if (waitedSinceAnswer >= 0) waitedSinceAnswer += POLL_MS
+                else if (results.any { it?.isSuccess == true }) waitedSinceAnswer = 0
+                if (results.all { it != null }) {
+                    val errors = results.mapNotNull { it?.exceptionOrNull()?.toAppError() }
+                    val telling = errors.firstOrNull { it is AppError.Refused } ?: errors.firstOrNull { it is AppError.NotJellyfin }
+                        ?: errors.firstOrNull { it is AppError.Timeout } ?: errors.firstOrNull() ?: AppError.Unreachable()
+                    return@coroutineScope Result.failure(telling)
+                }
+                kotlinx.coroutines.delay(POLL_MS)
+            }
+            @Suppress("UNREACHABLE_CODE") Result.failure(AppError.Unreachable())
+        } finally {
+            jobs.forEach { it.cancel() }
+        }
+    }
+
+    /**
+     * Saves a discovered server and moves to login. The same server added again at another address
+     * (e.g. its VPN address after its home one) keeps both, so either works later.
+     */
     fun addServer(url: String, info: PublicSystemInfo): SavedServer {
         val id = info.id ?: throw AppError.NotJellyfin()
         val existing = store.servers.firstOrNull { it.id == id }
+        val known = (existing?.allUrls.orEmpty() + listOfNotNull(info.localAddress?.trim()?.trimEnd('/')?.takeIf { it.startsWith("http") }))
+            .filter { it != url }.distinct().take(MAX_ADDRESSES)
         val server = (existing ?: SavedServer(id = id, name = info.serverName ?: url, url = url))
-            .copy(url = url, name = info.serverName ?: existing?.name ?: url, version = info.version)
+            .copy(url = url, name = info.serverName ?: existing?.name ?: url, version = info.version, addresses = known)
         store = store.copy(servers = store.servers.filterNot { it.id == id } + server, lastServerId = id)
         save()
         _state.value = SessionState.NeedsLogin(server)
@@ -273,14 +346,16 @@ class SessionManager(
         runCatching { apiFor(server.url).publicUsers() }.getOrDefault(emptyList())
 
     suspend fun login(server: SavedServer, username: String, password: String): UserSession {
-        // Re-check the address first: a saved http:// URL may now redirect to https://.
-        val resolvedUrl = runCatching { apiFor(server.url).publicSystemInfoResolved().second }.getOrDefault(server.url)
+        // Re-check the address first: a saved http:// URL may now redirect to https://, and away from
+        // home (or on a VPN) another of the server's known addresses may be the one that answers.
+        val resolvedUrl = reachableUrl(server) ?: server.url
         val api = apiFor(resolvedUrl)
         val result = api.authenticate(username.trim(), password)
         val previous = server.users.firstOrNull { it.id == result.user.id }
         val user = SavedUser(result.user.id, result.user.name, result.user.primaryImageTag, previous?.nickname, previous?.avatar)
         vault.put(tokenKey(server.id, user.id), result.accessToken)
-        val updated = server.copy(url = resolvedUrl, users = server.users.filterNot { it.id == user.id } + user, lastUserId = user.id)
+        val updated = server.copy(url = resolvedUrl, addresses = (server.allUrls - resolvedUrl).take(MAX_ADDRESSES),
+            users = server.users.filterNot { it.id == user.id } + user, lastUserId = user.id)
         store = store.copy(servers = store.servers.map { if (it.id == server.id) updated else it }, lastServerId = server.id)
         save()
         val session = UserSession(updated, user, api)

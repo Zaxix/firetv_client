@@ -19,6 +19,15 @@ sealed class AppError(val userMessage: String, cause: Throwable? = null) : Excep
     class SessionExpired :
         AppError("Your session has expired. Please sign in again.")
 
+    /**
+     * HTTP 403 from the server itself. Jellyfin answers this way to devices it counts as "remote"
+     * (a VPN address such as Tailscale's 100.x counts) when remote connections are switched off.
+     */
+    class Refused :
+        AppError("The server refused this connection. If you're connecting over a VPN or from outside your home network, " +
+            "turn on \"Allow remote connections\" in Jellyfin (Dashboard → Networking), or add your VPN's addresses " +
+            "to \"LAN networks\" there (Tailscale: 100.64.0.0/10).")
+
     class NotJellyfin :
         AppError("That address responded, but it doesn't look like a Jellyfin server.")
 

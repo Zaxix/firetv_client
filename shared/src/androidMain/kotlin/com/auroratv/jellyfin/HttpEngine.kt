@@ -22,6 +22,8 @@ object SharedOkHttp {
             .dispatcher(dispatcher)
             .connectionPool(pool)
             .retryOnConnectionFailure(true)
+            // A home-network server stays reachable with a VPN app on, where the VPN allows it.
+            .socketFactory(LanRoute.socketFactory)
             .build()
     }
 

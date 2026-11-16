@@ -220,6 +220,7 @@ class JellyfinIntegrationTest {
         }
         dolbyVisionChecks()
         recommendationChecks(http, sm)
+        record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
         record("MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv") {
             val m = movie("Old Reel")
             val tv = plan(m, fireTv4k); val pc = plan(m, mpvDesktop)
@@ -389,7 +390,8 @@ class JellyfinIntegrationTest {
                 assertTrue(titles(rowsA).toSet().size == titles(rowsA).size, "no title repeated across A's rows")
                 // Taste: A's "For You" leans to thrillers/dramas; B's to family/comedy, never A's thrillers first.
                 rowsA.firstOrNull { it.key == "foryou" }?.let { r -> assertTrue(r.items.first().genres.any { it in setOf("Thriller", "Drama", "Mystery", "Science Fiction") }, "A's top pick: ${r.items.first().name} ${r.items.first().genres}") }
-                rowsB.firstOrNull { it.key == "foryou" }?.let { r -> assertTrue(r.items.first().genres.none { it == "Thriller" }, "B's top pick: ${r.items.first().name} ${r.items.first().genres}") }
+                val thrillersForB = rowsB.flatMap { it.items }.filter { "Thriller" in it.genres }.map { it.name }
+                assertTrue(thrillersForB.isEmpty(), "B (comedy/family) is never offered A's thrillers: $thrillersForB")
                 fun show(rows: List<com.auroratv.recommend.RecommendationService.Row>) = rows.joinToString("; ") { r -> "${r.title}: " + r.items.take(4).joinToString { it.name.orEmpty() } }
                 "A → ${show(rowsA)} ‖ B → ${show(rowsB).ifEmpty { "(nothing that fits B's taste in this small library)" }}"
             }
@@ -399,5 +401,26 @@ class JellyfinIntegrationTest {
                 userB?.let { b -> runCatching { http.delete("$base/Users/${b.user.id}") { header("Authorization", api.authHeader) } } }
             }
         }
+    }
+
+    /** Wavelength Street (CI sample): the same theme after cold opens of 20 / 8 / 25 s, and the same credits music. */
+    private suspend fun listeningCheck(): String {
+        val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Wavelength", limit = 5)).items.firstOrNull()
+            ?: return "skipped: sample series not in this library"
+        val eps = api.episodes(series.id)
+        assertEquals(3, eps.size)
+        assertTrue(api.mediaSegments(eps[1].id).isEmpty(), "no server markers: the plugin isn't involved")
+        val plain = io.ktor.client.HttpClient()
+        val detector = com.auroratv.playback.SkipDetector(api, plain, audioAllowed = { true }, onlineAllowed = { false })
+        val t0 = System.currentTimeMillis()
+        val result = assertNotNull(detector.detect(api.item(eps[1].id), emptySet()), "found nothing by listening")
+        val ms = System.currentTimeMillis() - t0
+        val intro = assertNotNull(result.ranges.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Intro }, "no intro: ${result.ranges}")
+        val credits = assertNotNull(result.ranges.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Credits }, "no credits: ${result.ranges}")
+        assertTrue(kotlin.math.abs(intro.startMs - 8_000) <= 2_000 && kotlin.math.abs(intro.endMs - 38_000) <= 2_000, "episode 2 intro is 8–38 s: $intro")
+        assertTrue(kotlin.math.abs(credits.startMs - 215_000) <= 2_500, "credits start at 3:35: $credits")
+        val other = result.others.values.flatten().firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Intro }
+        return "episode 2: intro ${intro.startMs / 1000.0}–${intro.endMs / 1000.0} s (true 8–38), credits from ${credits.startMs / 1000.0} s (true 215); " +
+            "compared with ${result.others.keys.size} other episode (its intro ${other?.let { "${it.startMs / 1000.0}–${it.endMs / 1000.0} s" }}); took $ms ms"
     }
 }

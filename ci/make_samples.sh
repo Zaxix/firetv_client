@@ -198,6 +198,32 @@ for e in 1 2 3; do
     -metadata title="Episode $e" "$OUT/tv/Skylark Isles/Season 01/Skylark Isles - S01E0$e.mkv"
 done
 
+# ---------- 6b) Non-anime series without chapters or markers: intros/credits found by listening ----------
+# Three 4-minute episodes. Each opens with a different length of its own "story" sound (a cold open),
+# then the same 30 s theme, more story, and the same 25 s of end-credits music. No chapters, no
+# server segments: the only way to find the intro and credits is to match the sound across episodes.
+W="$OUT/tv/Wavelength Street"; mkdir -p "$W/Season 02"
+cat > "$W/tvshow.nfo" <<'NFO'
+<?xml version="1.0" encoding="utf-8"?><tvshow><title>Wavelength Street</title><year>2021</year><genre>Drama</genre><genre>Comedy</genre><plot>A late-night radio station and the neighbours who keep calling in. Synthetic test series without chapters or intro markers.</plot></tvshow>
+NFO
+# Theme and credits music: fixed chord sequences (a new chord every 1/4 s), identical in every episode.
+ffmpeg -nostdin -y -loglevel error -f lavfi -i "aevalsrc=exprs='0.45*sin(2*PI*(180+45*mod(floor(abs(sin(floor(t*4)*12.9898))*43758)\,30))*t)+0.3*sin(2*PI*(260+60*mod(floor(abs(sin(floor(t*4)*78.233))*43758)\,20))*t)':s=44100:d=30" -ac 2 "$TMP/theme.wav"
+ffmpeg -nostdin -y -loglevel error -f lavfi -i "aevalsrc=exprs='0.45*sin(2*PI*(220+40*mod(floor(abs(sin(floor(t*3)*39.346))*43758)\,25))*t)+0.3*sin(2*PI*(330+55*mod(floor(abs(sin(floor(t*3)*11.135))*43758)\,18))*t)':s=44100:d=25" -ac 2 "$TMP/credits.wav"
+story() { # seconds seed: speech-like sound that differs every episode (a tone that jumps 5×/s, plus hiss)
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "aevalsrc=exprs='0.35*sin(2*PI*(150+900*abs(sin(floor(t*5)*($2+3.7)*91.3)))*t)+0.08*(2*random(0)-1)':s=44100:d=$1" -ac 2 "$3"
+}
+names=("" "Night Shift" "Overnight" "Relay")
+opens=(0 20 8 25)
+for e in 1 2 3; do
+  o=${opens[$e]}; body=$((240 - o - 30 - 25))
+  story "$o" "$e" "$TMP/open$e.wav"; story "$body" "$((e + 10))" "$TMP/body$e.wav"
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=240:size=640x360:rate=25" \
+    -i "$TMP/open$e.wav" -i "$TMP/theme.wav" -i "$TMP/body$e.wav" -i "$TMP/credits.wav" \
+    -filter_complex "[1:a][2:a][3:a][4:a]concat=n=4:v=0:a=1[a]" -map 0:v -map "[a]" \
+    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 128k -metadata title="${names[$e]}" \
+    "$W/Season 02/Wavelength Street - S02E0$e.mkv"
+done
+
 # ---------- 7) Dolby Vision: profile 8.1 (HDR10 base), 5 (no base layer), 7 (UHD Blu-ray) ----------
 # Needs dovi_tool + mkvmerge (CI installs both); skipped otherwise. mkvmerge writes the DV
 # configuration record from the RPUs, which is what Jellyfin reads to classify the range type.

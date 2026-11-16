@@ -56,6 +56,8 @@ data class Settings(
     val skipIntro: SkipIntroMode = SkipIntroMode.ShowButton,
     /** Look up anime opening/ending times on AniSkip when the server has none (sends title + episode number). */
     val onlineSkipTimes: Boolean = true,
+    /** Find intros/credits of any show by matching its sound with another episode (no plugin, stays on the server). */
+    val audioSkipDetection: Boolean = true,
     // Subtitles
     val subtitleMode: SubtitleMode = SubtitleMode.Default,
     val preferredSubtitleLanguage: String = "",

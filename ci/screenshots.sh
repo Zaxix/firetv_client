@@ -13,7 +13,7 @@ SID=$(echo "$INFO" | jq -r .Id); VER=$(echo "$INFO" | jq -r .Version); NAME=$(ec
 ME=$(curl -sf "$URL/Users/Me" -H "$A"); UID_=$(echo "$ME" | jq -r .Id); UNAME=$(echo "$ME" | jq -r .Name)
 q() { curl -sf "$URL/Items?userId=$UID_&recursive=true&$1" -H "$A" | jq -r '.Items[0].Id'; }
 GLASS=$(q "includeItemTypes=Movie&searchTerm=Glass%20Meridian")
-SERIES=$(q "includeItemTypes=Series")
+SERIES=$(q "includeItemTypes=Series&sortBy=SortName&searchTerm=Skylark")
 EP1=$(q "includeItemTypes=Episode&sortBy=SortName")
 SEVEN=$(q "includeItemTypes=Movie&searchTerm=Seven%20Rivers")
 

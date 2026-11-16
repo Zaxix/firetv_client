@@ -165,23 +165,28 @@ class RecommendationService(private val search: SearchService, private val scope
         val used = HashSet(plan.watchedIds)
         val rows = mutableListOf<Row>()
         plan.seeds.forEachIndexed { i, seed ->
-            // The server's own "similar" (genres, tags, studios, cast) for the same kind of title…
+            // The server's own "similar" (genres, tags, studios, cast) for the same kind of title. In a
+            // small library it pads the list with unrelated titles, so each must share a genre with the seed.
+            val seedGenres = genresOf(seed.id).toSet()
             val server = runCatching { api.similar(seed.id, limit = 24) }.getOrDefault(emptyList())
                 .filter { (it.isMovie || it.isSeries) && it.userData?.played != true && it.id !in used }
+                .filter { c -> seedGenres.isEmpty() || c.genres.any { it in seedGenres } }
             // …plus the other kind (films for a show, shows for a film) that share its genres.
             val other = index?.let { idx ->
                 val serverIds = server.map { it.id }.toSet()
                 withContext(Dispatchers.Default) {
                     RecommendationEngine.byGenreOverlap(
-                        genresOf(seed.id),
+                        seedGenres,
                         idx.titles.filter { (if (seed.isSeries) it.isMovie else it.isSeries) && it.id !in used && it.id !in serverIds },
                         OTHER_KIND,
                     )
                 }
             }.orEmpty()
             val items = withCards(api, RecommendationEngine.interleave(server, other)).take(PER_ROW)
-            items.forEach { used += it.id }
-            if (items.size >= MIN_ROW) rows += Row("because-$i", "Because You Watched ${seed.name}", items)
+            if (items.size >= MIN_ROW) {
+                rows += Row("because-$i", "Because You Watched ${seed.name}", items)
+                items.forEach { used += it.id } // a title shows up in one row only
+            }
         }
         if (index != null && plan.titles.size >= 2) {
             val ranked = withContext(Dispatchers.Default) {
@@ -189,7 +194,7 @@ class RecommendationService(private val search: SearchService, private val scope
                 RecommendationEngine.rankForProfile(index.titles.filter { (it.isMovie || it.isSeries) && it.id !in used }, profile, PER_ROW + 10)
             }
             val items = withCards(api, ranked).take(PER_ROW)
-            if (items.size >= MIN_ROW + 1) rows += Row("foryou", "Recommended For You", items)
+            if (items.size >= MIN_ROW) rows += Row("foryou", "Recommended For You", items)
         }
         return rows
     }

@@ -222,6 +222,8 @@ class PlayerController(
                     if (currentItemId == itemId) {
                         _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
                         if (item.isEpisode) skipMarkers?.put(itemId, found.ranges, found.source)
+                        // The episode it was compared with gets its markers too (ready when it's played).
+                        if (item.isEpisode) found.others.forEach { (id, ranges) -> if (ranges.isNotEmpty() && skipMarkers?.get(id) == null) skipMarkers?.put(id, ranges, found.source) }
                     }
                 }
                 launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }

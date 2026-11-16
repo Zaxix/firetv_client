@@ -36,6 +36,9 @@ import kotlin.math.abs
  *    item's provider ids or an AniList title search that must match the series' title or year.
  *    Results must fit the file's length (AniSkip only returns entries within 20 s of it).
  *
+ * 3. **Matching audio** (any show, no plugin): the theme song / credits music this episode shares
+ *    with a neighbouring one, found on the device from low-rate audio the server provides.
+ *
  * Server media segments and chapter names still win; this only fills kinds that are missing.
  * Online lookups send only the series title / MAL id and episode number, never server data.
  */
@@ -43,13 +46,16 @@ class SkipDetector(
     private val api: JellyfinApi,
     /** Plain client: never carries the Jellyfin token. */
     private val http: HttpClient,
+    /** Listening for the shared theme/credits music (any show, no plugin needed); see [fromAudio]. */
+    private val audioAllowed: () -> Boolean = { true },
     private val onlineAllowed: () -> Boolean,
 ) {
     private val tag = "SkipDetector"
     private val malCache = mutableMapOf<String, MalEntry?>()
     private val anilistCache = mutableMapOf<String, AniListMedia?>()
 
-    data class Result(val ranges: List<SkipRange>, val source: String)
+    /** [others]: ranges worked out on the way for other episodes (the one compared against). */
+    data class Result(val ranges: List<SkipRange>, val source: String, val others: Map<String, List<SkipRange>> = emptyMap())
 
     suspend fun detect(item: BaseItemDto, alreadyHave: Set<SkipRange.Kind>): Result? {
         if (!item.isEpisode) return null
@@ -65,6 +71,13 @@ class SkipDetector(
                 .onFailure { Log.w(tag, "AniSkip lookup failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
         }
+        val stillMissing = listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
+            .filter { it !in alreadyHave && found.none { r -> r.ranges.any { x -> x.kind == it } } }
+        if (audioAllowed() && stillMissing.isNotEmpty()) {
+            runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(90_000) { fromAudio(item, runtime, stillMissing.toSet()) } } }
+                .onFailure { Log.w(tag, "Audio match failed: ${it.message}") }
+                .getOrNull()?.let { found += it }
+        }
         if (found.isEmpty()) return null
         // Per kind, take the best source; never override what the server already provided.
         val ranges = SkipRange.Kind.entries.filter { it !in alreadyHave }.flatMap { kind ->
@@ -73,7 +86,7 @@ class SkipDetector(
         if (ranges.isEmpty()) return null
         val sources = found.filter { r -> r.ranges.any { it in ranges } }.joinToString(" + ") { it.source }
         Log.i(tag, "Detected ${ranges.joinToString { "${it.kind} ${it.startMs / 1000}-${it.endMs / 1000}s" }} via $sources")
-        return Result(ranges, sources)
+        return Result(ranges, sources, found.fold(emptyMap<String, List<SkipRange>>()) { acc, r -> acc + r.others })
     }
 
     // ---- 1. Recurring chapters ---------------------------------------------------------------
@@ -87,6 +100,59 @@ class SkipDetector(
             .mapNotNull { ep -> ep.runtimeMs?.let { ep.chapters to it } }
         val ranges = recurringChapterRanges(item.chapters, runtime, others)
         return ranges.takeIf { it.isNotEmpty() }?.let { Result(it, "matching chapters") }
+    }
+
+    // ---- 3. Listening: the theme song and credits music this episode shares with another ----------
+
+    /**
+     * Works for any show, anime or not, with no plugin and nothing sent outside the server: fetch
+     * the opening minutes (and the last few) of this episode and of a neighbouring one in the same
+     * season as low-rate audio, and find the stretch of sound they share (see AudioFingerprint).
+     * About 4 KB per second of audio; the server only decodes sound for it.
+     */
+    private suspend fun fromAudio(item: BaseItemDto, runtime: Long, want: Set<SkipRange.Kind>): Result? {
+        val seriesId = item.seriesId ?: return null
+        val season = api.episodesWithChapters(seriesId, item.seasonId).filter { it.runtimeMs != null }
+        val at = season.indexOfFirst { it.id == item.id }
+        // The previous episode if there is one (most likely already watched, its markers cached), else the next.
+        val other = (if (at > 0) season[at - 1] else season.getOrNull(at + 1))?.takeIf { it.id != item.id } ?: return null
+        val otherRuntime = other.runtimeMs ?: return null
+        val rate = AudioFingerprint.SAMPLE_RATE
+        val mine = mutableListOf<SkipRange>(); val theirs = mutableListOf<SkipRange>()
+
+        suspend fun prints(id: String, startMs: Long, seconds: Int): IntArray? =
+            api.audioSample(id, startMs, seconds, rate)?.let { AudioFingerprint.fingerprint(AudioFingerprint.wavSamples(it)) }
+                ?.takeIf { it.size * AudioFingerprint.FRAME_MS >= seconds * 1000L / 2 } // too short: the server gave up
+
+        val minFrames = (MIN_SHARED_MS / AudioFingerprint.FRAME_MS).toInt()
+        if (SkipRange.Kind.Intro in want) {
+            // Openings sit in the first quarter (at most 10 minutes), after any cold open.
+            val secs = { rt: Long -> (minOf(rt / 4, INTRO_WINDOW_MS) / 1000).toInt() }
+            val a = prints(item.id, 0, secs(runtime)); val b = a?.let { prints(other.id, 0, secs(otherRuntime)) }
+            val m = if (a != null && b != null) AudioFingerprint.longestShared(a, b, minFrames) else null
+            if (m != null && m.frames * AudioFingerprint.FRAME_MS <= MAX_INTRO_MS) {
+                mine += SkipRange(SkipRange.Kind.Intro, m.aStart * AudioFingerprint.FRAME_MS, m.aEnd * AudioFingerprint.FRAME_MS)
+                theirs += SkipRange(SkipRange.Kind.Intro, m.bStart * AudioFingerprint.FRAME_MS, m.bEnd * AudioFingerprint.FRAME_MS)
+            }
+        }
+        if (SkipRange.Kind.Credits in want) {
+            val windowMs = { rt: Long -> minOf(rt / 5, CREDITS_WINDOW_MS) }
+            val aFrom = runtime - windowMs(runtime); val bFrom = otherRuntime - windowMs(otherRuntime)
+            val a = prints(item.id, aFrom, (windowMs(runtime) / 1000).toInt())
+            val b = a?.let { prints(other.id, bFrom, (windowMs(otherRuntime) / 1000).toInt()) }
+            val m = if (a != null && b != null) AudioFingerprint.longestShared(a, b, minFrames) else null
+            if (m != null) {
+                // Credits run to the end even where the music stops a little early.
+                fun end(from: Long, frame: Int, rt: Long) = (from + frame * AudioFingerprint.FRAME_MS).let { if (rt - it < CREDITS_TAIL_MS) rt else it }
+                mine += SkipRange(SkipRange.Kind.Credits, aFrom + m.aStart * AudioFingerprint.FRAME_MS, end(aFrom, m.aEnd, runtime))
+                theirs += SkipRange(SkipRange.Kind.Credits, bFrom + m.bStart * AudioFingerprint.FRAME_MS, end(bFrom, m.bEnd, otherRuntime))
+            }
+        }
+        if (mine.isEmpty()) {
+            Log.i(tag, "Audio: nothing shared with ${other.name ?: other.id}")
+            return null
+        }
+        return Result(mine, "matching audio", mapOf(other.id to theirs))
     }
 
     // ---- 2. AniSkip --------------------------------------------------------------------------
@@ -176,6 +242,13 @@ class SkipDetector(
     }
 
     companion object {
+        /** A shared stretch shorter than this is chance (a sound effect), not a theme. */
+        private const val MIN_SHARED_MS = 12_000L
+        private const val MAX_INTRO_MS = 150_000L
+        private const val INTRO_WINDOW_MS = 10 * 60_000L
+        private const val CREDITS_WINDOW_MS = 4 * 60_000L
+        private const val CREDITS_TAIL_MS = 20_000L
+
         private val TV_FORMATS = setOf("TV", "TV_SHORT", "ONA")
         private const val ANILIST_QUERY =
             "query(\$id:Int,\$idMal:Int,\$search:String){Media(id:\$id,idMal:\$idMal,search:\$search,type:ANIME){" +

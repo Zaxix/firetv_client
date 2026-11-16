@@ -20,6 +20,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRedirect
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
@@ -151,8 +155,10 @@ class JellyfinApi(
         if (status.value in 200..299) return
         Log.w(tag, "HTTP ${status.value} for ${call.request.method.value} ${call.request.url}")
         throw when (status) {
-            HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden ->
-                if (authCall) AppError.InvalidCredentials() else AppError.SessionExpired()
+            HttpStatusCode.Unauthorized -> if (authCall) AppError.InvalidCredentials() else AppError.SessionExpired()
+            // 403 is the server refusing this device (remote access off for a VPN/outside address, or
+            // not allowed), not a bad sign-in: never sign the user out for it.
+            HttpStatusCode.Forbidden -> AppError.Refused()
             HttpStatusCode.NotFound -> AppError.NotFound()
             else -> AppError.Server(status.value)
         }
@@ -168,6 +174,7 @@ class JellyfinApi(
      */
     suspend fun publicSystemInfoResolved(): Pair<PublicSystemInfo, String> {
         val response = http.get(url("/System/Info/Public"))
+        if (response.status == HttpStatusCode.Forbidden) throw AppError.Refused()
         if (response.status.value !in 200..299) throw AppError.NotJellyfin()
         val info = try { response.body<PublicSystemInfo>() } catch (t: Throwable) { throw AppError.NotJellyfin() }
         if (info.id.isNullOrBlank()) throw AppError.NotJellyfin()
@@ -391,6 +398,40 @@ class JellyfinApi(
     } catch (e: AppError.NotFound) {
         emptyList() // server older than 10.10 or no segment provider
     }
+
+    /**
+     * [seconds] of an item's sound from [startMs], as 8-bit mono WAV at [sampleRate] (≈4 KB a second
+     * at 4 kHz), for intro/credits detection on the device. Reads only what it needs, then hangs up,
+     * which ends the server's encode. Uses its own play-session id so it never touches the stream
+     * being watched. Null when the server can't provide it.
+     */
+    suspend fun audioSample(itemId: String, startMs: Long, seconds: Int, sampleRate: Int): ByteArray? =
+        http.prepareGet(url("/Audio/$itemId/stream")) {
+            auth()
+            parameter("static", false)
+            parameter("container", "wav")
+            parameter("audioCodec", "pcm_u8")
+            parameter("audioChannels", 1)
+            parameter("audioSampleRate", sampleRate)
+            parameter("startTimeTicks", startMs * 10_000)
+            parameter("playSessionId", "sharkfin-skipscan-$itemId")
+            timeout { requestTimeoutMillis = 120_000; socketTimeoutMillis = 45_000 }
+        }.execute { response ->
+            if (!response.status.isSuccess()) {
+                Log.w(tag, "Audio sample for intro detection unavailable (HTTP ${response.status.value})")
+                return@execute null
+            }
+            val channel = response.bodyAsChannel()
+            val want = 512 + seconds * sampleRate
+            val buf = ByteArray(want)
+            var n = 0
+            while (n < want) {
+                val r = channel.readAvailable(buf, n, want - n)
+                if (r < 0) break
+                n += r
+            }
+            buf.copyOf(n)
+        }
 
     suspend fun reportStart(report: PlaybackReport) = http.post(url("/Sessions/Playing")) {
         auth(); contentType(ContentType.Application.Json); setBody(report)
