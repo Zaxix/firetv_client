@@ -38,7 +38,12 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     init {
         // Home-network servers stay reachable when a VPN app is on (see LanRoute).
         com.auroratv.jellyfin.LanRoute.attach(activity)
+        // The start of font-heavy MKVs (anime releases), kept so resuming doesn't re-download it.
+        MediaHeaderCache.attach(activity)
     }
+
+    override fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) =
+        MediaHeaderCache.prefetch(url, headers, cacheKey)
 
     override fun vpnActive(): Boolean = com.auroratv.jellyfin.LanRoute.vpnActive()
 

@@ -49,7 +49,10 @@ class AppContainer(val platform: Platform) {
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
-    val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope, trackMemory)
+    val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope, trackMemory) { p ->
+        // A font-heavy MKV (anime release): fetch its start too, so Play/Resume doesn't wait for it.
+        com.auroratv.playback.MediaHeader.cacheKey(p.plan)?.let { key -> platform.prefetchMediaHeader(p.plan.url, p.plan.headers, key) }
+    }
     /** In-app updates from the latest-build release. */
     val updates = com.auroratv.update.UpdateManager(http, platform.updater, platform.files, { settings.current }, appScope, { com.auroratv.playback.wallClockMs() })
     /** Studio/network brands found in the library (Home's brand tiles). */

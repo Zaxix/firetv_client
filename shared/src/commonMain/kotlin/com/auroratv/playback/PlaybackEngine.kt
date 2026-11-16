@@ -36,6 +36,8 @@ data class EngineSource(
      * remux drops MKV attachments). Empty for Direct Play: engines read attachments from the file.
      */
     val fonts: List<SubtitleFont> = emptyList(),
+    /** Set for files whose big start (fonts) is kept on the device; see MediaHeader. */
+    val cacheKey: String? = null,
 )
 
 data class EngineState(

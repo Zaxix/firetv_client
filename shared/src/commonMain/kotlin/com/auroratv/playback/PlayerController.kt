@@ -277,6 +277,7 @@ class PlayerController(
             isHls = plan.method != PlayMethod.DirectPlay,
             title = _state.value.item?.name ?: "",
             fonts = subtitleFonts(plan),
+            cacheKey = MediaHeader.cacheKey(plan),
         )
         engine.load(source)
         val st = _state.value

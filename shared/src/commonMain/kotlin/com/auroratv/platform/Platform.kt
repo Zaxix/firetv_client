@@ -54,6 +54,12 @@ interface Platform {
      */
     val typesOnFocus: Boolean get() = false
 
+    /**
+     * Downloads the start of a font-heavy MKV (up to its first video cluster) into the device's
+     * media cache ahead of playback; see MediaHeader. No-op where there's no such cache.
+     */
+    fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) {}
+
     /** Whether a VPN is carrying this device's traffic (for clearer "can't reach the server" help). */
     fun vpnActive(): Boolean = false
 

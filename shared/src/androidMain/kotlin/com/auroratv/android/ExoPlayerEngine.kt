@@ -142,10 +142,15 @@ class ExoPlayerEngine(
     // Cap libass rendering at 1080p: on 4K TVs this halves overlay cost with no visible loss at TV distance.
     private val assHandler = AssHandler(assRenderType, AssHandlerConfig(maxRenderPixels = 1920 * 1080))
     private val assParsers = AssSubtitleParserFactory(assHandler)
+    private val extractors = DefaultExtractorsFactory().withAssMkvSupport(assParsers, assHandler)
     private val mediaSourceFactory = DefaultMediaSourceFactory(
         DefaultDataSource.Factory(context, httpFactory),
-        DefaultExtractorsFactory().withAssMkvSupport(assParsers, assHandler),
+        extractors,
     ).setSubtitleParserFactory(assParsers)
+    /** Same, reading a font-heavy file's start from the device when it's there (MediaHeaderCache). */
+    private val headerCachedSourceFactory = MediaHeaderCache.factory(httpFactory)?.let { cached ->
+        DefaultMediaSourceFactory(DefaultDataSource.Factory(context, cached), extractors).setSubtitleParserFactory(assParsers)
+    }
     /** Fonts for the current item; (re)added after ass-media resets on each media item transition. */
     private var sourceFonts: List<com.auroratv.playback.SubtitleFont> = emptyList()
 
@@ -392,6 +397,7 @@ class ExoPlayerEngine(
         val item = MediaItem.Builder()
             .setUri(source.url)
             .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
+            .apply { source.cacheKey?.let { setCustomCacheKey(it) } }
             .setSubtitleConfigurations(subs)
             .build()
         // Fonts from MKV attachments (transcoded streams lose them). Added in onMediaItemTransition:
@@ -407,7 +413,9 @@ class ExoPlayerEngine(
         startRequests.set(0); startBytes.set(0)
         keyframeCheckMs = 0
         _state.update { EngineState(isBuffering = true) }
-        player.setMediaItem(item, source.startPositionMs)
+        val cachedFactory = headerCachedSourceFactory
+        if (source.cacheKey != null && cachedFactory != null) player.setMediaSource(cachedFactory.createMediaSource(item), source.startPositionMs)
+        else player.setMediaItem(item, source.startPositionMs)
         player.prepare()
         player.playWhenReady = true
     }

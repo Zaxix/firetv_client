@@ -126,7 +126,12 @@ object PlaybackPreparer {
  * only if it is under 90 seconds old and was made with the same server session, settings and device
  * capabilities. Call from the main thread.
  */
-class PlaybackPrewarmer(private val scope: CoroutineScope, private val trackMemory: TrackMemory? = null) {
+class PlaybackPrewarmer(
+    private val scope: CoroutineScope,
+    private val trackMemory: TrackMemory? = null,
+    /** Called with each result prepared ahead (e.g. to fetch a font-heavy file's start too). */
+    private val onPrepared: (PreparedPlayback) -> Unit = {},
+) {
     private class Entry(
         val itemId: String,
         val api: JellyfinApi,
@@ -145,6 +150,7 @@ class PlaybackPrewarmer(private val scope: CoroutineScope, private val trackMemo
         val job = scope.async {
             try {
                 PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false, trackMemory = trackMemory)
+                    .also { p -> runCatching { onPrepared(p) } }
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {

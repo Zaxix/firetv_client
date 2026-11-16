@@ -8,10 +8,12 @@ package com.auroratv.playback
  *   details and the PlaybackInfo negotiation one after the other.
  * - 1: the previous build: starts at the keyframe before the saved position, video over the app's
  *   warm connections.
- * - 2: now: also asks for the item and negotiates playback at the same time.
+ * - 2: also asks for the item and negotiates playback at the same time.
+ * - 3: now: also keeps the start of font-heavy MKVs (anime releases) on the device and fetches it
+ *   ahead (MediaHeader).
  */
 object ResumeTuning {
-    const val CURRENT = 2
+    const val CURRENT = 3
 
     @kotlin.concurrent.Volatile
     var level: Int = CURRENT
@@ -19,4 +21,5 @@ object ResumeTuning {
     val keyframeStart get() = level >= 1
     val sharedConnections get() = level >= 1
     val parallelPrepare get() = level >= 2
+    val headerCache get() = level >= 3
 }
