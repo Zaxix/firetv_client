@@ -130,9 +130,9 @@ class RatingsKeyStore(private val vault: SecureVault) {
  */
 class RatingsService(
     private val http: HttpClient,
-    private val keys: () -> RatingsKeys,
     /** Ratings kept between sessions (per profile, a week); null keeps them for this run only. */
     private val store: com.auroratv.profiles.RatingsStore? = null,
+    private val keys: () -> RatingsKeys,
 ) {
     private val mutex = Mutex()
     private val cache = HashMap<String, Cached>()

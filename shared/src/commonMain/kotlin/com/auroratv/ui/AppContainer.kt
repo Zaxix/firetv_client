@@ -37,7 +37,7 @@ class AppContainer(val platform: Platform) {
     private fun today() = com.auroratv.profiles.epochDay(com.auroratv.playback.wallClockMs())
     /** Ratings remembered for a week, per profile. */
     val ratingsStore = com.auroratv.profiles.RatingsStore(platform.files, ::today)
-    val ratings = com.auroratv.ratings.RatingsService(http, { ratingsKeys.keys.value }, ratingsStore)
+    val ratings = com.auroratv.ratings.RatingsService(http, ratingsStore) { ratingsKeys.keys.value }
     /** Detected skip markers for episodes in progress, per profile (deleted once watched). */
     val skipMarkers = com.auroratv.profiles.SkipMarkerStore(platform.files, ::today)
     /** Recent searches, per profile. */
