@@ -19,6 +19,14 @@ import kotlinx.coroutines.withContext
 
 /** Application-wide singletons. Created once per process by the platform entry point. */
 class AppContainer(val platform: Platform) {
+    /** When the app started (for the "Perf" timings logged on the way to a usable screen). */
+    val startMark = kotlin.time.TimeSource.Monotonic.markNow()
+    private var homeReadyLogged = false
+    fun logHomeReady() {
+        if (homeReadyLogged) return
+        homeReadyLogged = true
+        Log.i("Perf", "Home ready in ${startMark.elapsedNow().inWholeMilliseconds} ms")
+    }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val http = createJellyfinHttpClient()
     val settings = SettingsRepository(platform.files)

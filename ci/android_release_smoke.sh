@@ -30,6 +30,30 @@ sleep 8
 adb shell input text "aurora"; key KEYCODE_ENTER
 adb shell input text "aurora-ci"; key KEYCODE_ENTER
 sleep 15; shot release-02-home
+
+# ---- Performance (release build) ----
+# Cold start to first frame (am start -W) and to Home's rows (the app logs "Perf: Home ready"),
+# then frame timing while moving through Home's rows quickly, like holding the remote's arrows.
+perf_round() {
+  local label="$1"
+  for i in 1 2 3; do
+    adb shell am force-stop "$PKG"; sleep 2; adb logcat -c
+    t=$(adb shell am start -W -n "$PKG/$ACT" | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
+    sleep 12
+    h=$(adb logcat -d -s Perf | grep -o 'Home ready in [0-9]* ms' | head -1 | grep -o '[0-9]*')
+    echo "$label cold start #$i: first frame ${t:-?} ms, Home rows ${h:-?} ms" | tee -a "$OUT/perf.txt"
+  done
+  adb shell dumpsys gfxinfo "$PKG" reset >/dev/null
+  adb shell 'for k in 20 20 22 22 22 22 22 22 22 22 22 22 20 22 22 22 22 22 22 22 19 21 21 21 21 21 21 21 21 21 21 19 19; do input keyevent $k; sleep 0.18; done'
+  sleep 2
+  adb shell dumpsys gfxinfo "$PKG" | tr -d '\r' | grep -E "Total frames rendered|Janky frames|50th percentile|90th percentile|95th percentile|99th percentile" | sed "s/^/$label scroll: /" | tee -a "$OUT/perf.txt"
+}
+: > "$OUT/perf.txt"
+echo "dexopt: $(adb shell dumpsys package "$PKG" | tr -d '\r' | grep -m1 -o 'status=[a-z-]*\]\?' || true)" | tee -a "$OUT/perf.txt"
+perf_round "as installed"
+# What a TV does on its own once idle: compile the app with its startup profile.
+adb shell cmd package compile -m speed-profile -f "$PKG" >/dev/null 2>&1 || true
+perf_round "after profile compile"
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
 open "player:$EP1"; sleep 20; shot release-03-player-ass
 adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'

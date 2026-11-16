@@ -171,6 +171,7 @@ fun HomeScreen() {
                 }
                 model.hero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
                 model.rails = rails
+                container.logHomeReady()
                 // A library that was too slow for the hero still joins it once its rail has loaded.
                 if (model.hero.size < 6) launch {
                     val late = heroLoads.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
