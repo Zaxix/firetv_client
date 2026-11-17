@@ -32,11 +32,11 @@ See [[Fixed Issues]] and [[UI Layout Issues]].
 
 ### Faster Home with less server work
 - **Before:** every server row waited for the banner's library loads (up to 4 s) and then for the
-  watch history (up to 2.5 s). The banner also made its own copy of the "latest" requests.
+  watch history (up to 2.5 s).
 - **After:**
   - Rows appear as soon as Continue Watching and Next Up answer.
-  - The banner reuses the row loads.
-  - The history wait is cut to 600 ms.
+  - The banner joins when its loads finish (it already shared the rows' requests).
+  - The history only gets what's left of 600 ms from Home opening.
   - Recommendations use small server-filtered queries, and their rows are reused while the
     history is unchanged (no catalogue download).
   - Row pre-composition is trimmed to half a screen ahead.

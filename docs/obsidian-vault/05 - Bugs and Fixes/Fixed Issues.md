@@ -12,7 +12,7 @@ Newest first. Each entry: symptom → cause → fix.
 | Row headings scrolled off the top when moving up | Only the focused card asked to be visible; the heading above it didn't | `revealOnFocus()` on each row brings the whole row (heading + cards) into view |
 | Details hero only partly came back when moving up | Same as above for the hero item, plus the list stopped at the hero's buttons | `revealOnFocus()` on the hero and a settle-to-top after 450 ms |
 | Episode descriptions not visible | Cards had no room for text | Fixed-height description panel under the episode row |
-| Home rows took ~5 s on a slow server | Every row waited for the banner's library loads (up to 4 s) and then the history (up to 2.5 s); the banner made its own duplicate "latest" requests | Rows show as soon as views/resume/next-up answer; banner reuses the row loads; history wait cut to 600 ms ([[Home Page]]) |
+| Home rows took ~5 s on a slow server | Every row waited for the banner's library loads (up to 4 s) and then for the watch history (up to 2.5 s) | Rows show as soon as views/resume/next-up answer; the banner joins when ready; the history only gets what's left of 600 ms from Home opening ([[Home Page]]) |
 | Recommendations downloaded the whole search index | Candidates were scored from the full title list | Server-side genre/unplayed filtered queries + rows cached per history signature |
 
 ## Earlier updates

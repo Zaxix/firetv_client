@@ -9,7 +9,7 @@ device CPU/GPU/memory.
 ## Home
 - Rows show as soon as views + Continue Watching + Next Up answer; banner and recommendations join
   later without blocking ([[Home Page]]).
-- The banner reuses the "Recently Added" responses (no extra requests).
+- The banner is picked from the rows' "Recently Added" responses (no extra requests).
 - Saved copy from disk races the network.
 - Request counting (Android `SharedOkHttp` interceptor) logs API / image / media requests in the
   first 10 s so changes can be measured.

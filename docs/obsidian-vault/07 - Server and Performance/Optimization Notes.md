@@ -5,8 +5,8 @@ tags: [performance]
 
 Decisions and the reasoning behind them, so future changes don't undo them by accident.
 
-- **Banner shares row loads.** Separate "latest" requests for the banner doubled the per-library
-  requests; reusing the row's responses costs nothing.
+- **Banner shares row loads.** The banner is picked from the rows' own "Recently Added" responses,
+  so it costs no requests of its own; keep it that way.
 - **Rows don't wait for the banner or history.** Waiting made every row as slow as the slowest
   library query.
 - **Recommendations without the catalogue.** Server-side genre + unplayed filters return a few

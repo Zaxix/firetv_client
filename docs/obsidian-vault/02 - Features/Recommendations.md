@@ -28,7 +28,7 @@ Home rows **"Because You Watched <title>"** and **"Recommended For You"**, perso
 
 ## Performance considerations
 No catalogue download (the search index is no longer used for this); Home waits for the history at
-most 600 ms and merges the rows in later if it's slower.
+most what's left of 600 ms from opening, and merges the rows in later if it's slower.
 
 ## User interactions
 Ordinary rows; they refresh after something is watched.
