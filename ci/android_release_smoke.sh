@@ -42,15 +42,15 @@ perf_round() {
     adb shell am force-stop "$PKG"; sleep 2; adb logcat -c
     # Straight to Home (a link skips "Who's watching?"), so this measures the app, not a person picking.
     t=$(adb shell am start -W -n "$PKG/$ACT" --es route section:Home | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
-    sleep 12
+    sleep 15 # Home logs its request count 10 s after it opens
     p=$(adb logcat -d -s Perf | tr -d '\r')
     h=$(echo "$p" | grep -o 'Home ready in [0-9]* ms ([a-z ]*)' | head -1 | sed 's/Home ready in //')
     f=$(echo "$p" | grep -o 'Home rows from the server in [0-9]* ms' | head -1 | grep -o '[0-9]* ms')
     c=$(echo "$p" | grep -o 'Saved Home [a-z ]* in [0-9]* ms' | head -1 | sed 's/Saved Home //')
     d=$(echo "$p" | grep -o 'Saved Home: .*' | head -1)
-    r=$(echo "$p" | grep -o 'first 4 rows filled from the server in [0-9a-z ]*' | head -1 | sed 's/first 4 rows filled from the server in //')
+    r=$(echo "$p" | grep -oE '(first 4 rows|rows on screen) filled from the server in [0-9a-z ]*' | head -1 | sed -E 's/.* filled from the server in //')
     q=$(echo "$p" | grep -o 'Server requests in the first 10 s: .*' | head -1 | sed 's/Server requests in the first 10 s: //')
-    echo "$label cold start #$i: first frame ${t:-?} ms, Home shown ${h:-?}, server rows ${f:-?}, first 4 rows filled ${r:-?}, requests ${q:-?}, saved copy ${c:-?} [${d:-}]" | tee -a "$OUT/perf.txt"
+    echo "$label cold start #$i: first frame ${t:-?} ms, Home shown ${h:-?}, server rows ${f:-?}, rows on screen filled ${r:-?}, requests ${q:-?}, saved copy ${c:-?} [${d:-}]" | tee -a "$OUT/perf.txt"
   done
   adb shell dumpsys gfxinfo "$PKG" reset >/dev/null
   adb shell 'for k in 20 20 22 22 22 22 22 22 22 22 22 22 20 22 22 22 22 22 22 22 19 21 21 21 21 21 21 21 21 21 21 19 19; do input keyevent $k; sleep 0.18; done'

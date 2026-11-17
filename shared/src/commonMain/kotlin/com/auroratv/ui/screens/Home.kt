@@ -229,6 +229,7 @@ fun HomeScreen() {
                 container.logHomeReady("from the saved copy")
             }
         } else null
+        val loadStart = kotlin.time.TimeSource.Monotonic.markNow()
         try {
             coroutineScope {
                 // Brand tiles load on their own; Home never waits for them.
@@ -257,9 +258,12 @@ fun HomeScreen() {
                     api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                 }
                 val libraryRails = libraryViews.map { view -> latestRails.getValue(view.id) }
-                // The history is one small request sent alongside the others; a short wait keeps the
-                // recommendation rows from popping in above the libraries a moment later.
-                val plan = kotlinx.coroutines.withTimeoutOrNull(REC_WAIT_MS) { recPlan.await() }
+                // The history is sent alongside the others. If it's back by the time the other rows
+                // are (or within REC_WAIT_MS of Home opening), its rows are placed at once; otherwise
+                // the rows show without it and the recommendation rows are merged in when it arrives.
+                // The budget counts from the start, so it never adds to a slow server's wait.
+                val budget = (REC_WAIT_MS - loadStart.elapsedNow().inWholeMilliseconds).coerceAtLeast(0)
+                val plan = if (recPlan.isCompleted) recPlan.await() else kotlinx.coroutines.withTimeoutOrNull(budget) { recPlan.await() }
                 val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites)
                 if (plan == null) launch {
                     val late = recPlan.await() ?: return@launch
@@ -325,13 +329,16 @@ fun HomeScreen() {
         val t0 = kotlin.time.TimeSource.Monotonic.markNow()
         val filled = kotlinx.coroutines.withTimeoutOrNull(15_000) {
             while (true) {
+                // The rows actually on screen (rows further down load when scrolled to, by design).
                 val r = model.rails
-                if (r != null && r.take(FIRST_ROWS).all { it.items != null && !it.stale }) break
+                val onScreen = model.listState.layoutInfo.visibleItemsInfo.map { it.key }.toSet()
+                val shown = r?.filter { it.key in onScreen }.orEmpty().take(FIRST_ROWS)
+                if (shown.isNotEmpty() && shown.all { it.items != null && !it.stale }) break
                 delay(50)
             }
             t0.elapsedNow().inWholeMilliseconds
         }
-        com.auroratv.core.Log.i("Perf", "Home first $FIRST_ROWS rows filled from the server in ${filled?.let { "$it ms" } ?: "over 15 s"}")
+        com.auroratv.core.Log.i("Perf", "Home rows on screen filled from the server in ${filled?.let { "$it ms" } ?: "over 15 s"}")
         delay((HOME_COST_AFTER_MS - t0.elapsedNow().inWholeMilliseconds).coerceAtLeast(0))
         container.platform.requestStats()?.let { com.auroratv.core.Log.i("Perf", "Server requests in the first ${HOME_COST_AFTER_MS / 1000} s: $it") }
     }
