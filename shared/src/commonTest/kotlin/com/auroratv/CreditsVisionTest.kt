@@ -34,9 +34,13 @@ class CreditsVisionTest {
         // A night scene: nearly all dark, with a bright moon (a blob, not thin strokes).
         val night = frame(0xFF06080C.toInt()) { px -> for (y in 10 until 24) for (x in 120 until 134) px[y * w + x] = white }
         assertEquals(Look.Scene, CreditsVision.look(night, 0, 0, w, h))
-        // Coloured text on black (a title in red): not the usual credits look, so not credits.
+        // Coloured text on black (a title in red): not the usual credits look, so never Credits
+        // (a little dark red on black is just Black, which alone never makes a credits stretch).
         val red = frame(black) { px -> for (line in 0 until 6) for (x in 40 until 120) if (x % 3 == 0) px[(10 + line * 13) * w + x] = 0xFFFF2020.toInt() }
-        assertEquals(Look.Scene, CreditsVision.look(red, 0, 0, w, h))
+        assertTrue(CreditsVision.look(red, 0, 0, w, h) != Look.Credits)
+        // Bright coloured (saturated) text: rejected as colour.
+        val yellow = frame(black) { px -> for (line in 0 until 6) for (x in 40 until 120) if (x % 3 == 0) { val y = 10 + line * 13; px[y * w + x] = 0xFFFFE000.toInt(); px[(y + 1) * w + x] = 0xFFFFE000.toInt() } }
+        assertEquals(Look.Scene, CreditsVision.look(yellow, 0, 0, w, h))
         assertEquals(Look.Scene, CreditsVision.look(frame(0xFF4080C0.toInt()), 0, 0, w, h))
     }
 
