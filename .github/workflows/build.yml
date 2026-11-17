@@ -339,7 +339,8 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN" && bash ci/android_release_smoke.sh apk/AuroraTV-release.apk dist/android-screenshots "$JF_TOKEN"
+          # The release smoke test (start-up and Home timings) runs even when an e2e check fails, so its numbers are always there.
+          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN"; e=$?; bash ci/android_release_smoke.sh apk/AuroraTV-release.apk dist/android-screenshots "$JF_TOKEN"; s=$?; exit $((e | s))
 
       - uses: actions/upload-artifact@v4
         if: always()
