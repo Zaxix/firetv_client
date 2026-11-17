@@ -103,7 +103,7 @@ val LocalContainer = staticCompositionLocalOf<AppContainer> { error("No containe
 val LocalSession = staticCompositionLocalOf<UserSession> { error("No session") }
 
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, org.jetbrains.compose.resources.ExperimentalResourceApi::class)
 @Composable
 fun AuroraApp(container: AppContainer) {
     val settings by container.settings.settings.collectAsState()
@@ -128,7 +128,27 @@ fun AuroraApp(container: AppContainer) {
             LocalContainer provides container,
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.auroratv.ui.components.MinimalBringIntoViewSpec,
         ) {
-            Box(Modifier.fillMaxSize().background(Aurora.colors.background).arrowKeyNavigation()) {
+            // UI sounds: loaded once from the bundled files; settings applied as they change.
+            LaunchedEffect(Unit) {
+                val out = container.platform.uiSoundOutput() ?: return@LaunchedEffect
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    com.auroratv.ui.sound.UiSound.entries.forEach { sound ->
+                        runCatching { out.load(sound, com.auroratv.resources.Res.readBytes(sound.file)) }
+                    }
+                }
+                com.auroratv.ui.sound.UiSounds.output = out
+            }
+            LaunchedEffect(settings.navigationSounds, settings.uiSoundVolume) {
+                com.auroratv.ui.sound.UiSounds.enabled = settings.navigationSounds
+                com.auroratv.ui.sound.UiSounds.volume = settings.uiSoundVolume / 100f
+            }
+            Box(Modifier.fillMaxSize().background(Aurora.colors.background).onPreviewKeyEvent { ev ->
+                // Arrow presses (only these) let the next focus change make the "move" sound.
+                if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionUp || ev.key == Key.DirectionDown || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight)) {
+                    com.auroratv.ui.sound.UiSounds.noteDirectionalKey()
+                }
+                false
+            }.arrowKeyNavigation()) {
                 val state by container.sessions.state.collectAsState()
                 LaunchedEffect(Unit) { container.sessions.start(skipPicker = container.initialRoute != null) }
                 when (val s = state) {
@@ -136,7 +156,7 @@ fun AuroraApp(container: AppContainer) {
                     SessionState.NeedsServer -> ConnectScreen(container)
                     is SessionState.NeedsLogin -> key(s.server.id, s.username) { LoginScreen(container, s.server, s.message, s.username, s.canCancel) }
                     is SessionState.ChoosingProfile -> com.auroratv.ui.screens.ProfilesScreen(container, s)
-                    is SessionState.Ready -> key(s.session.server.id, s.session.user.id) {
+                    is SessionState.Ready -> key(s.session.server.id, s.session.user.id, s.session.local?.id) {
                         CompositionLocalProvider(LocalSession provides s.session) { MainShell(container) }
                     }
                 }
@@ -267,6 +287,8 @@ private fun MainShell(container: AppContainer) {
             }
         ) {
             val isPlayer = entry.route is Route.Player
+            // No UI sounds over a playing video.
+            LaunchedEffect(isPlayer) { com.auroratv.ui.sound.UiSounds.suppressed = isPlayer }
             val motion = Aurora.motion
             if (!isPlayer) {
                 // Frosted glass behind every screen (Home and detail pages paint their own over it).
@@ -302,7 +324,7 @@ private fun MainShell(container: AppContainer) {
                 // Who's watching: switch, add, edit or remove profiles (Up from the top of a screen).
                 val session = LocalSession.current
                 com.auroratv.ui.screens.ProfileButton(
-                    container, com.auroratv.data.Profile(session.server, session.user),
+                    container, session.profile,
                     Modifier.align(Alignment.TopEnd).padding(top = 26.dp, end = 34.dp).then(regions.headerModifier()),
                 )
             } else {

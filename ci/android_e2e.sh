@@ -175,6 +175,57 @@ key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT; expect "Keys on emp
 # A single-title row (detail page cast/seasons rows vary): Right at the only item stays.
 open "detail:$SERIES"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; expect "Right at the end of a short row on a details page" content; shot nav-10-detail-row-end
 adb logcat -d -s Recommend:I | tr -d '\r' | tail -5 | tee -a "$OUT/navigation.txt"
+# ---- Layout and UI sounds (app started with --ez traceUi true: it logs sounds and a few positions) ----
+opentrace() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --ez traceUi true --es route "$1" >/dev/null; }
+lastlog() { adb logcat -d -s "$1":I | tr -d '\r' | grep -E "$2" | tail -1 | sed -E "s/^.*$1 *: //"; }
+sounds() { adb logcat -d -s UiSound:I | tr -d '\r' | grep -cE "UiSound *: $1"; }
+check() { # name ok-flag detail
+  if [ "$2" = 1 ]; then echo "✅ $1: $3" | tee -a "$OUT/navigation.txt"; else echo "❌ $1: $3" | tee -a "$OUT/navigation.txt"; NAVFAIL=1; fi
+}
+opentrace "section:Home"; sleep 14
+# 1. Right to the end of a row and back: the first card must return to the row's start, clear of the sidebar.
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT
+key KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT
+[ "$(region)" = sidebar ] && key KEYCODE_DPAD_RIGHT
+sleep 1.5; shot layout-01-row-back-to-first
+fc=$(lastlog AuroraLayout "first card x="); x=$(echo "$fc" | sed -E 's/.*x=(-?[0-9]+).*/\1/'); st=$(echo "$fc" | sed -E 's/.*rowStart=([0-9]+).*/\1/')
+ok=0; [ -n "$x" ] && [ -n "$st" ] && [ $(( x > st ? x - st : st - x )) -le 4 ] && ok=1
+check "First card back at the row's start after going to the end and back" $ok "${fc:-no position logged}"
+# 2. Down through Home and back up: the focused row's heading must be on screen.
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN
+key KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 1.5; shot layout-02-row-heading-after-up
+rv=$(lastlog AuroraLayout "revealed top="); top=$(echo "$rv" | sed -E 's/.*top=(-?[0-9]+).*/\1/')
+ok=0; [ -n "$top" ] && [ "$top" -ge 0 ] && ok=1
+check "Row heading visible when moving up through Home" $ok "${rv:-nothing logged} (row top must be ≥ 0)"
+# 3. Sounds: three moves in the sidebar = three ticks; OK = one chime.
+key KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT KEYCODE_DPAD_LEFT; sleep 1
+m0=$(sounds Move); key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 1; m1=$(sounds Move)
+s0=$(sounds Select); key KEYCODE_DPAD_CENTER; sleep 2; s1=$(sounds Select)
+ok=0; [ "$((m1 - m0))" = 3 ] && [ "$((s1 - s0))" = 1 ] && ok=1
+check "One move sound per key press, one chime on OK" $ok "moves +$((m1 - m0)) for 3 presses, chimes +$((s1 - s0)) for 1 press (sidebar: $(region))"
+# 4. Details page: down through the rows and back up: the whole hero returns; episode descriptions show.
+opentrace "detail:$SERIES"; sleep 14
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot layout-03-episode-description
+key KEYCODE_DPAD_RIGHT; sleep 1.5; shot layout-04-episode-description-next
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; sleep 2; shot layout-05-detail-hero-after-up
+hero=$(lastlog AuroraLayout "detail hero at"); ok=0; echo "$hero" | grep -q "item=0 offset=0" && ok=1
+check "Details page hero fully back after going down and up" $ok "${hero:-nothing logged}"
+# 5. No sounds over a playing video.
+opentrace "player:$SEVEN"; sleep 10; m0=$(sounds "(Move|Select)")
+key KEYCODE_DPAD_UP KEYCODE_DPAD_RIGHT KEYCODE_DPAD_LEFT KEYCODE_DPAD_DOWN; sleep 1; m1=$(sounds "(Move|Select)")
+ok=0; [ "$m1" = "$m0" ] && ok=1
+check "No UI sounds while a video plays" $ok "+$((m1 - m0)) sounds for 4 presses in the player"
+# 6. Switched off in Settings: silence.
+adb shell am force-stop "$PKG"
+echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng","navigationSounds":false}' | adb shell "run-as $PKG sh -c 'cat > files/settings.json; for f in files/settings-*.json; do cp files/settings.json \$f; done'"
+opentrace "section:Home"; sleep 12; m0=$(sounds "(Move|Select)")
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT; sleep 1; m1=$(sounds "(Move|Select)")
+ok=0; [ "$m1" = "$m0" ] && ok=1
+check "Navigation sounds off in Settings means silence" $ok "+$((m1 - m0)) sounds for 3 presses"
+adb shell am force-stop "$PKG"
+echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}' | adb shell "run-as $PKG sh -c 'cat > files/settings.json; for f in files/settings-*.json; do cp files/settings.json \$f; done'"
+
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 

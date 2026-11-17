@@ -18,9 +18,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -29,6 +32,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import kotlinx.coroutines.launch
 import com.auroratv.ui.nav.LocalEntry
 import com.auroratv.ui.theme.Aurora
 
@@ -83,6 +88,7 @@ fun FocusSurface(
             }
             .then(requesterModifier)
             .onFocusChanged {
+                if (it.isFocused && !focused) com.auroratv.ui.sound.UiSounds.focusMoved()
                 focused = it.isFocused
                 if (it.isFocused) {
                     if (focusKey != null) entry?.focus?.lastKey = focusKey
@@ -94,7 +100,7 @@ fun FocusSurface(
                 interactionSource = interaction,
                 indication = null,
                 onLongClick = onLongClick,
-                onClick = onClick,
+                onClick = { com.auroratv.ui.sound.UiSounds.selected(); onClick() },
             )
             .border(if (active) ringWidth else 0.dp, if (active) colors.focusRing else Color.Transparent, shape)
             .clip(shape)
@@ -156,4 +162,64 @@ val MinimalBringIntoViewSpec = object : androidx.compose.foundation.gestures.Bri
             else -> 0f
         }
     }
+}
+
+/**
+ * Horizontal rows: keep the focused card inside the row's own content area ([start]…width−[end]),
+ * not merely on screen. Rows span the full width underneath the sidebar, so the shared rule above
+ * (5% from the edge) let the first card stop half under the sidebar when coming back from the end of
+ * a row, instead of returning to its place. With the row's padding as the margin, the first card
+ * always lands back exactly where it started (the row can't scroll past its start).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@androidx.compose.runtime.Composable
+fun RowScroll(start: Dp = ScreenStart, end: Dp = ScreenPadding, content: @androidx.compose.runtime.Composable () -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val spec = remember(start, end, density) {
+        val lead = with(density) { start.toPx() }
+        val trail = with(density) { end.toPx() }
+        object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                val trailing = offset + size
+                return when {
+                    size >= containerSize - lead - trail -> offset - lead
+                    offset < lead -> offset - lead
+                    trailing > containerSize - trail -> trailing - (containerSize - trail)
+                    else -> 0f
+                }
+            }
+        }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides spec, content = content)
+}
+
+/**
+ * When focus enters this element (a row with its heading, the details page's hero, an episode with
+ * its text), bring the whole element into view, not just the focused card or button. The scroll
+ * container honours both requests at once, so the heading/hero is shown along with the focus.
+ * Asked again shortly after, in case the focused child's own (smaller) request was handled last.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.revealOnFocus(): Modifier = composed {
+    val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var inside by remember { mutableStateOf(false) }
+    var top by remember { mutableStateOf(0f) }
+    Modifier
+        .then(if (UiTrace.on) Modifier.onGloballyPositioned { top = it.positionInRoot().y } else Modifier)
+        .bringIntoViewRequester(requester)
+        .onFocusChanged { f ->
+            if (f.hasFocus && !inside) scope.launch {
+                requester.bringIntoView()
+                kotlinx.coroutines.delay(260)
+                requester.bringIntoView()
+                if (UiTrace.on) { kotlinx.coroutines.delay(400); com.auroratv.core.Log.i("AuroraLayout", "revealed top=${top.toInt()}") }
+            }
+            inside = f.hasFocus
+        }
+}
+
+/** CI only (`--ez traceUi true`): log UI sounds and a few layout positions the tests check. */
+object UiTrace {
+    @kotlin.concurrent.Volatile var on: Boolean = false
 }

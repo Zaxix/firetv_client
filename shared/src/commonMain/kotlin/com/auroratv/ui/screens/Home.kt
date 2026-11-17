@@ -1,5 +1,6 @@
 package com.auroratv.ui.screens
 
+import com.auroratv.ui.components.revealOnFocus
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -204,8 +205,8 @@ fun HomeScreen() {
     var reloadKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    val homeCache = remember(session) { HomeCache(container.platform.files, session.server.id, session.user.id) }
-    val profileKey = remember(session) { com.auroratv.data.Profile(session.server, session.user).key }
+    val homeCache = remember(session) { HomeCache(container.platform.files, session.server.id, session.user.id + (session.local?.let { "-p${it.id}" } ?: "")) }
+    val profileKey = remember(session) { session.profile.key }
     // Moving onto the featured title or a Continue Watching / Next Up card gets Play ready in the
     // background (after a short pause, so scrolling past cards costs nothing).
     val prewarmRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -245,18 +246,19 @@ fun HomeScreen() {
                     view.id to RailState("latest-${view.id}", "Recently Added in ${view.name}", CardStyle.Poster) { api.latest(view.id, limit = 24) }
                 }
                 // The featured titles come from the same "Recently Added" loads as the rails (one request
-                // per library, not two), and Home doesn't wait more than a few seconds for a slow one.
+                // per library, not two). Rows no longer wait for them: they appear as soon as Continue
+                // Watching / Next Up are in (each library row fills itself), and the banner joins
+                // when its loads finish. Before, every server row waited for all of these (up to 4 s)
+                // and then for the history (up to 2.5 s), the "5 seconds" on a slow server.
                 val heroSources = libraryViews.filter { it.collectionType == "movies" || it.collectionType == "tvshows" }.mapNotNull { latestRails[it.id] }
                 val heroLoads = heroSources.map { rail -> async { rail.ensureLoaded() } }
-                val heroPool = kotlinx.coroutines.withTimeoutOrNull(HERO_WAIT_MS) { heroLoads.awaitAll() }
-                    ?.flatten()
-                    ?: heroSources.flatMap { it.items.orEmpty() }
 
                 val favorites = RailState("favorites", "Favorites", CardStyle.Poster) {
                     api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                 }
                 val libraryRails = libraryViews.map { view -> latestRails.getValue(view.id) }
-                // Home doesn't wait long for the history; if it's late, its rows join when it arrives.
+                // The history is one small request sent alongside the others; a short wait keeps the
+                // recommendation rows from popping in above the libraries a moment later.
                 val plan = kotlinx.coroutines.withTimeoutOrNull(REC_WAIT_MS) { recPlan.await() }
                 val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites)
                 if (plan == null) launch {
@@ -265,24 +267,27 @@ fun HomeScreen() {
                     model.rails = mergeRails(now, arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, late),
                         now.filter { it.key.startsWith("latest-") }, now.firstOrNull { it.key == "favorites" }))
                 }
-                val freshHero = heroPool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
                 // Rows that haven't loaded yet keep showing last session's items until they do.
                 val shown = model.rails?.associateBy { it.key }.orEmpty()
                 rails.forEach { r -> if (r.items == null) shown[r.key]?.items?.takeIf { it.isNotEmpty() }?.let { r.items = it; r.stale = true } }
-                // Keep a saved banner that's already on screen rather than swapping it under the user.
-                if (model.hero.isEmpty()) model.hero = freshHero
                 model.rails = rails
                 container.logHomeReady()
+                // The banner: from the same loads, without holding anything else up.
                 launch {
+                    val pool = kotlinx.coroutines.withTimeoutOrNull(HERO_WAIT_MS) { heroLoads.awaitAll() }?.flatten()
+                        ?: heroSources.flatMap { it.items.orEmpty() }
+                    val freshHero = pool.filter { it.backdropImageTags.isNotEmpty() }.distinctBy { it.seriesId ?: it.id }.shuffled().take(6)
+                    // Keep a saved banner that's already on screen rather than swapping it under the user.
+                    if (model.hero.isEmpty()) model.hero = freshHero
+                    // A library that was too slow for the banner still joins it once its row has loaded.
+                    if (model.hero.size < 6) {
+                        val late = heroLoads.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
+                        val extra = late.filter { l -> model.hero.none { (it.seriesId ?: it.id) == (l.seriesId ?: l.id) } }.distinctBy { it.seriesId ?: it.id }.shuffled()
+                        if (extra.isNotEmpty()) model.hero = (model.hero + extra).take(6)
+                    }
                     heroLoads.awaitAll()
                     delay(1_500)
                     homeCache.write(if (freshHero.isNotEmpty()) freshHero else model.hero, rails)
-                }
-                // A library that was too slow for the hero still joins it once its rail has loaded.
-                if (model.hero.size < 6) launch {
-                    val late = heroLoads.awaitAll().flatten().filter { it.backdropImageTags.isNotEmpty() }
-                    val extra = late.filter { l -> model.hero.none { (it.seriesId ?: it.id) == (l.seriesId ?: l.id) } }.distinctBy { it.seriesId ?: it.id }.shuffled()
-                    if (extra.isNotEmpty()) model.hero = (model.hero + extra).take(6)
                 }
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
@@ -397,7 +402,7 @@ fun HomeScreen() {
 private const val HERO_WAIT_MS = 4_000L
 private const val FIRST_ROWS = 4
 private const val HOME_COST_AFTER_MS = 10_000L
-private const val REC_WAIT_MS = 2_500L
+private const val REC_WAIT_MS = 600L
 private const val PREWARM_DELAY_MS = 700L
 private const val SAVED_PER_ROW = 12
 
@@ -555,12 +560,14 @@ private fun Hero(
     var heroFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(heroFocused, item?.id) { if (heroFocused && item != null) onFocusItem(item) }
-    // Coming back up to the featured title shows the whole banner, not just enough to see its buttons.
+    // Coming back up to the featured title shows the whole banner, not just enough to see its buttons:
+    // the banner is requested into view together with the focused button (revealOnFocus below), and
+    // the page settles at the very top once focus's own scroll has finished (it used to race it).
     LaunchedEffect(heroFocused) {
+        if (!heroFocused) return@LaunchedEffect
+        delay(450)
         val list = model.listState
-        if (heroFocused && (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0)) {
-            list.animateScrollToItem(0)
-        }
+        if (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0) list.animateScrollToItem(0)
     }
     // Auto-advance the featured carousel, pausing while the user is interacting with it.
     LaunchedEffect(model.hero.size, heroFocused) {
@@ -573,7 +580,7 @@ private fun Hero(
     LaunchedEffect(heroFocused) { if (heroFocused) model.focused = null }
 
     Column(
-        Modifier.fillMaxWidth().height(height).padding(start = ScreenStart, end = ScreenPadding, bottom = 36.dp)
+        Modifier.fillMaxWidth().height(height).revealOnFocus().padding(start = ScreenStart, end = ScreenPadding, bottom = 36.dp)
             .onFocusChanged { heroFocused = it.hasFocus },
         verticalArrangement = Arrangement.Bottom,
     ) {

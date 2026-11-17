@@ -1,6 +1,8 @@
 package com.auroratv.ui.screens
 
 import com.auroratv.ui.nav.focusRow
+import com.auroratv.ui.components.RowScroll
+import com.auroratv.ui.components.revealOnFocus
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -188,19 +190,19 @@ fun PopcornIcon(full: Boolean, modifier: Modifier = Modifier.size(28.dp)) {
 @Composable
 fun ReviewsRow(reviews: List<Review>, rowFocus: FocusRequester, onOpen: (Review) -> Unit) {
     val colors = Aurora.colors
-    Column {
+    Column(Modifier.revealOnFocus()) {
         Row(Modifier.padding(start = ScreenStart, end = ScreenPadding, bottom = 14.dp), verticalAlignment = Alignment.Bottom) {
             Text("Reviews", style = AuroraType.section, color = colors.onBackground)
             Spacer(Modifier.width(12.dp))
             Text("Spoiler-free · from Trakt", style = AuroraType.caption, color = colors.onSurfaceFaint)
         }
-        LazyRow(
+        RowScroll { LazyRow(
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.focusRow().focusRequester(rowFocus).focusRestorer(),
         ) {
             items(reviews, key = { it.id }) { review -> ReviewCard(review) { onOpen(review) } }
-        }
+        } }
     }
 }
 

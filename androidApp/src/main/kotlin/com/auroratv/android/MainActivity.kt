@@ -18,6 +18,8 @@ class MainActivity : ComponentActivity() {
         container = AppContainer(AndroidPlatform(this))
         // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
         container.initialRoute = intent?.getStringExtra("route")
+        // `--ez traceUi true` (CI only): log each UI sound and a few layout positions the tests check.
+        com.auroratv.ui.components.UiTrace.on = intent?.getBooleanExtra("traceUi", false) == true
         // `--ei resumeLevel 0|1|2` (CI only): time the original Play/resume path against the current one.
         com.auroratv.playback.ResumeTuning.level = intent?.getIntExtra("resumeLevel", com.auroratv.playback.ResumeTuning.CURRENT) ?: com.auroratv.playback.ResumeTuning.CURRENT
         // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.

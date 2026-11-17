@@ -3,6 +3,9 @@ package com.auroratv.jellyfin
 import io.ktor.http.isSuccess
 import io.ktor.client.statement.bodyAsBytes
 import com.auroratv.AppInfo
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import com.auroratv.core.AppError
 import com.auroratv.core.AuroraJson
 import com.auroratv.core.Log
@@ -116,6 +119,8 @@ data class ItemQuery(
     val imageTypes: String = Fields.IMAGE_TYPES,
     /** Only these items (e.g. a ranked list worked out on the device), in the server's order. */
     val ids: List<String> = emptyList(),
+    /** Never these items. */
+    val excludeIds: List<String> = emptyList(),
 )
 
 /**
@@ -130,6 +135,22 @@ class JellyfinApi(
     @kotlin.concurrent.Volatile var userId: String? = null,
 ) {
     private val tag = "JellyfinApi"
+
+    /**
+     * Set for a device-only profile: its own watch state replaces the account's on every item, and
+     * its viewing is recorded on the device instead of the server (see LocalWatchData).
+     */
+    @kotlin.concurrent.Volatile var local: LocalWatchData? = null
+
+    private fun BaseItemDto.withLocal(): BaseItemDto = local?.let { l -> copy(userData = l.userData(this)) } ?: this
+    private fun List<BaseItemDto>.withLocal(): List<BaseItemDto> = if (local == null) this else map { it.withLocal() }
+
+    /** [ids] in that order (a device profile's resume/favourite/history lists). */
+    private suspend fun itemsInOrder(ids: List<String>, fields: String = Fields.CARD): List<BaseItemDto> {
+        if (ids.isEmpty()) return emptyList()
+        val byId = serverItems(ItemQuery(ids = ids, limit = ids.size, recursive = true, fields = fields, totalCount = false)).items.associateBy { it.id }
+        return ids.mapNotNull { byId[it] }.withLocal()
+    }
 
     val authHeader: String get() = identity.authorizationHeader(accessToken)
 
@@ -213,7 +234,44 @@ class JellyfinApi(
             auth(); parameter("userId", requireUser())
         }.read<QueryResult<BaseItemDto>>().items
 
-    suspend fun items(query: ItemQuery): QueryResult<BaseItemDto> =
+    suspend fun items(query: ItemQuery): QueryResult<BaseItemDto> {
+        val l = local ?: return serverItems(query)
+        // A device profile: favourites and watched/in-progress filters come from its own history;
+        // the server is only asked for the items themselves.
+        var q = query
+        var orderBy: List<String>? = null
+        var total: Int? = null
+        // Narrows the query to [ids] (keeping only those the caller already asked for, if any).
+        fun only(ids: List<String>): List<String> = if (q.ids.isEmpty()) ids else ids.filter { it in q.ids }
+        if (q.isFavorite == true) {
+            val ids = only(l.favoriteIds().take(MAX_LOCAL_IDS)).ifEmpty { return QueryResult() }
+            q = q.copy(isFavorite = null, ids = ids)
+        }
+        when {
+            "IsPlayed" in q.filters -> {
+                val ids = only(l.playedIds(MAX_LOCAL_IDS)).ifEmpty { return QueryResult() }
+                if (q.sortBy.startsWith("DatePlayed")) {
+                    // Most recent first, paged here (the server only sees this page's ids).
+                    val page = ids.drop(q.startIndex).take(q.limit).ifEmpty { return QueryResult(totalRecordCount = ids.size) }
+                    q = q.copy(filters = q.filters - "IsPlayed", ids = page, startIndex = 0); orderBy = page; total = ids.size
+                } else q = q.copy(filters = q.filters - "IsPlayed", ids = ids)
+            }
+            "IsResumable" in q.filters -> {
+                val ids = only(l.resumeIds(MAX_LOCAL_IDS)).ifEmpty { return QueryResult() }
+                val page = ids.drop(q.startIndex).take(q.limit).ifEmpty { return QueryResult(totalRecordCount = ids.size) }
+                q = q.copy(filters = q.filters - "IsResumable", ids = page, startIndex = 0); orderBy = page; total = ids.size
+            }
+            "IsUnplayed" in q.filters -> q = q.copy(filters = q.filters - "IsUnplayed", excludeIds = l.playedIds(MAX_LOCAL_IDS))
+        }
+        val result = serverItems(q)
+        val items = result.items.withLocal()
+        return result.copy(
+            items = orderBy?.let { order -> val byId = items.associateBy { it.id }; order.mapNotNull { byId[it] } } ?: items,
+            totalRecordCount = total ?: result.totalRecordCount,
+        )
+    }
+
+    private suspend fun serverItems(query: ItemQuery): QueryResult<BaseItemDto> =
         http.get(url("/Items")) {
             auth()
             parameter("userId", requireUser())
@@ -231,6 +289,7 @@ class JellyfinApi(
             if (query.studioIds.isNotEmpty()) parameter("studioIds", query.studioIds.joinToString("|"))
             if (query.personIds.isNotEmpty()) parameter("personIds", query.personIds.joinToString("|"))
             if (query.ids.isNotEmpty()) parameter("ids", query.ids.joinToString(","))
+            if (query.excludeIds.isNotEmpty()) parameter("excludeItemIds", query.excludeIds.joinToString(","))
             if (!query.userData) parameter("enableUserData", false)
             parameter("fields", query.fields)
             parameter("imageTypeLimit", 1)
@@ -295,10 +354,11 @@ class JellyfinApi(
     suspend fun item(itemId: String): BaseItemDto =
         http.get(url("/Items/$itemId")) {
             auth(); parameter("userId", requireUser())
-        }.read()
+        }.read<BaseItemDto>().withLocal()
 
-    suspend fun resumeItems(limit: Int = 24): List<BaseItemDto> =
-        http.get(url("/UserItems/Resume")) {
+    suspend fun resumeItems(limit: Int = 24): List<BaseItemDto> {
+        local?.let { l -> return itemsInOrder(l.resumeIds(limit)) }
+        return http.get(url("/UserItems/Resume")) {
             auth()
             parameter("userId", requireUser())
             parameter("limit", limit)
@@ -307,9 +367,28 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
         }.read<QueryResult<BaseItemDto>>().items
+    }
 
-    suspend fun nextUp(limit: Int = 24, seriesId: String? = null): List<BaseItemDto> =
-        http.get(url("/Shows/NextUp")) {
+    /**
+     * A device profile's Next Up: for each series it watched lately, the first unwatched episode after
+     * the one it finished most recently. One small request per series (at most [NEXT_UP_SERIES]):
+     * the episode list starting at that episode, a few items long.
+     */
+    private suspend fun localNextUp(l: LocalWatchData, limit: Int, seriesId: String?): List<BaseItemDto> = coroutineScope {
+        val series = seriesId?.let { listOf(it) } ?: l.recentSeries(NEXT_UP_SERIES)
+        series.map { sid ->
+            async {
+                val last = l.lastFinishedEpisode(sid) ?: return@async null
+                val eps = runCatching { episodes(sid, startItemId = last, limit = NEXT_UP_LOOKAHEAD) }.getOrNull() ?: return@async null
+                eps.dropWhile { it.id != last }.drop(1)
+                    .firstOrNull { it.userData?.played != true && (it.userData?.playbackPositionTicks ?: 0) == 0L && (it.parentIndexNumber ?: 1) > 0 }
+            }
+        }.awaitAll().filterNotNull().take(limit)
+    }
+
+    suspend fun nextUp(limit: Int = 24, seriesId: String? = null): List<BaseItemDto> {
+        local?.let { l -> return localNextUp(l, limit, seriesId) }
+        return http.get(url("/Shows/NextUp")) {
             auth()
             parameter("userId", requireUser())
             parameter("limit", limit)
@@ -319,6 +398,7 @@ class JellyfinApi(
             parameter("imageTypeLimit", 1)
             parameter("enableResumable", false)
         }.read<QueryResult<BaseItemDto>>().items
+    }
 
     suspend fun latest(parentId: String?, limit: Int = 24, includeItemTypes: List<String> = emptyList()): List<BaseItemDto> =
         http.get(url("/Items/Latest")) {
@@ -331,12 +411,12 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
             parameter("groupItems", true)
-        }.read()
+        }.read<List<BaseItemDto>>().withLocal()
 
     suspend fun seasons(seriesId: String): List<BaseItemDto> =
         http.get(url("/Shows/$seriesId/Seasons")) {
             auth(); parameter("userId", requireUser()); parameter("fields", Fields.CARD)
-        }.read<QueryResult<BaseItemDto>>().items
+        }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
     suspend fun episodes(seriesId: String, seasonId: String? = null, startItemId: String? = null, limit: Int? = null): List<BaseItemDto> =
         http.get(url("/Shows/$seriesId/Episodes")) {
@@ -347,7 +427,7 @@ class JellyfinApi(
             limit?.let { parameter("limit", it) }
             parameter("fields", Fields.CARD)
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
-        }.read<QueryResult<BaseItemDto>>().items
+        }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
     /** A season's episodes with their chapter lists (used to spot recurring openings/endings). */
     suspend fun episodesWithChapters(seriesId: String, seasonId: String?): List<BaseItemDto> =
@@ -362,9 +442,10 @@ class JellyfinApi(
     suspend fun similar(itemId: String, limit: Int = 16): List<BaseItemDto> =
         http.get(url("/Items/$itemId/Similar")) {
             auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", Fields.CARD)
-        }.read<QueryResult<BaseItemDto>>().items
+        }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
     suspend fun setFavorite(itemId: String, favorite: Boolean) {
+        local?.let { it.setFavorite(itemId, favorite); return }
         val path = url("/UserFavoriteItems/$itemId")
         val response = if (favorite) http.post(path) { auth(); parameter("userId", requireUser()) }
         else http.delete(path) { auth(); parameter("userId", requireUser()) }
@@ -372,6 +453,7 @@ class JellyfinApi(
     }
 
     suspend fun setPlayed(itemId: String, played: Boolean) {
+        local?.let { it.setPlayed(itemId, played); return }
         val path = url("/UserPlayedItems/$itemId")
         val response = if (played) http.post(path) { auth(); parameter("userId", requireUser()) }
         else http.delete(path) { auth(); parameter("userId", requireUser()) }
@@ -435,17 +517,27 @@ class JellyfinApi(
             buf.copyOf(n)
         }
 
-    suspend fun reportStart(report: PlaybackReport) = http.post(url("/Sessions/Playing")) {
-        auth(); contentType(ContentType.Application.Json); setBody(report)
-    }.ensureOk()
+    // A device profile's viewing is recorded on the device, never reported as the account's (that
+    // would move the account's resume points and watched marks). Only a keep-alive ping goes to the
+    // server, so a transcode it's serving isn't treated as abandoned.
+    suspend fun reportStart(report: PlaybackReport) {
+        local?.let { it.progress(report.itemId, report.positionTicks, stopped = false); return }
+        http.post(url("/Sessions/Playing")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
+    }
 
-    suspend fun reportProgress(report: PlaybackReport) = http.post(url("/Sessions/Playing/Progress")) {
-        auth(); contentType(ContentType.Application.Json); setBody(report)
-    }.ensureOk()
+    suspend fun reportProgress(report: PlaybackReport) {
+        local?.let { l ->
+            l.progress(report.itemId, report.positionTicks, stopped = false)
+            report.playSessionId?.let { ps -> runCatching { http.post(url("/Sessions/Playing/Ping")) { auth(); parameter("playSessionId", ps) } } }
+            return
+        }
+        http.post(url("/Sessions/Playing/Progress")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
+    }
 
-    suspend fun reportStopped(report: PlaybackReport) = http.post(url("/Sessions/Playing/Stopped")) {
-        auth(); contentType(ContentType.Application.Json); setBody(report)
-    }.ensureOk()
+    suspend fun reportStopped(report: PlaybackReport) {
+        local?.let { it.progress(report.itemId, report.positionTicks, stopped = true); return }
+        http.post(url("/Sessions/Playing/Stopped")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
+    }
 
     suspend fun stopTranscoding(playSessionId: String) {
         runCatching {
@@ -484,3 +576,10 @@ class JellyfinApi(
 
     val images = ImageUrls(baseUrl)
 }
+
+/** How many ids a device profile's lists may send in one request (keeps the URL well under server limits). */
+private const val MAX_LOCAL_IDS = 100
+/** Series considered for a device profile's Next Up. */
+private const val NEXT_UP_SERIES = 8
+/** Episodes fetched after the last finished one when looking for the next (skips specials/watched ones). */
+private const val NEXT_UP_LOOKAHEAD = 6

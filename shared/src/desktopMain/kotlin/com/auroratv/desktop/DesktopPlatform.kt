@@ -54,6 +54,7 @@ class DesktopPlatform : Platform {
     override val vault: SecureVault = DpapiVault(files)
     override val updater = DesktopUpdater { onExit() }
     override val typesOnFocus get() = true
+    override fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput = DesktopUiSounds()
 
     override suspend fun probeCapabilities(): DeviceCapabilities {
         val lib = LibMpv.load()

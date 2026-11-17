@@ -42,6 +42,8 @@ class AndroidPlatform(private val activity: Activity) : Platform {
         MediaHeaderCache.attach(activity)
     }
 
+    override fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput = AndroidUiSounds(activity)
+
     override fun requestStats(): String = com.auroratv.jellyfin.SharedOkHttp.let {
         "api=${it.apiRequests.get()} images=${it.imageRequests.get()} media=${it.mediaRequests.get()}"
     }

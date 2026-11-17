@@ -1,5 +1,11 @@
 package com.auroratv.ui.components
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import com.auroratv.ui.nav.focusRow
 
 import androidx.compose.animation.core.RepeatMode
@@ -153,30 +159,44 @@ fun ContentRail(
     subtitleFor: ((BaseItemDto) -> String?)? = null,
 ) {
     val colors = Aurora.colors
-    Column(modifier.fillMaxWidth()) {
+    // The whole row (heading included) scrolls into view when focus enters it, so the heading is
+    // never left above the screen while browsing upwards.
+    Column(modifier.fillMaxWidth().revealOnFocus()) {
         Text(title, style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
-        // Compose a viewport's worth of cards ahead (and half behind), so their artwork is already
-        // loading before the D-pad reaches them.
+        // Compose half a viewport of cards ahead (a quarter behind), so their artwork is already
+        // loading before the D-pad reaches them, without asking the server for a whole extra screen
+        // of posters per row that may never be looked at.
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-        val state = rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
-        LazyRow(
+        val state = rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 0.5f, behindFraction = 0.25f))
+        RowScroll { LazyRow(
             state = state,
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp),
             modifier = Modifier.focusRow().focusRestorer(),
         ) {
-            itemsIndexed(items, key = { _, it -> it.id }) { _, item ->
+            itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
+                // CI trace: where the first card sits once focus is back on it (must be the row's start, clear of the sidebar).
+                var firstX by remember { mutableStateOf(0f) }
+                val traceScope = androidx.compose.runtime.rememberCoroutineScope()
+                val startPx = with(androidx.compose.ui.platform.LocalDensity.current) { ScreenStart.toPx() }
                 MediaCard(
                     item = item,
                     images = images,
                     style = style,
                     onClick = { onItemClick(item) },
                     focusKey = "$railKey/${item.id}",
-                    onFocused = onItemFocused?.let { { it(item) } },
+                    modifier = if (index == 0 && UiTrace.on) Modifier.onGloballyPositioned { firstX = it.positionInRoot().x } else Modifier,
+                    onFocused = {
+                        onItemFocused?.invoke(item)
+                        if (index == 0 && UiTrace.on) traceScope.launch {
+                            kotlinx.coroutines.delay(700)
+                            com.auroratv.core.Log.i("AuroraLayout", "first card x=${firstX.toInt()} rowStart=${startPx.toInt()}")
+                        }
+                    },
                     subtitle = subtitleFor?.invoke(item),
                 )
             }
-        }
+        } }
     }
 }
 

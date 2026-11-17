@@ -371,7 +371,7 @@ class JellyfinIntegrationTest {
                 watch(b.api, "Seven Rivers"); watch(b.api, "Old Reel")
 
                 val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
-                val svc = com.auroratv.recommend.RecommendationService(com.auroratv.search.SearchService(scope), scope)
+                val svc = com.auroratv.recommend.RecommendationService(scope)
                 val planA = svc.plan(api, api.resumeItems())
                 val planB = svc.plan(b.api, b.api.resumeItems())
                 val namesA = planA.titles.map { it.name }; val namesB = planB.titles.map { it.name }

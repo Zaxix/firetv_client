@@ -11,6 +11,7 @@ import com.auroratv.jellyfin.ServerAddress
 import com.auroratv.jellyfin.model.PublicSystemInfo
 import com.auroratv.jellyfin.model.UserDto
 import com.auroratv.platform.FileStore
+import com.auroratv.profiles.LocalWatchStore
 import com.auroratv.platform.SecureVault
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
@@ -30,13 +31,28 @@ data class SavedUser(
     val nickname: String? = null,
     /** Avatar chosen on this device: a [ProfileAvatars] id, or null for the Jellyfin picture/initial. */
     val avatar: String? = null,
+    /** Extra profiles under this sign-in that exist only on this device (see [LocalProfile]). */
+    val localProfiles: List<LocalProfile> = emptyList(),
+    /** Which of [localProfiles] was used last (null: the account itself). */
+    val lastLocalProfileId: String? = null,
 )
+
+/**
+ * A Netflix-style profile added on this device under an existing Jellyfin sign-in, so nobody has to
+ * create another account on the server (which needs an administrator). It browses and plays with
+ * that sign-in, but has its own Continue Watching, Next Up, watched marks, favourites and
+ * recommendations, kept on this device (LocalWatchStore) and never written to the account.
+ */
+@Serializable
+data class LocalProfile(val id: String, val name: String, val avatar: String? = null)
 
 /** How long a preferred (earlier) address may still answer after a later one already did. */
 private const val PREFERRED_GRACE_MS = 400L
 /** Other addresses remembered per server. */
 private const val MAX_ADDRESSES = 5
 private const val POLL_MS = 20L
+/** Longest name for a device-only profile. */
+private const val MAX_NAME = 20
 
 @Serializable
 data class SavedServer(
@@ -66,17 +82,23 @@ private data class ServerStoreFile(
 )
 
 /**
- * A profile is a Jellyfin user signed in on this device. Watch history, Continue Watching and
- * favourites live with that user on the server; settings, remembered tracks, ratings and search
- * history live in this device's per-profile files (see ProfileFiles), keyed by [key].
+ * A profile is either a Jellyfin user signed in on this device (watch history, Continue Watching and
+ * favourites live with that user on the server), or a device-only [local] profile under that sign-in
+ * (its watch history lives on this device). Either way settings, remembered tracks, ratings and
+ * search history live in this device's per-profile files (see ProfileFiles), keyed by [key].
  */
-data class Profile(val server: SavedServer, val user: SavedUser) {
-    val key: String get() = "${server.id.take(12)}-${user.id}".filter { it.isLetterOrDigit() || it == '-' }
-    val displayName: String get() = user.nickname?.takeIf { it.isNotBlank() } ?: user.name
+data class Profile(val server: SavedServer, val user: SavedUser, val local: LocalProfile? = null) {
+    val key: String get() = ("${server.id.take(12)}-${user.id}" + (local?.let { "-p${it.id}" } ?: "")).filter { it.isLetterOrDigit() || it == '-' }
+    val displayName: String get() = local?.name ?: user.nickname?.takeIf { it.isNotBlank() } ?: user.name
+    val avatar: String? get() = if (local != null) local.avatar else user.avatar
+    val isLocal: Boolean get() = local != null
+    fun sameAs(other: Profile) = server.id == other.server.id && user.id == other.user.id && local?.id == other.local?.id
 }
 
-/** A signed-in user on a server, with an authenticated API client. */
-class UserSession(val server: SavedServer, val user: SavedUser, val api: JellyfinApi)
+/** A signed-in user on a server, with an authenticated API client; [local] when a device-only profile is using it. */
+class UserSession(val server: SavedServer, val user: SavedUser, val api: JellyfinApi, val local: LocalProfile? = null) {
+    val profile: Profile get() = Profile(server, user, local)
+}
 
 sealed interface SessionState {
     data object Starting : SessionState
@@ -113,8 +135,10 @@ class SessionManager(
 
     val activeSession: UserSession? get() = (state.value as? SessionState.Ready)?.session
 
-    /** Every profile on this device (signed-in users on saved servers), in the order they were added. */
-    val profiles: List<Profile> get() = store.servers.flatMap { s -> s.users.map { Profile(s, it) } }
+    /** Every profile on this device (signed-in users, each followed by its device-only profiles). */
+    val profiles: List<Profile> get() = store.servers.flatMap { s -> s.users.flatMap { u -> listOf(Profile(s, u)) + u.localProfiles.map { Profile(s, u, it) } } }
+    /** The device-only profile to open after the next sign-in (one whose account had to sign in again). */
+    private var pendingLocalId: String? = null
     val askProfileOnLaunch: Boolean get() = store.askProfileOnLaunch
     fun hasToken(profile: Profile) = hasToken(profile.server, profile.user)
 
@@ -124,7 +148,7 @@ class SessionManager(
     var onProfileRemoved: (Profile) -> Unit = {}
 
     private fun activate(session: UserSession) {
-        runCatching { onActivate(Profile(session.server, session.user)) }.onFailure { Log.e(tag, "Profile data failed to load", it) }
+        runCatching { onActivate(session.profile) }.onFailure { Log.e(tag, "Profile data failed to load", it) }
         _state.value = SessionState.Ready(session)
     }
 
@@ -150,15 +174,26 @@ class SessionManager(
     /** Opens [profile]: straight in with its saved sign-in, or to its server's sign-in screen. */
     suspend fun selectProfile(profile: Profile) {
         val current = activeSession ?: (state.value as? SessionState.ChoosingProfile)?.returnTo
-        if (current != null && current.server.id == profile.server.id && current.user.id == profile.user.id) {
+        if (current != null && current.profile.sameAs(profile)) {
             activate(current); return
         }
-        if (hasToken(profile)) switchTo(profile.server, profile.user)
-        else _state.value = SessionState.NeedsLogin(profile.server, "Sign in again to use this profile.", profile.user.name, canCancel = true)
+        if (hasToken(profile)) {
+            // Same sign-in, other profile: no server round trip needed, just a fresh client.
+            if (current != null && current.server.id == profile.server.id && current.user.id == profile.user.id) {
+                rememberLast(profile)
+                activate(sessionFor(serverById(profile.server.id) ?: current.server, userOf(profile), vault.get(tokenKey(profile.server.id, profile.user.id)) ?: current.api.accessToken.orEmpty(), profile.local, current.api.baseUrl))
+                return
+            }
+            switchTo(profile.server, profile.user, profile.local)
+        } else {
+            pendingLocalId = profile.local?.id
+            _state.value = SessionState.NeedsLogin(profile.server, "Sign in again to use this profile.", profile.user.name, canCancel = true)
+        }
     }
 
     /** "Add profile": sign in another user on the current (or first) server. */
     fun addProfile(server: SavedServer? = null) {
+        pendingLocalId = null
         val target = server ?: (state.value as? SessionState.ChoosingProfile)?.returnTo?.server ?: activeSession?.server ?: store.servers.firstOrNull()
         _state.value = if (target == null) SessionState.NeedsServer else SessionState.NeedsLogin(target, null, "", canCancel = true)
     }
@@ -166,13 +201,34 @@ class SessionManager(
     /** Back from a sign-in opened by "Add profile" / a signed-out profile. */
     fun cancelLogin() { _state.value = SessionState.ChoosingProfile(null) }
 
+    /**
+     * "Add profile" without another server account: a device-only profile under the sign-in in use
+     * (or the first signed-in one). Null when nobody is signed in on this device yet.
+     */
+    fun addLocalProfile(name: String, avatar: String?): Profile? {
+        val base = (state.value as? SessionState.ChoosingProfile)?.returnTo ?: activeSession
+        val (server, user) = base?.let { b -> serverById(b.server.id)?.let { s -> s.users.firstOrNull { it.id == b.user.id }?.let { s to it } } }
+            ?: store.servers.firstNotNullOfOrNull { s -> s.users.firstOrNull { hasToken(s, it) }?.let { s to it } }
+            ?: return null
+        val local = LocalProfile(id = randomHexId().take(10), name = name.trim().ifEmpty { "Profile" }.take(MAX_NAME), avatar = avatar)
+        val updated = user.copy(localProfiles = user.localProfiles + local)
+        replaceUser(server.id, updated)
+        Log.i(tag, "Added a device-only profile")
+        return Profile(serverById(server.id) ?: server, updated, local)
+    }
+
     fun updateProfile(profile: Profile, nickname: String?, avatar: String?) {
-        val user = profile.user.copy(nickname = nickname?.trim()?.takeIf { it.isNotEmpty() && it != profile.user.name }, avatar = avatar)
+        val current = serverById(profile.server.id)?.users?.firstOrNull { it.id == profile.user.id } ?: profile.user
+        val user = if (profile.local != null) {
+            val name = nickname?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_NAME) ?: profile.local.name
+            current.copy(localProfiles = current.localProfiles.map { if (it.id == profile.local.id) it.copy(name = name, avatar = avatar) else it })
+        } else current.copy(nickname = nickname?.trim()?.takeIf { it.isNotEmpty() && it != current.name }, avatar = avatar)
         replaceUser(profile.server.id, user)
         // Keep an open session (and the picker's way back) pointing at the updated profile.
-        (state.value as? SessionState.ChoosingProfile)?.returnTo?.let { r ->
-            if (r.user.id == user.id && r.server.id == profile.server.id) _state.value = SessionState.ChoosingProfile(UserSession(serverById(r.server.id) ?: r.server, user, r.api))
-        }
+        fun refreshed(r: UserSession) = UserSession(serverById(r.server.id) ?: r.server, user, r.api, r.local?.let { l -> user.localProfiles.firstOrNull { it.id == l.id } ?: l })
+        val st = state.value
+        if (st is SessionState.ChoosingProfile) st.returnTo?.takeIf { it.user.id == user.id && it.server.id == profile.server.id }?.let { _state.value = SessionState.ChoosingProfile(refreshed(it)) }
+        if (st is SessionState.Ready && st.session.user.id == user.id && st.session.server.id == profile.server.id) _state.value = SessionState.Ready(refreshed(st.session))
     }
 
     fun setAskProfileOnLaunch(ask: Boolean) { store = store.copy(askProfileOnLaunch = ask); save() }
@@ -182,6 +238,7 @@ class SessionManager(
      * The Jellyfin user and their watch history on the server are untouched.
      */
     suspend fun removeProfile(profile: Profile) {
+        if (profile.local != null) return removeLocalProfile(profile)
         val token = vault.get(tokenKey(profile.server.id, profile.user.id))
         if (token != null) runCatching { JellyfinApi(http, profile.server.url, identity, token, profile.user.id).logout() }
         vault.remove(tokenKey(profile.server.id, profile.user.id))
@@ -190,6 +247,8 @@ class SessionManager(
         store = store.copy(servers = store.servers.map { if (it.id == server.id) updated else it })
         save()
         runCatching { onProfileRemoved(profile) }
+        // Device-only profiles under that sign-in go with it (they can't be used without it).
+        (server.users.firstOrNull { it.id == profile.user.id }?.localProfiles.orEmpty()).forEach { l -> runCatching { onProfileRemoved(Profile(server, profile.user, l)) } }
         val state = state.value
         val returnTo = (state as? SessionState.ChoosingProfile)?.returnTo
         when {
@@ -200,7 +259,38 @@ class SessionManager(
         }
     }
 
+    /** Removes a device-only profile and its history from this device; the account is untouched. */
+    private fun removeLocalProfile(profile: Profile) {
+        val local = profile.local ?: return
+        val server = serverById(profile.server.id) ?: return
+        val user = server.users.firstOrNull { it.id == profile.user.id } ?: return
+        replaceUser(server.id, user.copy(localProfiles = user.localProfiles.filterNot { it.id == local.id },
+            lastLocalProfileId = user.lastLocalProfileId.takeIf { it != local.id }))
+        runCatching { onProfileRemoved(profile) }
+        val st = state.value
+        val returnTo = (st as? SessionState.ChoosingProfile)?.returnTo
+        if (returnTo?.local?.id == local.id || (st is SessionState.Ready && st.session.local?.id == local.id)) _state.value = SessionState.ChoosingProfile(null)
+    }
+
     private fun serverById(id: String) = store.servers.firstOrNull { it.id == id }
+
+    private fun userOf(profile: Profile) = serverById(profile.server.id)?.users?.firstOrNull { it.id == profile.user.id } ?: profile.user
+
+    /** Remembers [profile] as the one to open next time. */
+    private fun rememberLast(profile: Profile) {
+        val user = userOf(profile).copy(lastLocalProfileId = profile.local?.id)
+        store = store.copy(lastServerId = profile.server.id, servers = store.servers.map { s ->
+            if (s.id == profile.server.id) s.copy(lastUserId = user.id, users = s.users.map { if (it.id == user.id) user else it }) else s
+        })
+        save()
+    }
+
+    /** A session for [user] on [server], as [local] when given (its own watch history on this device). */
+    private fun sessionFor(server: SavedServer, user: SavedUser, token: String, local: LocalProfile?, url: String = server.url): UserSession {
+        val api = JellyfinApi(http, url, identity, token, user.id)
+        if (local != null) api.local = LocalWatchStore(files, Profile(server, user, local).key)
+        return UserSession(server, user, api, local)
+    }
 
     private fun replaceUser(serverId: String, user: SavedUser) {
         store = store.copy(servers = store.servers.map { s -> if (s.id == serverId) s.copy(users = s.users.map { if (it.id == user.id) user else it }) else s })
@@ -230,11 +320,12 @@ class SessionManager(
         val user = server.users.firstOrNull { it.id == server.lastUserId }
         val token = user?.let { vault.get(tokenKey(server.id, it.id)) }
         if (user == null || token == null) { _state.value = SessionState.NeedsLogin(server); return }
+        val local = user.localProfiles.firstOrNull { it.id == user.lastLocalProfileId }
 
-        val api = JellyfinApi(http, server.url, identity, token, user.id)
         // Open the app straight away with the saved session (Home starts loading at once) and check
         // the token alongside, instead of waiting a round trip before showing anything.
-        val session = UserSession(server, user, api)
+        val session = sessionFor(server, user, token, local)
+        val api = session.api
         activate(session)
         try {
             api.currentUser()
@@ -256,7 +347,7 @@ class SessionManager(
                         val moved = server.copy(url = other, addresses = (server.allUrls - other).take(MAX_ADDRESSES))
                         store = store.copy(servers = store.servers.map { if (it.id == server.id) moved else it })
                         save()
-                        activate(UserSession(moved, user, JellyfinApi(http, other, identity, token, user.id)))
+                        activate(sessionFor(moved, user, token, local, other))
                     }
                 }
             }
@@ -352,23 +443,27 @@ class SessionManager(
         val api = apiFor(resolvedUrl)
         val result = api.authenticate(username.trim(), password)
         val previous = server.users.firstOrNull { it.id == result.user.id }
-        val user = SavedUser(result.user.id, result.user.name, result.user.primaryImageTag, previous?.nickname, previous?.avatar)
+        val locals = previous?.localProfiles.orEmpty()
+        val local = locals.firstOrNull { it.id == pendingLocalId }
+        pendingLocalId = null
+        val user = SavedUser(result.user.id, result.user.name, result.user.primaryImageTag, previous?.nickname, previous?.avatar, locals, local?.id)
         vault.put(tokenKey(server.id, user.id), result.accessToken)
         val updated = server.copy(url = resolvedUrl, addresses = (server.allUrls - resolvedUrl).take(MAX_ADDRESSES),
             users = server.users.filterNot { it.id == user.id } + user, lastUserId = user.id)
         store = store.copy(servers = store.servers.map { if (it.id == server.id) updated else it }, lastServerId = server.id)
         save()
-        val session = UserSession(updated, user, api)
+        val session = sessionFor(updated, user, result.accessToken, local, resolvedUrl)
         activate(session)
         return session
     }
 
     /** Switches to a saved user, using their stored token if still valid. */
-    suspend fun switchTo(server: SavedServer, user: SavedUser? = null) {
+    suspend fun switchTo(server: SavedServer, user: SavedUser? = null, local: LocalProfile? = null) {
         store = store.copy(lastServerId = server.id)
         val target = user ?: server.users.firstOrNull { it.id == server.lastUserId }
         if (target != null) {
-            val updated = server.copy(lastUserId = target.id)
+            val updated = server.copy(lastUserId = target.id,
+                users = server.users.map { if (it.id == target.id) it.copy(lastLocalProfileId = local?.id) else it })
             store = store.copy(servers = store.servers.map { if (it.id == server.id) updated else it })
         }
         save()

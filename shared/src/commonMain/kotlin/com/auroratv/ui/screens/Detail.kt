@@ -57,6 +57,8 @@ import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.ui.LocalContainer
 import com.auroratv.ui.LocalSession
 import com.auroratv.ui.components.ArtworkImage
+import com.auroratv.ui.components.RowScroll
+import com.auroratv.ui.components.revealOnFocus
 import com.auroratv.ui.components.artworkPx
 import com.auroratv.ui.components.screenArtworkPx
 import com.auroratv.ui.components.AuroraButton
@@ -206,14 +208,20 @@ fun DetailScreen(route: Route.Detail) {
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "header") {
-                // Returning to the buttons from any row below scrolls the page all the way back up, so
-                // the title, logo and description are fully on screen again (focus alone only brings
-                // the buttons themselves into view).
+                // Returning to the buttons from any row below must bring back the whole hero (logo,
+                // title, description, artwork), not just the buttons. It used to start a scroll to the
+                // top at the same moment as focus's own "just show the button" scroll; whichever began
+                // last won, usually the small one (going up to the profile button and back worked only
+                // because the button was then already on screen). Now the whole hero is requested
+                // alongside the button (one combined scroll), and if anything still left the page short
+                // of the top, it settles there once focus's scroll is done.
                 Box(
-                    Modifier.fillMaxWidth().height(headerHeight).onFocusChanged { f ->
-                        val list = model.listState
-                        if (f.hasFocus && (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0)) {
-                            scope.launch { list.animateScrollToItem(0) }
+                    Modifier.fillMaxWidth().height(headerHeight).revealOnFocus().onFocusChanged { f ->
+                        if (f.hasFocus) scope.launch {
+                            kotlinx.coroutines.delay(HERO_SETTLE_MS)
+                            val list = model.listState
+                            if (list.firstVisibleItemIndex != 0 || list.firstVisibleItemScrollOffset != 0) list.animateScrollToItem(0)
+                            if (com.auroratv.ui.components.UiTrace.on) com.auroratv.core.Log.i("AuroraLayout", "detail hero at item=${list.firstVisibleItemIndex} offset=${list.firstVisibleItemScrollOffset}")
                         }
                     },
                     contentAlignment = Alignment.BottomStart,
@@ -362,11 +370,11 @@ private fun DetailHeader(
 
 @Composable
 private fun SeasonPicker(seasons: List<BaseItemDto>, selected: String?, onSelect: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusRow()) {
+    RowScroll { LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusRow().revealOnFocus()) {
         items(seasons, key = { it.id }) { season ->
             AuroraChip(season.name ?: "Season ${season.indexNumber}", season.id == selected, onClick = { onSelect(season.id) }, focusKey = "season/${season.id}")
         }
-    }
+    } }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -378,29 +386,47 @@ private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Un
         Text("No episodes in this season yet.", style = AuroraType.body, color = colors.onSurfaceMuted, modifier = Modifier.padding(start = ScreenStart, end = ScreenPadding))
         return
     }
-    LazyRow(
-        contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(22.dp),
-        modifier = Modifier.focusRow().focusRestorer(),
-    ) {
-        items(episodes, key = { it.id }) { ep ->
-            Column(Modifier.width(CardStyle.Landscape.width)) {
-                MediaCard(ep, api.images, CardStyle.Landscape, onClick = { onClick(ep) }, focusKey = "ep/${ep.id}", showTitle = false)
-                Spacer(Modifier.height(10.dp))
-                Text(listOfNotNull(ep.episodeLabel?.substringAfter(':'), ep.name).joinToString(" · "), style = AuroraType.label, color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(ep.overview ?: formatRuntime(ep.runtimeMs) ?: "", style = AuroraType.caption, color = colors.onSurfaceFaint, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    // The focused episode's description is shown in full-width text under the row (like the TV apps),
+    // instead of squeezed into two faint lines under each thumbnail where it was cut off or below the
+    // screen. Cards keep their size; the whole block (row + description) scrolls into view on focus.
+    var focused by remember(episodes) { mutableStateOf(episodes.first()) }
+    Column(Modifier.fillMaxWidth().revealOnFocus()) {
+        RowScroll { LazyRow(
+            contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            modifier = Modifier.focusRow().focusRestorer(),
+        ) {
+            items(episodes, key = { it.id }) { ep ->
+                Column(Modifier.width(CardStyle.Landscape.width)) {
+                    MediaCard(ep, api.images, CardStyle.Landscape, onClick = { onClick(ep) }, focusKey = "ep/${ep.id}", showTitle = false, onFocused = { focused = ep })
+                    Spacer(Modifier.height(10.dp))
+                    Text(listOfNotNull(ep.episodeLabel?.substringAfter(':'), ep.name).joinToString(" · "), style = AuroraType.label,
+                        color = if (focused.id == ep.id) colors.onBackground else colors.onSurfaceMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    formatRuntime(ep.runtimeMs)?.let { Text(it, style = AuroraType.caption, color = colors.onSurfaceFaint, maxLines = 1) }
+                }
             }
+        } }
+        // Fixed height (four lines), so moving between episodes never makes the page jump; the rest
+        // of a long description is on the episode's own page (Select).
+        Column(Modifier.padding(start = ScreenStart, end = ScreenPadding, top = 6.dp).widthIn(max = 1000.dp).height(EPISODE_TEXT_HEIGHT)) {
+            Text(listOfNotNull(focused.episodeLabel, focused.name).joinToString(" · "), style = AuroraType.bodyStrong, color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            Text(focused.overview?.takeIf { it.isNotBlank() } ?: "No description for this episode yet.", style = AuroraType.body,
+                color = colors.onSurfaceMuted, maxLines = 4, overflow = TextOverflow.Ellipsis)
         }
     }
 }
+
+private val EPISODE_TEXT_HEIGHT = 150.dp
+private const val HERO_SETTLE_MS = 450L
 
 @Composable
 private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: com.auroratv.jellyfin.ImageUrls) {
     val colors = Aurora.colors
     val personPx = artworkPx(104.dp)
-    Column {
+    Column(Modifier.revealOnFocus()) {
         Text("Cast", style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
-        LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.focusRow()) {
+        RowScroll { LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.focusRow()) {
             items(cast, key = { (it.id ?: it.name) + it.role }) { person ->
                 Column(Modifier.width(120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     FocusSurface(onClick = {}, shape = CircleShape, modifier = Modifier.size(104.dp)) {
@@ -416,7 +442,7 @@ private fun CastRow(cast: List<com.auroratv.jellyfin.model.PersonDto>, images: c
                     person.role?.let { Text(it, style = AuroraType.caption, color = colors.onSurfaceFaint, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
-        }
+        } }
     }
 }
 

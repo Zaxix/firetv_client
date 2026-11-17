@@ -60,6 +60,9 @@ interface Platform {
      */
     fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) {}
 
+    /** Low-latency player for the bundled UI sounds, or null where there's none. */
+    fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput? = null
+
     /** "api=N images=N media=N": requests made to the server since launch, or null where not counted. */
     fun requestStats(): String? = null
 

@@ -88,13 +88,13 @@ private const val SERVER_PICTURE = "server"
 /** A profile's picture: their chosen gradient, else their Jellyfin picture, else a gradient with their initial. */
 @Composable
 fun ProfileAvatar(container: AppContainer, profile: Profile, size: Dp, modifier: Modifier = Modifier) {
-    val chosen = ProfileAvatars.byId(profile.user.avatar)
-    val serverPicture = if (chosen == null && profile.user.imageTag != null) {
+    val chosen = ProfileAvatars.byId(profile.avatar)
+    val serverPicture = if (chosen == null && !profile.isLocal && profile.user.imageTag != null) {
         remember(profile.server.url, profile.user.id, profile.user.imageTag) {
             container.sessions.apiFor(profile.server.url).images.userAvatar(profile.user.id, profile.user.imageTag, 256)
         }
     } else null
-    val look = chosen ?: ProfileAvatars.defaultFor(profile.user.id)
+    val look = chosen ?: ProfileAvatars.defaultFor(profile.local?.id ?: profile.user.id)
     Box(
         modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(look.from, look.to))),
         contentAlignment = Alignment.Center,
@@ -113,9 +113,10 @@ fun ProfilesScreen(container: AppContainer, state: SessionState.ChoosingProfile)
     val colors = Aurora.colors
     val scope = rememberCoroutineScope()
     val servers by container.sessions.servers.collectAsState()
-    val profiles = remember(servers) { servers.flatMap { s -> s.users.map { Profile(s, it) } } }
+    val profiles = remember(servers) { container.sessions.profiles }
     var managing by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Profile?>(null) }
+    var creating by remember { mutableStateOf(false) }
     var askOnLaunch by remember { mutableStateOf(container.sessions.askProfileOnLaunch) }
     val firstFocus = remember { FocusRequester() }
     val current = state.returnTo
@@ -127,6 +128,7 @@ fun ProfilesScreen(container: AppContainer, state: SessionState.ChoosingProfile)
             if (ev.type != KeyEventType.KeyUp || (ev.key != Key.Back && ev.key != Key.Escape)) return@onKeyEvent false
             when {
                 editing != null -> editing = null
+                creating -> creating = false
                 managing -> managing = false
                 !container.sessions.cancelChoosing() -> container.platform.exitApp()
             }
@@ -142,13 +144,13 @@ fun ProfilesScreen(container: AppContainer, state: SessionState.ChoosingProfile)
             Spacer(Modifier.height(8.dp))
             Text(
                 if (managing) "Choose a profile to rename it, change its picture or remove it from this device."
-                else "Each profile keeps its own watch history, settings and subtitles.",
+                else "Each profile keeps its own Continue Watching, watch history, settings and subtitles.",
                 style = AuroraType.body, color = Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(40.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.focusRestorer(firstFocus)) {
                 items(profiles, key = { it.key }) { p ->
-                    val isFirst = current?.let { it.user.id == p.user.id && it.server.id == p.server.id } ?: (p == profiles.first())
+                    val isFirst = current?.profile?.sameAs(p) ?: (p == profiles.first())
                     ProfileTile(
                         container, p, managing,
                         subtitle = if (profiles.map { it.server.id }.distinct().size > 1) p.server.name else null,
@@ -157,7 +159,13 @@ fun ProfilesScreen(container: AppContainer, state: SessionState.ChoosingProfile)
                         if (managing) editing = p else scope.launch { container.sessions.selectProfile(p) }
                     }
                 }
-                if (!managing) item(key = "add") { AddProfileTile { container.sessions.addProfile() } }
+                if (!managing) item(key = "add") {
+                    AddProfileTile {
+                        // A new profile is just a name and a picture on this device; signing in another
+                        // Jellyfin account is only needed when nobody is signed in yet.
+                        if (profiles.any { container.sessions.hasToken(it) }) creating = true else container.sessions.addProfile()
+                    }
+                }
             }
             Spacer(Modifier.height(40.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -169,11 +177,18 @@ fun ProfilesScreen(container: AppContainer, state: SessionState.ChoosingProfile)
             }
         }
         editing?.let { p ->
-            ProfileEditor(container, p, onDone = { editing = null; runCatching { firstFocus.requestFocus() } }) {
+            ProfileEditor(container, p, onDone = { editing = null; runCatching { firstFocus.requestFocus() } }, onRemove = {
                 editing = null
                 scope.launch { container.sessions.removeProfile(p) }
-            }
+            })
         }
+        if (creating) ProfileEditor(
+            container, null,
+            onDone = { creating = false; runCatching { firstFocus.requestFocus() } },
+            onRemove = {},
+            onCreate = { name, avatar -> container.sessions.addLocalProfile(name, avatar); creating = false },
+            onUseAccount = { creating = false; container.sessions.addProfile() },
+        )
     }
 }
 
@@ -215,11 +230,30 @@ private fun AddProfileTile(onClick: () -> Unit) {
 /**
  * Rename a profile (on this device), pick its picture, or remove it from this device (asks first).
  * The Jellyfin account itself, and its watch history on the server, are never changed here.
+ * With no [profile] it creates a device-only profile ([onCreate]); [onUseAccount] signs in another
+ * Jellyfin account instead.
  */
 @Composable
-private fun ProfileEditor(container: AppContainer, profile: Profile, onDone: () -> Unit, onRemove: () -> Unit) {
-    var name by remember { mutableStateOf(profile.displayName) }
-    var avatar by remember { mutableStateOf(profile.user.avatar ?: if (profile.user.imageTag != null) SERVER_PICTURE else ProfileAvatars.defaultFor(profile.user.id).id) }
+private fun ProfileEditor(
+    container: AppContainer,
+    profile: Profile?,
+    onDone: () -> Unit,
+    onRemove: () -> Unit,
+    onCreate: (name: String, avatar: String) -> Unit = { _, _ -> },
+    onUseAccount: () -> Unit = {},
+) {
+    var name by remember { mutableStateOf(profile?.displayName.orEmpty()) }
+    val defaultLook = remember { ProfileAvatars.all[(container.sessions.profiles.size + 1) % ProfileAvatars.all.size].id }
+    var avatar by remember {
+        mutableStateOf(
+            when {
+                profile == null -> defaultLook
+                profile.avatar != null -> profile.avatar!!
+                !profile.isLocal && profile.user.imageTag != null -> SERVER_PICTURE
+                else -> ProfileAvatars.defaultFor(profile.local?.id ?: profile.user.id).id
+            }
+        )
+    }
     var confirmRemove by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(confirmRemove) { repeat(10) { if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect; kotlinx.coroutines.delay(40) } }
@@ -231,12 +265,19 @@ private fun ProfileEditor(container: AppContainer, profile: Profile, onDone: () 
                 .border(1.dp, Glass.edge, RoundedCornerShape(26.dp))
                 .padding(36.dp),
         ) {
-            if (confirmRemove) {
+            if (confirmRemove && profile != null) {
                 Text("Remove ${profile.displayName}?", style = AuroraType.title, color = Aurora.colors.onBackground)
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "This signs ${profile.displayName} out on this device and deletes their settings, remembered subtitles and search history here. " +
-                        "Their Jellyfin account, watch history and favourites on ${profile.server.name} stay as they are.",
+                    if (profile.isLocal) {
+                        "This deletes ${profile.displayName}'s Continue Watching, watch history, favourites, settings and search history from this device. " +
+                            "Nothing on ${profile.server.name} changes."
+                    } else {
+                        val extra = profile.user.localProfiles.size
+                        "This signs ${profile.displayName} out on this device and deletes their settings, remembered subtitles and search history here" +
+                            (if (extra > 0) ", along with the $extra profile${if (extra == 1) "" else "s"} added under this sign-in" else "") + ". " +
+                            "Their Jellyfin account, watch history and favourites on ${profile.server.name} stay as they are."
+                    },
                     style = AuroraType.body, color = Aurora.colors.onSurfaceMuted,
                 )
                 Spacer(Modifier.height(26.dp))
@@ -245,14 +286,21 @@ private fun ProfileEditor(container: AppContainer, profile: Profile, onDone: () 
                     AuroraButton("Remove profile", onRemove)
                 }
             } else {
-            Text("Edit profile", style = AuroraType.title, color = Aurora.colors.onBackground)
+            Text(if (profile == null) "Add profile" else "Edit profile", style = AuroraType.title, color = Aurora.colors.onBackground)
+            if (profile == null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "A profile on this TV with its own Continue Watching, watch history and favourites. No new server account needed.",
+                    style = AuroraType.body, color = Aurora.colors.onSurfaceMuted,
+                )
+            }
             Spacer(Modifier.height(20.dp))
-            AuroraTextField(value = name, onValueChange = { name = it.take(24) }, label = "Name on this device", imeAction = androidx.compose.ui.text.input.ImeAction.Done, modifier = Modifier.fillMaxWidth().focusRequester(firstFocus))
+            AuroraTextField(value = name, onValueChange = { name = it.take(20) }, label = if (profile == null) "Name" else "Name on this device", imeAction = androidx.compose.ui.text.input.ImeAction.Done, modifier = Modifier.fillMaxWidth().focusRequester(firstFocus))
             Spacer(Modifier.height(22.dp))
             Text("Picture", style = AuroraType.label, color = Aurora.colors.onSurfaceMuted)
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (profile.user.imageTag != null) item(key = SERVER_PICTURE) {
+                if (profile != null && !profile.isLocal && profile.user.imageTag != null) item(key = SERVER_PICTURE) {
                     AvatarChoice(selected = avatar == SERVER_PICTURE, onClick = { avatar = SERVER_PICTURE }) {
                         ProfileAvatar(container, profile.copy(user = profile.user.copy(avatar = null)), 64.dp)
                     }
@@ -267,12 +315,18 @@ private fun ProfileEditor(container: AppContainer, profile: Profile, onDone: () 
             }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                AuroraButton("Save", {
-                    container.sessions.updateProfile(profile, name, avatar.takeIf { it != SERVER_PICTURE })
-                    onDone()
-                }, primary = true)
-                AuroraButton("Cancel", onDone)
-                AuroraButton("Remove profile", { confirmRemove = true })
+                if (profile == null) {
+                    AuroraButton("Create profile", { if (name.isNotBlank()) onCreate(name.trim(), avatar) }, primary = true, focusKey = "profiles/create")
+                    AuroraButton("Cancel", onDone)
+                    AuroraButton("Sign in another account", onUseAccount)
+                } else {
+                    AuroraButton("Save", {
+                        container.sessions.updateProfile(profile, name, avatar.takeIf { it != SERVER_PICTURE })
+                        onDone()
+                    }, primary = true)
+                    AuroraButton("Cancel", onDone)
+                    AuroraButton("Remove profile", { confirmRemove = true })
+                }
             }
             }
         }

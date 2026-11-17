@@ -173,6 +173,12 @@ private fun AppearancePage(container: AppContainer) {
             }
         }
         item { SettingRow("Animations", s.animations.name, "Reduce motion on slower devices") { set { it.copy(animations = AnimationLevel.entries.after(it.animations)) } } }
+        item { SettingRow("Navigation sounds", onOff(s.navigationSounds), "A soft tick when moving around and a chime when choosing something (never during videos)") { set { it.copy(navigationSounds = !it.navigationSounds) } } }
+        if (s.navigationSounds) item {
+            SettingRow("Sound volume", "${s.uiSoundVolume}%", "How loud the navigation sounds are, compared with the TV's volume") {
+                set { it.copy(uiSoundVolume = UI_SOUND_STEPS.firstOrNull { v -> v > it.uiSoundVolume } ?: UI_SOUND_STEPS.first()) }
+            }
+        }
         item { SettingRow("Backdrop artwork", onOff(s.showBackdrops), "Large background art on Home and detail pages") { set { it.copy(showBackdrops = !it.showBackdrops) } } }
         item { SettingRow("Background behind rows", if (s.frostedBackground) "Frosted colours" else "Artwork", "On Home: frosted glass in the colours of the poster you're on, or that title's backdrop") { set { it.copy(frostedBackground = !it.frostedBackground) } } }
         item { SettingRow("Featured carousel", onOff(s.showHeroCarousel), "Rotating featured titles at the top of Home") { set { it.copy(showHeroCarousel = !it.showHeroCarousel) } } }
@@ -275,7 +281,7 @@ private fun ServerPage(container: AppContainer) {
     var confirmRemove by remember { mutableStateOf<String?>(null) }
     SettingsList {
         item { Header("Current") }
-        item { SettingRow(session.server.name, session.user.name, session.server.url) {} }
+        item { SettingRow(session.server.name, session.user.name + (session.local?.let { " · profile ${it.name}" } ?: ""), session.server.url) {} }
         item {
             SettingRow("Connection diagnostics", null, "Checks reachability, latency and server version") {
                 diagnostics = listOf("Running…")
@@ -466,3 +472,5 @@ private fun Line(k: String, v: String) {
 
 @Suppress("unused")
 private val spacer = Modifier.height(1.dp)
+
+private val UI_SOUND_STEPS = listOf(25, 50, 75, 100)

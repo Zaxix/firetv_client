@@ -221,10 +221,11 @@ private fun SearchChips(title: String?, chips: List<String>, trailing: Pair<Stri
             Text(title, style = AuroraType.label, color = colors.onSurfaceMuted)
             Spacer(Modifier.height(10.dp))
         }
-        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRow()) {
+        // The row already starts at the screen margin (padded column), so it only keeps a little room for focus.
+        com.auroratv.ui.components.RowScroll(start = 12.dp, end = 12.dp) { androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRow()) {
             items(chips, key = { it }) { chip -> SearchChip(chip) { onPick(chip) } }
             trailing?.let { (label, action) -> item(key = "trailing") { SearchChip(label, subtle = true, onClick = action) } }
-        }
+        } }
     }
 }
 

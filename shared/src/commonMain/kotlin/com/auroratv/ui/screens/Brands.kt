@@ -101,19 +101,20 @@ fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
     val container = LocalContainer.current
     val api = LocalSession.current.api
     var focusedBrand by remember { mutableStateOf<ResolvedBrand?>(null) }
-    // Resting on a tile starts loading its hub, so opening it is usually instant.
+    // Resting on a tile (a deliberate pause, not passing over it) starts loading its hub, so opening
+    // it is usually instant without sending the server four queries per tile scrolled past.
     LaunchedEffect(focusedBrand) {
         val b = focusedBrand ?: return@LaunchedEffect
-        kotlinx.coroutines.delay(350)
+        kotlinx.coroutines.delay(1_000)
         container.brands.prefetch(api, b)
     }
-    LazyRow(
+    com.auroratv.ui.components.RowScroll { LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.focusRow().focusRestorer(),
     ) {
         items(brands, key = { it.brand.id }) { b -> BrandTile(b, onFocused = { focusedBrand = b }) { onOpen(b) } }
-    }
+    } }
 }
 
 @Composable

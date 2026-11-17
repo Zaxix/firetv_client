@@ -352,7 +352,8 @@ jobs:
     name: Publish downloads + CI results
     runs-on: ubuntu-latest
     needs: [android, e2e, windows, android-e2e]
-    if: ${{ !cancelled() && needs.android.result == 'success' }}
+    # Only the main branch publishes; other branches are just checked.
+    if: ${{ !cancelled() && needs.android.result == 'success' && github.ref == 'refs/heads/aurora-tv' }}
     permissions:
       contents: write
     steps:

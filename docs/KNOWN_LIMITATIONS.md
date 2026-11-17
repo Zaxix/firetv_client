@@ -102,3 +102,11 @@ can only be confirmed on that device; CI can't test them.
   with a fake platform; the real Android install screen and the Windows MSI upgrade have not been
   exercised by CI, which can't confirm an install.
 * **Remembered tracks** are stored on each device, not synced between devices.
+
+## Profiles
+
+* **Device-only profiles** (added with "Add profile" without signing in another account) keep their
+  watch history, Continue Watching, Next Up and favourites on this device only; they don't appear on
+  other devices or in other Jellyfin apps, and the server's dashboard shows their playback under the
+  account they were added to. Thumbs up/down and personal star ratings stay the account's. Removing
+  the account from the device also removes the profiles added under it.

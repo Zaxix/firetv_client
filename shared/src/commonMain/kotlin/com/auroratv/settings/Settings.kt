@@ -58,6 +58,10 @@ data class Settings(
     val onlineSkipTimes: Boolean = true,
     /** Find intros/credits of any show by matching its sound with another episode (no plugin, stays on the server). */
     val audioSkipDetection: Boolean = true,
+    /** Soft sounds when moving focus and selecting (never during playback). */
+    val navigationSounds: Boolean = true,
+    /** Their volume, percent of the system volume. */
+    val uiSoundVolume: Int = 50,
     // Subtitles
     val subtitleMode: SubtitleMode = SubtitleMode.Default,
     val preferredSubtitleLanguage: String = "",

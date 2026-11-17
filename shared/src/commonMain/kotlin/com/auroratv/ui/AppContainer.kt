@@ -45,13 +45,15 @@ class AppContainer(val platform: Platform) {
     /** The on-device title index behind search (per signed-in user, refreshed every 30 minutes). */
     val search = com.auroratv.search.SearchService(appScope)
     /** Home's "Because You Watched" / "Recommended For You" rows, per profile (see RecommendationService). */
-    val recommendations = com.auroratv.recommend.RecommendationService(search, appScope)
+    val recommendations = com.auroratv.recommend.RecommendationService(appScope, platform.files)
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
     val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope, trackMemory) { p ->
-        // A font-heavy MKV (anime release): fetch its start too, so Play/Resume doesn't wait for it.
-        com.auroratv.playback.MediaHeader.cacheKey(p.plan)?.let { key -> platform.prefetchMediaHeader(p.plan.url, p.plan.headers, key) }
+        // A font-heavy MKV (anime release) the viewer is part-way through: fetch its start too, so
+        // Resume doesn't wait for it. Only for resumes (likely to be played), never for titles just
+        // passing through the banner, to keep the server's disk and network quiet.
+        if (p.startMs > 0) com.auroratv.playback.MediaHeader.cacheKey(p.plan)?.let { key -> platform.prefetchMediaHeader(p.plan.url, p.plan.headers, key) }
     }
     /** In-app updates from the latest-build release. */
     val updates = com.auroratv.update.UpdateManager(http, platform.updater, platform.files, { settings.current }, appScope, { com.auroratv.playback.wallClockMs() })
@@ -79,7 +81,7 @@ class AppContainer(val platform: Platform) {
         }
         sessions.onProfileRemoved = { profile ->
             com.auroratv.profiles.ProfileFiles.deleteAll(platform.files, profile.key)
-            platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}.json")
+            platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}${profile.local?.let { "-p${it.id}" } ?: ""}.json")
             ratingsKeys.forgetProfile(profile.key)
             recommendations.forget(profile.key)
         }
