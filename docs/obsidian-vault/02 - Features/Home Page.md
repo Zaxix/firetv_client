@@ -66,8 +66,8 @@ the screen model lives in the back-stack entry so returning to Home is instant.
 - Rows lazily compose; each `LazyRow` pre-composes half a screen ahead and a quarter behind
   (`LazyLayoutCacheWindow(ahead = 0.5, behind = 0.25)`), not whole rows.
 - Artwork is requested at the card's real pixel size, so images are as small as they can be.
-- CI logs `Perf: Home rows from the server in X ms` (rows placed), `Home rows on screen filled
-  from the server in X ms` and the requests Home made in its first 10 s (`Server requests in the first 10 s: …`); see [[Change Log]] for measurements.
+- CI logs `Perf: Home rows from the server in X ms` (rows placed) and the requests Home made in its first
+  10 s; see [[Change Log]] for measurements.
 
 ## User interactions
 D-pad/arrow keys move between cards and rows; Up from the top row reaches the banner; Up from the

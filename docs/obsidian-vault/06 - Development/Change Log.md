@@ -6,6 +6,47 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Platform cleanup, outros, recommendations, temporary files, audio default
+### Removed: the Windows app
+The `desktopApp` module, the libmpv/JNA/DPAPI/updater/sound code for Windows, the Windows CI job,
+the desktop screenshot step and the Windows downloads. The shared module's JVM target stays as the
+test host (`:shared:desktopTest` → `:shared:jvmTest`). See [[Supported Platforms]].
+
+### Temporary files
+Saved MKV starts are deleted when an episode is finished, kept 5 days when it's left unfinished
+(renewed on each resume), never while playing or while another profile holds them. mpv font copies
+go when the player closes; an installed update APK goes at the next start.
+See [[Temporary File Lifecycle]].
+
+### Outros (Skip Outro)
+- Closing credits found from the server's trickplay thumbnails (text on black, confirmed by a
+  neighbouring episode) for shows whose credits music changes; a second neighbour for audio.
+- Markers remember which kinds were searched (misses too): no repeated analysis on resume, and an
+  intro-only result no longer blocks the outro search.
+- The next episode is compared first, so its markers come out of the same comparison.
+- "Skip Outro" lands on a post-credits scene; "Next Episode" only when the credits run to the end.
+See [[Skip Markers]].
+
+### Recommendations
+Content-kind-aware similarity (anime / animation / live action), weighted genres, tags and
+descriptions, audience, with a threshold; short rows of close matches instead of padding.
+See [[Recommendations]].
+
+### Audio default
+*Automatic* (default): English for everything except anime, which keeps its original audio.
+See [[Video Player]].
+
+### Measurements (CI)
+| What | Result |
+|---|---|
+| Outro on screen, live-action test series (credits 170–215 s, post-credits scene after) | found 170.0–211.0 s, via "credits on screen", 986 ms on the real CI server |
+| Intro + outro by listening (Wavelength Street ep. 2, compared with ep. 3 now) | intro 7.4–38.5 s (true 8–38), credits from 214.1 s (true 215), 2.7 s |
+| Recommendations, synthetic library (two profiles) | A: Recommended For You = Tidewater, Velvet Static, Ember Field, Wavelength Street; B: no row (fewer than 3 close matches) |
+| Charlotte case (unit test) | Angel Beats!, Erased shown; The Inbetweeners, Adventure Time, a one-genre anime not shown |
+| Home rows placed (6 cold starts, CI emulator) | 1.17–1.41 s (previous update: 1.08–1.30 s; before it: 1.20–1.35 s) — unchanged within runner noise |
+| Home API requests in the first 10 s | 9–14 (previous update: 9–14) |
+| Anime resume (prepared from details / cold) | 1.76 s / 2.04 s (previous update: 1.50 s / 2.06 s) — unchanged within noise |
+
 ## Profiles without new server accounts
 - **"Add profile" no longer needs a Jellyfin account.** A profile is now a name and a picture
   added on the device under the sign-in already in use. No administrator access is needed.
@@ -61,8 +102,8 @@ waits that were removed; on a slow server rows no longer wait up to 4 s + 2.5 s)
 | API requests in Home's first 10 s, later launches | not captured | 9–11 |
 | Anime resume (prepared from details / cold) | 1.48 s / 2.97 s | 1.50 s / 2.06 s (kept) |
 
-The "rows on screen filled" log never completes when Home opens at the top: the banner fills the
-screen, so no row is visible yet. Use "rows placed" until that's changed.
+A "rows on screen filled" measure added in that update never completed (at launch the banner fills
+the screen, so no row is visible yet); it was removed in the next update.
 
 ## Earlier
 - **Anime resume:**

@@ -324,31 +324,12 @@ fun HomeScreen() {
         }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Home", "Refresh after watching failed: ${it.message}") }
     }
 
-    // Perf logs (CI reads them): when the rows on screen hold fresh server data, and what Home cost
-    // the server in its first 10 s (counted separately, so a slow row never hides it).
+    // Perf log (CI reads it): what Home cost the server in its first 10 s. (When the rows are placed
+    // is logged by AppContainer.logHomeReady.)
     LaunchedEffect(Unit) {
         delay(HOME_COST_AFTER_MS)
         container.platform.requestStats()?.let { com.auroratv.core.Log.i("Perf", "Server requests in the first ${HOME_COST_AFTER_MS / 1000} s: $it") }
     }
-    LaunchedEffect(Unit) {
-        val t0 = kotlin.time.TimeSource.Monotonic.markNow()
-        var waiting = ""
-        val filled = kotlinx.coroutines.withTimeoutOrNull(12_000) {
-            while (true) {
-                // The rows actually on screen (rows further down load when scrolled to, by design).
-                val r = model.rails
-                val onScreen = model.listState.layoutInfo.visibleItemsInfo.map { it.key }.toSet()
-                val shown = r?.filter { it.key in onScreen }.orEmpty().take(FIRST_ROWS)
-                val pending = shown.filter { it.items == null || it.stale }
-                waiting = pending.joinToString(",") { it.key.substringBefore('-') + (if (it.stale) "(saved)" else "") }
-                if (shown.isNotEmpty() && pending.isEmpty()) break
-                delay(50)
-            }
-            t0.elapsedNow().inWholeMilliseconds
-        }
-        com.auroratv.core.Log.i("Perf", "Home rows on screen filled from the server in ${filled?.let { "$it ms" } ?: "over 12 s (waiting for $waiting)"}")
-    }
-
     val rails = model.rails
     ScreenFocus(entry, navigator, heroFocus, ready = rails != null)
 
@@ -413,7 +394,6 @@ fun HomeScreen() {
 }
 
 private const val HERO_WAIT_MS = 4_000L
-private const val FIRST_ROWS = 4
 private const val HOME_COST_AFTER_MS = 10_000L
 private const val REC_WAIT_MS = 600L
 private const val PREWARM_DELAY_MS = 700L
