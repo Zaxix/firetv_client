@@ -51,11 +51,18 @@ See [[Fixed Issues]] and [[UI Layout Issues]].
 - This vault (`docs/obsidian-vault/`).
 
 ### Measurements
-| Metric (CI emulator) | Before | After |
+CI emulator against a CI Jellyfin server on the same machine (fast, so it can't show the slow-server
+waits that were removed; on a slow server rows no longer wait up to 4 s + 2.5 s).
+
+| Metric (6 cold starts each) | Before (cd0cd1c / 7058b5b) | After (2e7febb) |
 |---|---|---|
-| Home: first 4 rows filled from the server | see final report | see final report |
-| Home: server requests in first 10 s (api / images / media) | see final report | see final report |
-| Direct-play resume (cold / from details) | 2.9–3.0 s / 2.0 s | unchanged (kept) |
+| Home rows placed from the server | 1.20–1.35 s | 1.08–1.30 s |
+| API requests in Home's first 10 s, first launch after watching | 18 (+4 images) | 11–14 (+0–2 images) |
+| API requests in Home's first 10 s, later launches | not captured | 9–11 |
+| Anime resume (prepared from details / cold) | 1.48 s / 2.97 s | 1.50 s / 2.06 s (kept) |
+
+The "rows on screen filled" log never completes when Home opens at the top: the banner fills the
+screen, so no row is visible yet. Use "rows placed" until that's changed.
 
 ## Earlier
 - **Anime resume:**
