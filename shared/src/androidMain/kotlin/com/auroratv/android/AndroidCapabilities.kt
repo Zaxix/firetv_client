@@ -82,7 +82,6 @@ object AndroidCapabilities {
             engineName = "Media3 ExoPlayer ${androidx.media3.common.MediaLibraryInfo.VERSION}",
             video = video,
             hdr = hdr,
-            canToneMapHdr = false,
             audioDecode = audioDecode,
             audioPassthrough = passthrough,
             maxAudioChannels = maxChannels,

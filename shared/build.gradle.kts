@@ -44,7 +44,9 @@ kotlin {
             freeCompilerArgs.add("-Xskip-metadata-version-check")
         }
     }
-    jvm("desktop") {
+    // Plain JVM target: the host for fast unit tests, the real-server integration tests and the
+    // keyboard/remote navigation UI tests. It isn't shipped as an app.
+    jvm {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
 
@@ -89,16 +91,11 @@ kotlin {
             // libmpv for Android (mpv 0.42 + FFmpeg + libass), the optional second player. GPL-3.0.
             implementation(libs.libmpv.android)
         }
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.common)
-                implementation(libs.ktor.client.okhttp)
-                implementation(libs.kotlinx.coroutines.swing)
-                implementation(libs.jna)
-                implementation(libs.jna.platform)
-            }
+        jvmMain.dependencies {
+            implementation(compose.desktop.common)
+            implementation(libs.ktor.client.okhttp)
         }
-        val desktopTest by getting {
+        val jvmTest by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)

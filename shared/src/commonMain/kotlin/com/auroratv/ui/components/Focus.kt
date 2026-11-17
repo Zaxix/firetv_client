@@ -123,7 +123,7 @@ fun FocusSurface(
 
 /**
  * Moves focus with arrow keys / D-pad when no child consumed the key. Android does this natively;
- * desktop Compose doesn't, so the same remote-style navigation is applied everywhere.
+ * plain Compose (the JVM test host, a USB keyboard) doesn't, so the same remote-style navigation is applied everywhere.
  */
 @Composable
 fun Modifier.arrowKeyNavigation(): Modifier {

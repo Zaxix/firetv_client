@@ -67,6 +67,21 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
         return false
     }
 
+    /**
+     * A downloaded update stays in the cache after it's installed (tens of MB). Once this install is
+     * at least that version it's of no use, so it's deleted (once per start, off the main thread).
+     */
+    fun deleteInstalledUpdate() {
+        val file = File(context.cacheDir, "updates/update.apk")
+        if (!file.exists()) return
+        runCatching {
+            @Suppress("DEPRECATION")
+            val archive = pm.getPackageArchiveInfo(file.absolutePath, 0)
+            val code = archive?.let { if (Build.VERSION.SDK_INT >= 28) it.longVersionCode else @Suppress("DEPRECATION") it.versionCode.toLong() }
+            if (code == null || code <= currentBuild) file.delete()
+        }
+    }
+
     override suspend fun download(http: HttpClient, url: String, asset: ReleaseAsset, onProgress: (Float) -> Unit): String {
         val file = File(context.cacheDir, "updates/update.apk")
         UpdateDownload.downloadVerified(http, url, file, asset, onProgress)

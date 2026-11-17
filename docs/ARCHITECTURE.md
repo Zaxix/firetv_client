@@ -1,8 +1,10 @@
 # Architecture
 
-Sharkfin is one Kotlin Multiplatform codebase with two thin native shells. Nearly everything — the
-Jellyfin client, state, the UI and the player controls — is shared. Only the parts that have to
-touch the platform are native: video decoding and rendering, secure storage, and capability probing.
+Sharkfin is a Fire TV / Android TV app written as a Kotlin Multiplatform codebase. Nearly everything —
+the Jellyfin client, state, the UI and the player controls — is in the shared module. Only the parts
+that have to touch the platform are Android-specific: video decoding and rendering, secure storage,
+and capability probing. The shared module also compiles for the plain JVM, which is used only as a
+fast host for the tests (the Windows desktop app that used it was removed).
 
 ```
 ┌────────────────────────── shared (Kotlin Multiplatform) ──────────────────────────┐
@@ -14,24 +16,25 @@ touch the platform are native: video decoding and rendering, secure storage, and
 │ jellyfin/      Typed Ktor client for the Jellyfin REST API, image URL builder      │
 │ settings/      Settings model + JSON persistence                                   │
 │ core/          Errors with user-facing messages, token-redacting logger           │
-├──────────────── androidMain ─────────────────┬──────────── desktopMain ────────────┤
-│ ExoPlayerEngine: Media3 + MediaCodec (HW)    │ MpvEngine: libmpv via JNA,          │
-│   + Jellyfin FFmpeg audio extension          │   gpu-next/D3D11, hwdec=auto-safe   │
-│   + libass (ass-media) OVERLAY_OPEN_GL       │   + libass built into mpv           │
-│ AndroidCapabilities: MediaCodecList, HDR     │ DesktopPlatform: two-window player  │
-│   display caps, HDMI passthrough             │   host, DPAPI vault, file store     │
-│ KeystoreVault: AES-256-GCM, Android Keystore │ GamepadBridge (desktopApp): XInput  │
+├──────────────── androidMain ─────────────────┬──────── jvmMain (tests only) ───────┤
+│ ExoPlayerEngine: Media3 + MediaCodec (HW)    │ OkHttp engine, image decoding and   │
+│   + Jellyfin FFmpeg audio extension          │   D-pad flag for the JVM test host  │
+│   + libass (ass-media) OVERLAY_OPEN_GL       │                                     │
+│ MpvAndroidEngine: libmpv (optional)          │                                     │
+│ AndroidCapabilities: MediaCodecList, HDR     │                                     │
+│   display caps, HDMI passthrough             │                                     │
+│ KeystoreVault: AES-256-GCM, Android Keystore │                                     │
 └──────────────────────────────────────────────┴─────────────────────────────────────┘
-        androidApp (APK/AAB, Fire TV launcher)          desktopApp (jpackage MSI/EXE)
+        androidApp (APK/AAB, Fire TV launcher)
 ```
 
 ## Why this stack
 
 | Requirement | Choice | Reason |
 |---|---|---|
-| Shared UI on TV and PC | Compose Multiplatform | One set of screens; D-pad, keyboard and mouse share one focus system |
-| Native, hardware-accelerated playback | Media3 on Android, libmpv on Windows | The best-maintained hardware-decoding engine on each platform; no HTML5 video |
-| ASS/SSA with full styling | libass on both | ExoPlayer's built-in SSA support drops positioning, karaoke and animation; libass is the reference renderer |
+| Shared UI, testable off-device | Compose Multiplatform | One set of screens; D-pad, keyboard and mouse share one focus system; UI tests run on the JVM |
+| Native, hardware-accelerated playback | Media3 (or libmpv, optional) | The best-maintained hardware-decoding engine on Android; no HTML5 video |
+| ASS/SSA with full styling | libass in both players | ExoPlayer's built-in SSA support drops positioning, karaoke and animation; libass is the reference renderer |
 | Networking | Ktor + kotlinx.serialization | Multiplatform, cancellable, typed DTOs |
 | Local cache | Coil 3 memory + disk cache for artwork; JSON files for settings/servers | The app's own data is tiny (settings, server list), so SQLDelight would add a code generator and schema migrations without a measurable gain. Library data is always fetched fresh from the server (the spec requires server-sourced data), and back-stack entries keep screen data in memory so returning is instant. |
 
@@ -48,7 +51,7 @@ key typed on a PC appears on the TV.
 
 ## Playback flow
 
-1. **Probe** (`AndroidCapabilities` / `DesktopPlatform.probeCapabilities`), once per launch:
+1. **Probe** (`AndroidCapabilities`), once per launch:
    which decoders exist and whether they're hardware, maximum resolution and bit depth (HEVC Main10, VP9
    Profile 2, AV1 Main10), the display's HDR modes, PCM-decodable audio codecs (platform decoders plus
    the FFmpeg extension), and which bitstream formats the HDMI sink accepts for passthrough.
@@ -83,8 +86,7 @@ key typed on a PC appears on the TV.
 7. **Player UI cost**: engines publish position at most ~4 times a second, and only the timeline and
    clocks read it. Everything else in the player overlay reads `derivedStateOf` values that change
    rarely (playing, buffering, active intro/credits range), so with the controls hidden the overlay
-   doesn't redraw at all while video plays. On Windows, where the overlay is a separate transparent
-   window, this keeps the GPU free for video.
+   doesn't redraw at all while video plays.
 8. **Scrubbing**: D-pad (hold to accelerate; commits 0.45 s after the last press), mouse click, drag
    and hover. When the server has trickplay sheets (Jellyfin 10.9+), the bubble shows a thumbnail:
    each sprite sheet is decoded once and the frame is picked with an offset, so moving within a sheet
@@ -106,8 +108,8 @@ key typed on a PC appears on the TV.
 * Every focusable element goes through `FocusSurface`, which gives the same focus lift, ring and
   shadow for D-pad, keyboard and mouse hover. Scale changes go through `graphicsLayer`, so focus
   never triggers relayout.
-* `Modifier.arrowKeyNavigation()` moves focus with arrow keys on desktop (Android does this natively
-  for the D-pad); Windows controllers are bridged to the same keys through XInput.
+* `Modifier.arrowKeyNavigation()` moves focus with arrow keys where the platform doesn't (the JVM
+  test host); Android does this natively for the D-pad.
 * Each back-stack entry keeps its screen model (data, `LazyListState`) and a `FocusMemory`, so Back
   returns to the exact card that was focused.
 * Rails use `focusRestorer` so moving up/down into a rail returns to its last-focused card.
@@ -118,19 +120,11 @@ key typed on a PC appears on the TV.
   3840. BlurHash gives an instant placeholder and the artwork's accent colour without downloading the
   image first.
 
-## Windows video composition
-
-mpv renders into a native child window (HWND), which Compose can't paint over. The player opens a
-borderless video window exactly over the main window's content area, and the shared player controls
-are drawn in a transparent, focusable dialog stacked above it. Both follow the main window when it
-moves or resizes. A 1/255-alpha fill keeps the transparent layer hit-testable, so mouse movement can
-reveal the controls.
-
 ## Security
 
-* Access tokens are stored only in the platform vault (Android Keystore AES-GCM / Windows DPAPI);
+* Access tokens are stored only in the Android Keystore (AES-GCM);
   `servers.json` holds no secrets (a test asserts this).
 * `Log.redact` strips `api_key`, `Token="…"`, `X-Emby-Token`, `AccessToken` and passwords from every
-  log line before it reaches logcat or `aurora.log`.
+  log line before it reaches logcat.
 * Android allows cleartext HTTP (most home servers are LAN HTTP) and user-installed CAs (for
   self-signed certificates). `allowBackup` is off.

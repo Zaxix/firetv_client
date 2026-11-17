@@ -13,7 +13,7 @@ enum class UiSound(val file: String) {
     Select("files/ui_select.wav"),
 }
 
-/** Plays bundled sounds with low latency (Android SoundPool, desktop audio clips). */
+/** Plays bundled sounds with low latency (Android SoundPool). */
 interface UiSoundOutput {
     /** Called once per sound at start-up with the bundled file's bytes. */
     fun load(sound: UiSound, bytes: ByteArray)

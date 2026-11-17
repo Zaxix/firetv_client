@@ -126,7 +126,7 @@ data class PlayerUiState(
 
 /**
  * Coordinates one playback session: negotiation, engine control, track switching, resume, intro
- * skipping, next-episode lookup and progress reporting to Jellyfin. Shared by Android and Windows.
+ * skipping, next-episode lookup and progress reporting to Jellyfin. Engine-independent (ExoPlayer or mpv).
  */
 class PlayerController(
     private val api: JellyfinApi,
@@ -144,6 +144,9 @@ class PlayerController(
     private val trackMemory: TrackMemory? = null,
     /** Detected skip markers kept for episodes in progress (null: don't keep). */
     private val skipMarkers: com.auroratv.profiles.SkipMarkerStore? = null,
+    /** Lifecycle of temporary files (saved file starts) and the profile watching (null: none). */
+    private val tempFiles: EpisodeTempFiles? = null,
+    private val profileKey: String? = null,
 ) {
     private val tag = "Player"
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
@@ -237,6 +240,8 @@ class PlayerController(
         observeEngine()
     }
 
+    /** The saved file start the engine is reading (see EpisodeTempFiles). */
+    private var tempKey: String? = null
     private var fontsKey: String? = null
     private var fonts: List<SubtitleFont> = emptyList()
 
@@ -280,6 +285,13 @@ class PlayerController(
             cacheKey = MediaHeader.cacheKey(plan),
         )
         engine.load(source)
+        // A saved file start is in use: never deleted while it plays (see EpisodeTempFiles).
+        val key = source.cacheKey
+        if (key != null && key != tempKey && profileKey != null) {
+            tempKey?.let { tempFiles?.stopped(it, profileKey, finished = false) }
+            tempKey = key
+            tempFiles?.started(key, currentItemId ?: "", profileKey)
+        }
         val st = _state.value
         if (capabilities.supportsSubtitleDelay) engine.setSubtitleDelay(st.subtitleDelayMs)
         engine.setSubtitleScale(st.subtitleScale)
@@ -398,8 +410,12 @@ class PlayerController(
         reportJob?.cancel()
         val es = engine.state.value
         val pos = if (ended && es.durationMs > 0) es.durationMs else es.positionMs
-        // Finished (the server counts 90% as watched): its temporary skip markers can go.
-        if (ended || (es.durationMs > 0 && pos >= es.durationMs * 9 / 10)) currentItemId?.let { skipMarkers?.finished(it) }
+        // Finished (the server counts 90% as watched): its temporary skip markers and saved file start
+        // can go. Left unfinished: they're kept, and the file start's 5 days start over.
+        val finished = ended || (es.durationMs > 0 && pos >= es.durationMs * 9 / 10)
+        if (finished) currentItemId?.let { skipMarkers?.finished(it) }
+        tempKey?.let { k -> profileKey?.let { tempFiles?.stopped(k, it, finished) } }
+        tempKey = null
         val r = buildReport(plan, es, pos)
         val sessionId = plan.playSessionId
         val transcoding = plan.method != PlayMethod.DirectPlay

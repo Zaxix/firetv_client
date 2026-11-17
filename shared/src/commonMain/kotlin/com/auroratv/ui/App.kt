@@ -281,8 +281,6 @@ private fun MainShell(container: AppContainer) {
                     // the top of the screen, and Up from there (only) reaches the profile button.
                     if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) regions.openHeader()
                     true
-                } else if (ev.key == Key.F11 && ev.type == KeyEventType.KeyUp) {
-                    container.platform.toggleFullscreen(); true
                 } else false
             }
         ) {

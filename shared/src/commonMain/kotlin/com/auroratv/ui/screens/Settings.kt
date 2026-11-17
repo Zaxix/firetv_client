@@ -195,15 +195,10 @@ private fun PlaybackPage(container: AppContainer) {
     val s by container.settings.settings.collectAsState()
     fun set(t: (Settings) -> Settings) = container.settings.update(t)
     val bitrates = listOf(0, 120, 80, 60, 40, 20, 10, 8, 4, 2)
-    val isDesktop = !container.platform.info.isTv
     SettingsList {
         item { Header("Quality") }
         item { SettingRow("Maximum streaming quality", if (s.maxBitrateMbps == 0) "Auto" else "${s.maxBitrateMbps} Mbps", "Above this, the server transcodes to a lower bitrate") { set { it.copy(maxBitrateMbps = bitrates.after(it.maxBitrateMbps)) } } }
         item { SettingRow("Direct Play", onOff(s.enableDirectPlay), "Play original files when the device supports them") { set { it.copy(enableDirectPlay = !it.enableDirectPlay) } } }
-        if (isDesktop) {
-            item { SettingRow("Hardware decoding", onOff(s.hardwareDecoding), "Use the GPU (D3D11) to decode video") { set { it.copy(hardwareDecoding = !it.hardwareDecoding) } } }
-            item { SettingRow("Audio passthrough", onOff(s.audioPassthrough), "Send AC3/E-AC3/DTS/TrueHD bitstream to a receiver (S/PDIF or HDMI)") { set { it.copy(audioPassthrough = !it.audioPassthrough) } } }
-        }
         if (container.platform.offersPlayerChoice) {
             item {
                 SettingRow(
@@ -215,7 +210,11 @@ private fun PlaybackPage(container: AppContainer) {
             item { SettingRow("Match frame rate", onOff(s.matchFrameRate), "Switch the TV to the video's frame rate (e.g. 24 Hz for films) for smoother motion. The screen may go black for a moment when it switches.") { set { it.copy(matchFrameRate = !it.matchFrameRate) } } }
         }
         item { Header("Behaviour") }
-        item { SettingRow("Audio language", languageName(s.preferredAudioLanguage)) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
+        item { SettingRow(
+            "Audio language",
+            if (s.preferredAudioLanguage.isBlank()) "Automatic" else languageName(s.preferredAudioLanguage),
+            if (s.preferredAudioLanguage.isBlank()) "English when a title has it; anime keeps its original audio" else null,
+        ) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
         item { SettingRow("Auto-play next episode", onOff(s.autoPlayNext)) { set { it.copy(autoPlayNext = !it.autoPlayNext) } } }
         item {
             SettingRow(
@@ -432,11 +431,11 @@ private fun AboutPage(container: AppContainer) {
             items(c.video) { v ->
                 Line(v.codec.uppercase(), "${if (v.hardware) "Hardware" else "Software"} · up to ${v.maxWidth}x${v.maxHeight} · ${v.maxBitDepth}-bit" + (v.decoderName?.let { " · $it" } ?: ""))
             }
-            item { Line("HDR output", if (c.hdr.isEmpty()) (if (c.canToneMapHdr) "Tone-mapped to SDR" else "None (server tone-maps)") else c.hdr.joinToString { it.name }) }
+            item { Line("HDR output", if (c.hdr.isEmpty()) "None (server tone-maps)" else c.hdr.joinToString { it.name }) }
             item {
                 Line(
                     "Dolby Vision",
-                    if (c.canToneMapHdr) "All profiles (mpv/libplacebo reshapes and tone-maps locally)" else c.dolbyVision.summary,
+                    c.dolbyVision.summary,
                 )
             }
             item { Line("Audio decode", c.audioDecode.sorted().joinToString()) }
@@ -452,7 +451,7 @@ private fun AboutPage(container: AppContainer) {
                 "${AppInfo.NAME} is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
                     "Compose Multiplatform (Apache 2.0), Ktor (Apache 2.0), Coil (Apache 2.0), AndroidX Media3 (Apache 2.0), " +
                     "Jellyfin Media3 FFmpeg decoder (GPL v3, FFmpeg LGPL/GPL), libass-android / ass-media (MIT; libass ISC, FreeType FTL, " +
-                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), libdovi + ExoplayerHdrUtils (MIT), Vulkan loader (Apache 2.0), JNA (Apache 2.0/LGPL). See the project README for full license details.",
+                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), libdovi + ExoplayerHdrUtils (MIT). See the project README for full license details.",
                 style = AuroraType.caption, color = colors.onSurfaceMuted,
             )
         }

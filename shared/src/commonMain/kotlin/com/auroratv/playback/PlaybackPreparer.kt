@@ -13,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
@@ -63,7 +64,11 @@ object PlaybackPreparer {
         val streams = source?.mediaStreams ?: item.mediaStreams
         // Tracks picked by hand earlier in this series (or movie) win over the general preferences.
         val remembered = TrackMemory.apply(trackMemory?.takeIf { settings.rememberTracks }?.get(item), streams)
-        val audio = remembered.audioIndex ?: TrackSelector.pickAudio(streams, settings.preferredAudioLanguage, source?.defaultAudioStreamIndex)
+        val audio = remembered.audioIndex ?: TrackSelector.pickAudio(
+            streams,
+            settings.preferredAudioLanguage.ifBlank { automaticAudioLanguage(api, item, streams, source?.defaultAudioStreamIndex) },
+            source?.defaultAudioStreamIndex,
+        )
         val audioLang = streams.firstOrNull { it.index == audio }?.language
         val subtitle = when (val pick = remembered.subtitle) {
             RememberedTracks.Off -> null
@@ -86,6 +91,48 @@ object PlaybackPreparer {
         }
         PreparedPlayback(item, plan, startMs, audio, subtitle, loadedFonts)
     }
+
+    /** Series already classified (one small request per series, and only when it changes the track). */
+    private val seriesKinds = LinkedHashMap<String, ContentKind>()
+    private val kindsLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * The audio language when Settings → Audio language is *Automatic*: English for everything
+     * except anime, which keeps the file's own default track (normally its original Japanese).
+     * Returns "" (the file's default) when there's nothing to decide: no English track, a single
+     * track, or a default that's already English. Only then is the series looked up, if at all.
+     */
+    internal suspend fun automaticAudioLanguage(
+        api: JellyfinApi,
+        item: BaseItemDto,
+        streams: List<com.auroratv.jellyfin.model.MediaStream>,
+        serverDefault: Int?,
+    ): String {
+        val audio = streams.filter { it.isAudio }
+        if (audio.size < 2 || audio.none { TrackSelector.languageMatches(it.language, ENGLISH) }) return ""
+        val asIs = TrackSelector.pickAudio(streams, "", serverDefault)
+        if (TrackSelector.languageMatches(audio.firstOrNull { it.index == asIs }?.language, ENGLISH)) return ""
+        return if (kindOf(api, item, audio.map { it.language }) == ContentKind.Anime) "" else ENGLISH
+    }
+
+    private suspend fun kindOf(api: JellyfinApi, item: BaseItemDto, audioLanguages: List<String?>): ContentKind {
+        val seriesId = item.seriesId?.takeIf { item.isEpisode } ?: return ContentKind.of(item, audioLanguages)
+        kindsLock.withLock { seriesKinds[seriesId] }?.let { return it }
+        val series = runCatching { api.item(seriesId) }.getOrNull()
+        val kind = when {
+            series != null -> ContentKind.of(series, audioLanguages)
+            // Couldn't ask: a Japanese track is the best hint left; keep the file's own default then.
+            audioLanguages.any { TrackSelector.normalize(it ?: "") == "jpn" } -> ContentKind.Anime
+            else -> ContentKind.LiveAction
+        }
+        if (series != null) kindsLock.withLock {
+            seriesKinds[seriesId] = kind
+            while (seriesKinds.size > 64) seriesKinds.remove(seriesKinds.keys.first())
+        }
+        return kind
+    }
+
+    private const val ENGLISH = "eng"
 
     private fun hasAss(streams: List<com.auroratv.jellyfin.model.MediaStream>) = streams.any { (it.codec ?: "").lowercase() in setOf("ass", "ssa") }
 

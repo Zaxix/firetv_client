@@ -31,7 +31,7 @@ interface AndroidVideoEngine : PlaybackEngine {
 
 /**
  * libmpv engine for Android TV (opt-in in Settings → Playback). Same libass ASS/SSA renderer and
- * the same options as the Windows mpv engine: hardware MediaCodec decoding with gpu-next rendering
+ * these options: hardware MediaCodec decoding with gpu-next rendering
  * (so subtitles are composited on the GPU over the video), FFmpeg software fallback for any codec
  * MediaCodec can't do, embedded MKV fonts, system fonts through fontconfig, and fonts downloaded
  * from the server for transcoded streams.
@@ -156,7 +156,7 @@ class MpvAndroidEngine(
         opt("save-position-on-quit", "no")
         opt("audio-set-media-role", "yes")
         opt("user-agent", "${AppInfo.NAME}/${AppInfo.VERSION} (Android; mpv)")
-        // Buffering: same tuning as the Windows mpv engine, sized for TV-box RAM.
+        // Buffering sized for TV-box RAM.
         opt("cache", "yes")
         // Smaller read-ahead on 1–2 GB devices (Fire TV sticks), where 200 MB of cache crowds out the
         // rest of the system and invites the low-memory killer.
@@ -232,7 +232,7 @@ class MpvAndroidEngine(
 
         override fun eventProperty(property: String, value: Double) {
             when (property) {
-                // Coalesced to ~4 Hz by flushProgress, like the Windows engine.
+                // Coalesced to ~4 Hz by flushProgress.
                 "time-pos" -> { latestPos = (value * 1000).toLong(); flushProgress() }
                 "demuxer-cache-time" -> { latestBuffered = (value * 1000).toLong(); flushProgress() }
                 "duration" -> _state.update { it.copy(durationMs = (value * 1000).toLong()) }
@@ -419,6 +419,9 @@ class MpvAndroidEngine(
                 destroyed = true
                 runCatching { l.destroy() }
             }
+            // Copies of the server's subtitle fonts for this playback only (they're downloaded again
+            // for the next one), so they don't outlive the player.
+            runCatching { fontsDir.listFiles()?.forEach { it.delete() } }
             Log.i(tag, "mpv destroyed")
         }
         worker.quitSafely()

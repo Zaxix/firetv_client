@@ -49,11 +49,16 @@ class AppContainer(val platform: Platform) {
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
+    /** When saved file starts (temporary playback files) are deleted; see EpisodeTempFiles. */
+    val tempFiles = com.auroratv.playback.EpisodeTempFiles(platform.files, platform.disposableCache(), appScope)
     val prewarmer = com.auroratv.playback.PlaybackPrewarmer(appScope, trackMemory) { p ->
         // A font-heavy MKV (anime release) the viewer is part-way through: fetch its start too, so
         // Resume doesn't wait for it. Only for resumes (likely to be played), never for titles just
         // passing through the banner, to keep the server's disk and network quiet.
-        if (p.startMs > 0) com.auroratv.playback.MediaHeader.cacheKey(p.plan)?.let { key -> platform.prefetchMediaHeader(p.plan.url, p.plan.headers, key) }
+        if (p.startMs > 0) com.auroratv.playback.MediaHeader.cacheKey(p.plan)?.let { key ->
+            sessions.activeSession?.profile?.key?.let { profile -> tempFiles.fetchedAhead(key, p.item.id, profile) }
+            platform.prefetchMediaHeader(p.plan.url, p.plan.headers, key)
+        }
     }
     /** In-app updates from the latest-build release. */
     val updates = com.auroratv.update.UpdateManager(http, platform.updater, platform.files, { settings.current }, appScope, { com.auroratv.playback.wallClockMs() })
@@ -84,7 +89,10 @@ class AppContainer(val platform: Platform) {
             platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}${profile.local?.let { "-p${it.id}" } ?: ""}.json")
             ratingsKeys.forgetProfile(profile.key)
             recommendations.forget(profile.key)
+            tempFiles.profileRemoved(profile.key)
         }
+        // Once per start, after Home has settled: delete temporary files whose 5 days are up.
+        appScope.launch { kotlinx.coroutines.delay(TEMP_SWEEP_DELAY_MS); tempFiles.sweep() }
     }
 
     /** Starts preparing [itemId] for playback in the background (main thread; no-op if already prepared). */
@@ -122,7 +130,7 @@ class AppContainer(val platform: Platform) {
     }
 
     /**
-     * Optional deep link applied once after sign-in, e.g. from `--route detail:<itemId>` on desktop.
+     * Optional deep link applied once after sign-in, e.g. from `--es route detail:<itemId>` (CI).
      * Formats: `section:<Home|Movies|Shows|Continue|Favorites|Search|Libraries|Settings>`, `detail:<id>`, `player:<id>`.
      */
     var initialRoute: String? = null
@@ -130,3 +138,6 @@ class AppContainer(val platform: Platform) {
     /** Set by the UI; platform back buttons route through here. Returns false when the app should close. */
     var backHandler: () -> Boolean = { false }
 }
+
+/** Delay before the once-per-start temporary file sweep (after Home has loaded). */
+private const val TEMP_SWEEP_DELAY_MS = 20_000L

@@ -53,7 +53,7 @@ data class EngineState(
 )
 
 /**
- * Native playback engine abstraction: Media3 ExoPlayer on Android, libmpv on Windows. The shared
+ * Native playback engine abstraction: Media3 ExoPlayer, or libmpv (Android 8+). The shared
  * [PlayerController] drives it; engines never talk to Jellyfin themselves.
  */
 interface PlaybackEngine {

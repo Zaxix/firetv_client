@@ -81,6 +81,21 @@ object MediaHeaderCache {
         }
     }
 
+    /**
+     * The cache as EpisodeTempFiles sees it: its keys (from SimpleCache's in-memory index, no disk
+     * scan) and deleting one. Only "hdr:" keys ever exist here.
+     */
+    fun disposable(): com.auroratv.playback.DisposableCache? {
+        val c = cache ?: return null
+        return object : com.auroratv.playback.DisposableCache {
+            override fun keys(): Set<String> = c.keys.filter { it.startsWith("hdr:") }.toSet()
+            override fun remove(key: String) {
+                running?.takeIf { it.first == key }?.second?.cancel()
+                c.removeResource(key)
+            }
+        }
+    }
+
     private fun range(url: String, headers: Map<String, String>, pos: Long, len: Int): ByteArray? = runCatching {
         val req = okhttp3.Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }
             .header("Range", "bytes=$pos-${pos + len - 1}").build()

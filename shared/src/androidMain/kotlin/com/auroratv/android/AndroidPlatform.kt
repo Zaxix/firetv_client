@@ -51,6 +51,8 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     override fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) =
         MediaHeaderCache.prefetch(url, headers, cacheKey)
 
+    override fun disposableCache(): com.auroratv.playback.DisposableCache? = MediaHeaderCache.disposable()
+
     override fun vpnActive(): Boolean = com.auroratv.jellyfin.LanRoute.vpnActive()
 
     private val isFireTv = activity.packageManager.hasSystemFeature("amazon.hardware.fire_tv") || Build.MODEL.startsWith("AFT")
@@ -66,7 +68,9 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     )
     override val files: FileStore = AndroidFileStore(activity.filesDir)
     override val vault: SecureVault = KeystoreVault(activity)
-    override val updater = AndroidUpdater(activity.applicationContext)
+    override val updater = AndroidUpdater(activity.applicationContext).also { u ->
+        Thread({ u.deleteInstalledUpdate() }, "update-cleanup").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }.start()
+    }
 
     init {
         Log.sink = Log.Sink { level, tag, message, error ->

@@ -39,8 +39,6 @@ data class DeviceCapabilities(
     val video: List<VideoCodecSupport>,
     /** HDR formats the display + decoder can present without tone-mapping. */
     val hdr: Set<HdrFormat>,
-    /** Whether HDR content may be sent even when [hdr] lacks it because the engine tone-maps (mpv). */
-    val canToneMapHdr: Boolean,
     /** Audio codecs decodable to PCM on-device. */
     val audioDecode: Set<String>,
     /** Audio codecs the connected output accepts as bitstream (passthrough). */
@@ -55,7 +53,7 @@ data class DeviceCapabilities(
     val libassRendering: Boolean,
     val supportsSubtitleDelay: Boolean,
     val notes: List<String> = emptyList(),
-    /** Dolby Vision decoder/display support (Android); mpv on Windows uses [canToneMapHdr]. */
+    /** Dolby Vision decoder/display support. */
     val dolbyVision: DolbyVisionSupport = DolbyVisionSupport.None,
 ) {
     fun videoSupport(codec: String) = video.firstOrNull { it.codec == codec }
@@ -67,19 +65,13 @@ data class DeviceCapabilities(
      * Video range types Jellyfin may send untouched for [codec]. Every Dolby Vision flavour is
      * allowed when it has somewhere correct to go: the DV decoder ([DolbyVisionSupport.native]),
      * the profile 7 → 8.1 conversion, or its HDR10/HLG/SDR base layer on a display that shows
-     * that. Profile 5 / AV1 10.0 have no base layer, so they need a real DV path (or local tone
-     * mapping on mpv for Windows); otherwise the server converts them. DOVIInvalid (DV signalling
+     * that. Profile 5 / AV1 10.0 have no base layer, so they need a real DV path; otherwise the
+     * server converts them. DOVIInvalid (DV signalling
      * that contradicts the base layer) is always left to the server.
      */
     fun allowedRangeTypes(codec: String = Codecs.HEVC): List<String> {
         val result = mutableListOf("SDR")
         if (codec == Codecs.H264) return result
-        if (canToneMapHdr) {
-            result += listOf("HDR10", "HDR10Plus", "HLG")
-            if (codec != Codecs.VP9) result += listOf("DOVI", "DOVIWithHDR10", "DOVIWithHLG", "DOVIWithSDR", "DOVIWithHDR10Plus")
-            if (codec == Codecs.HEVC) result += listOf("DOVIWithEL", "DOVIWithELHDR10Plus")
-            return result
-        }
         val hdr10 = HdrFormat.HDR10 in hdr
         val hlg = HdrFormat.HLG in hdr
         if (hdr10) result += listOf("HDR10", "HDR10Plus")

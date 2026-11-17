@@ -11,7 +11,7 @@ interface FileStore {
     fun delete(name: String)
 }
 
-/** Encrypted storage for secrets (access tokens). Android Keystore / Windows DPAPI. */
+/** Encrypted storage for secrets (access tokens): the Android Keystore. */
 interface SecureVault {
     fun put(key: String, value: String)
     fun get(key: String): String?
@@ -21,9 +21,9 @@ interface SecureVault {
 }
 
 data class PlatformInfo(
-    /** e.g. "Android TV", "Fire TV", "Windows" */
+    /** e.g. "Android TV", "Fire TV" */
     val platformName: String,
-    /** Device model shown in the Jellyfin dashboard, e.g. "AFTKA" or "DESKTOP-1234". */
+    /** Device model shown in the Jellyfin dashboard, e.g. "AFTKA". */
     val deviceName: String,
     val osVersion: String,
     val isTv: Boolean,
@@ -32,8 +32,8 @@ data class PlatformInfo(
 )
 
 /**
- * Everything platform-specific the shared app needs. Implemented in androidMain and desktopMain and
- * passed into [com.auroratv.ui.AuroraApp].
+ * Everything platform-specific the shared app needs. Implemented in androidMain (Fire TV / Android
+ * TV, the only app) and passed into [com.auroratv.ui.AuroraApp].
  */
 interface Platform {
     val info: PlatformInfo
@@ -60,6 +60,9 @@ interface Platform {
      */
     fun prefetchMediaHeader(url: String, headers: Map<String, String>, cacheKey: String) {}
 
+    /** The cache of saved file starts, for EpisodeTempFiles to clean up; null where there's none. */
+    fun disposableCache(): com.auroratv.playback.DisposableCache? = null
+
     /** Low-latency player for the bundled UI sounds, or null where there's none. */
     fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput? = null
 
@@ -79,14 +82,10 @@ interface Platform {
     fun capabilitiesFor(base: DeviceCapabilities, settings: com.auroratv.settings.Settings): DeviceCapabilities = base
 
     /**
-     * Hosts the player. Android draws video and controls in one view tree; Windows places the mpv
-     * video window behind a transparent controls window. [controls] is the shared Compose player UI.
+     * Hosts the player: video and controls in one view tree. [controls] is the shared Compose player UI.
      */
     @Composable
     fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit)
-
-    /** Desktop only: toggles fullscreen "TV mode". No-op on TV. */
-    fun toggleFullscreen() {}
 
     /** Dismisses any on-screen keyboard (Android TV's keyboard otherwise keeps capturing the D-pad). */
     fun hideKeyboard() {}

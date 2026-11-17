@@ -29,7 +29,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests (shared logic + keyboard/remote navigation UI tests)
-        run: ./gradlew --no-daemon --stacktrace :shared:desktopTest :shared:testDebugUnitTest
+        run: ./gradlew --no-daemon --stacktrace :shared:jvmTest :shared:testDebugUnitTest
 
       - name: Prepare release signing key
         env:
@@ -103,7 +103,7 @@ jobs:
           path: shared/build/reports/tests/
 
   e2e:
-    name: Real Jellyfin server — integration tests + desktop screenshots
+    name: Real Jellyfin server — integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -116,12 +116,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Install tools (FFmpeg, Xvfb, libmpv, mkvtoolnix, dovi_tool)
+      - name: Install tools (FFmpeg, mkvtoolnix, dovi_tool)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg xvfb xdotool imagemagick libmpv-dev xcompmgr fonts-dejavu-core libgl1-mesa-dri jq python3-pil mkvtoolnix >/dev/null
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core jq python3-pil mkvtoolnix >/dev/null
           # dovi_tool (MIT) builds the Dolby Vision test samples.
           gh release download -R quietvoid/dovi_tool --pattern '*x86_64-unknown-linux-musl.tar.gz' --dir "$RUNNER_TEMP/dovi" \
             && tar -xzf "$RUNNER_TEMP"/dovi/*.tar.gz -C "$RUNNER_TEMP/dovi" \
@@ -157,143 +157,15 @@ jobs:
           AURORA_IT_REPORT: ${{ github.workspace }}/dist/integration-report.md
         run: |
           mkdir -p dist
-          ./gradlew --no-daemon :shared:desktopTest --tests 'com.auroratv.JellyfinIntegrationTest' -i | grep -E "^\| |FAILED|PASSED" || true
+          ./gradlew --no-daemon :shared:jvmTest --tests 'com.auroratv.JellyfinIntegrationTest' -i | grep -E "^\| |FAILED|PASSED" || true
           test -f dist/integration-report.md && cat dist/integration-report.md
           ! grep -q "❌" dist/integration-report.md
-
-      - name: Build Linux desktop app (for screenshots)
-        if: ${{ !cancelled() }}
-        run: ./gradlew --no-daemon :desktopApp:createDistributable
-
-      - name: Capture UI screenshots
-        if: ${{ !cancelled() }}
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 +extension GLX +render -noreset >/dev/null 2>&1 &
-          export DISPLAY=:99
-          sleep 2
-          xcompmgr -n >/dev/null 2>&1 &
-          APP=$(find desktopApp/build/compose/binaries/main/app -type f -path '*/bin/*' | head -1)
-          echo "Launcher: $APP"
-          ci/screenshots.sh "$APP" dist/screenshots "$JF_TOKEN"
-          docker logs jellyfin 2>&1 | tail -20
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e
           path: dist/
-
-  windows:
-    name: Windows EXE/MSI + libmpv self-test
-    runs-on: windows-2022
-    needs: e2e
-    if: ${{ !cancelled() }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Fetch libmpv (shinchiro mpv-winbuild-cmake, x86_64)
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download -R shinchiro/mpv-winbuild-cmake --pattern 'mpv-dev-x86_64-2*.7z' --dir mpv
-          ls -la mpv
-          mkdir -p desktopApp/native/windows
-          7z e mpv/*.7z -odesktopApp/native/windows libmpv-2.dll -r -y
-          ls -la desktopApp/native/windows
-          echo "$(ls mpv)" > desktopApp/native/windows/LIBMPV_SOURCE.txt
-          echo "--- libmpv imports not satisfied on this machine (before bundling) ---"
-          ldd desktopApp/native/windows/libmpv-2.dll | grep -i "not found" || echo "(none)"
-
-      - name: Bundle the Vulkan loader (libmpv needs vulkan-1.dll; PCs without GPU drivers lack it)
-        shell: bash
-        run: |
-          # Khronos Vulkan loader (Apache-2.0) for win-x64, from the Silk.NET native package on NuGet.
-          curl -sSfL "https://www.nuget.org/api/v2/package/Silk.NET.Vulkan.Loader.Native" -o vkloader.nupkg
-          7z x vkloader.nupkg -ovkloader -y >/dev/null
-          cp vkloader/runtimes/win-x64/native/vulkan-1.dll desktopApp/native/windows/
-          ls -la desktopApp/native/windows
-          echo "--- libmpv imports still not satisfied ---"
-          (cd desktopApp/native/windows && ldd ./libmpv-2.dll | grep -i "not found") || echo "(none)"
-
-      - name: Package (MSI, EXE installer, portable folder)
-        shell: bash
-        run: ./gradlew --no-daemon --stacktrace :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:createDistributable
-
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: samples
-          path: samples
-
-      - name: Self-test packaged app (libmpv decode of every sample + libass)
-        shell: pwsh
-        run: |
-          Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Include *.dll,*.cfg | Where-Object { $_.Name -like "*mpv*" -or $_.Extension -eq ".cfg" } | ForEach-Object { $_.FullName }
-          Get-Content (Get-ChildItem -Recurse "desktopApp/build/compose/binaries/main/app" -Filter *.cfg | Select-Object -First 1).FullName
-          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
-          $exe = Join-Path $app.FullName "$($app.Name).exe"
-          $files = @(Get-ChildItem samples -Recurse -Include *.mkv,*.avi -ErrorAction SilentlyContinue | ForEach-Object { '"' + $_.FullName + '"' })
-          $argLine = '--self-test "' + "$PWD\selftest.txt" + '" ' + ($files -join ' ')
-          Write-Host "Running $exe $argLine"
-          $p = Start-Process -FilePath $exe -ArgumentList $argLine -PassThru -Wait
-          Get-Content selftest.txt
-          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
-
-      - name: Launch smoke test + screenshot
-        shell: pwsh
-        run: |
-          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
-          $exe = Join-Path $app.FullName "$($app.Name).exe"
-          $p = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 20
-          if ($p.HasExited) { Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue; throw "App exited early (code $($p.ExitCode))" }
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-          New-Item -ItemType Directory -Force screenshots | Out-Null
-          $bmp.Save("screenshots/windows-first-launch.png")
-          Stop-Process -Id $p.Id -Force
-          Get-Content "$env:APPDATA\AuroraTV\aurora.log" -ErrorAction SilentlyContinue
-
-      - name: Playback screenshots against the public Jellyfin demo server (best effort)
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $app = Get-ChildItem "desktopApp/build/compose/binaries/main/app" -Directory | Select-Object -First 1
-          ./ci/windows_playback.ps1 -Exe (Join-Path $app.FullName "$($app.Name).exe") -Out screenshots
-
-      - name: Collect artifacts
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp desktopApp/build/compose/binaries/main/msi/*.msi dist/
-          cp desktopApp/build/compose/binaries/main/exe/*.exe dist/
-          # Marker so the portable copy knows not to run the MSI updater (it opens the download page instead).
-          (cd desktopApp/build/compose/binaries/main/app && for d in */; do echo "Portable build: updates come from the release page." > "${d}portable.txt"; done && 7z a -tzip "$GITHUB_WORKSPACE/dist/AuroraTV-windows-x64-portable.zip" . >/dev/null && rm -f */portable.txt)
-          cp selftest.txt dist/windows-selftest.txt
-          ls -la dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: dist/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-screenshots
-          path: screenshots/
 
   android-e2e:
     name: Android TV emulator — sign-in, D-pad navigation, playback
@@ -351,7 +223,7 @@ jobs:
   publish:
     name: Publish downloads + CI results
     runs-on: ubuntu-latest
-    needs: [android, e2e, windows, android-e2e]
+    needs: [android, e2e, android-e2e]
     # Only the main branch publishes; other branches are just checked.
     if: ${{ !cancelled() && needs.android.result == 'success' && github.ref == 'refs/heads/aurora-tv' }}
     permissions:
@@ -370,21 +242,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p results/screenshots/desktop results/screenshots/android results/screenshots/windows results/reports
-          cp artifacts/e2e/screenshots/*.png results/screenshots/desktop/ 2>/dev/null || true
+          mkdir -p results/screenshots/android results/reports
           cp artifacts/android-e2e/android-screenshots/*.png results/screenshots/android/ 2>/dev/null || true
-          cp artifacts/windows-screenshots/*.png results/screenshots/windows/ 2>/dev/null || true
           cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
-          cp artifacts/windows/windows-selftest.txt results/reports/ 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
           grep -E "ExoEngine|MpvEngine|Negotiator|font attachments|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/jellyfin-transcodes.txt results/reports/ 2>/dev/null || true
           cp artifacts/android-e2e/android-screenshots/logcat-mpv.txt results/reports/ 2>/dev/null || true
-          cp artifacts/e2e/screenshots/aurora.log results/reports/desktop-aurora.log 2>/dev/null || true
           cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true
           cat > results/README.md <<MD
           CI results for ${GITHUB_SHA} (run ${GITHUB_RUN_ID}).
-          Jobs: android=${{ needs.android.result }} e2e=${{ needs.e2e.result }} windows=${{ needs.windows.result }} android-e2e=${{ needs.android-e2e.result }}
+          Jobs: android=${{ needs.android.result }} e2e=${{ needs.e2e.result }} android-e2e=${{ needs.android-e2e.result }}
           MD
           cd results
           git init -q -b ci-results
@@ -394,13 +262,12 @@ jobs:
           git commit -q -m "CI results for ${GITHUB_SHA::7} [skip ci]"
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
 
-      - name: Publish rolling pre-release with APK/AAB and Windows installers
+      - name: Publish rolling pre-release with the Android APK/AAB
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p upload
           cp artifacts/android/* upload/
-          cp artifacts/windows/*.msi artifacts/windows/*.exe artifacts/windows/*.zip upload/ 2>/dev/null || true
           for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
           # Published under the app's current name; Nameless-release.apk and AuroraTV-release.apk stay (same
           # file) so builds from before each rename can still find their update.
@@ -408,10 +275,9 @@ jobs:
           cp upload/AuroraTV-release.apk upload/Nameless-release.apk
           mv upload/AuroraTV-debug.apk upload/Sharkfin-debug.apk
           mv upload/AuroraTV-release.aab upload/Sharkfin-release.aab
-          mv upload/AuroraTV-windows-x64-portable.zip upload/Sharkfin-windows-x64-portable.zip 2>/dev/null || true
           ls -la upload
           # version.json: what the in-app updater reads (build number, SHA-256 of every file, recent changes).
-          OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.windows.result == 'success' && needs.android-e2e.result == 'success' }}
+          OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.android-e2e.result == 'success' }}
           python3 - "$OK" <<'PY'
           import hashlib, json, os, subprocess, sys, datetime
           ok = sys.argv[1] == "true"
@@ -437,9 +303,7 @@ jobs:
           Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
 
           * **Fire TV / Android TV:** install \`Sharkfin-release.apk\` (sideload; \`Nameless-release.apk\` and \`AuroraTV-release.apk\` are the same file, kept for older builds' updater). \`Sharkfin-debug.apk\` is a debuggable build; the AAB is for store uploads.
-          * **Windows 10/11 x64:** \`.msi\` or \`.exe\` installer, or the portable ZIP.
-
-          CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Windows ${{ needs.windows.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
+          CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
           MD
           gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "Sharkfin — latest build (${GITHUB_SHA::7})" --notes-file notes.md

@@ -58,7 +58,6 @@ val fireTv4k = DeviceCapabilities(
         VideoCodecSupport(Codecs.AV1, true, 3840, 2160, 10),
     ),
     hdr = setOf(HdrFormat.HDR10, HdrFormat.HLG),
-    canToneMapHdr = false,
     audioDecode = setOf("aac", "mp3", "flac", "opus"),
     audioPassthrough = setOf("ac3", "eac3"),
     maxAudioChannels = 6,

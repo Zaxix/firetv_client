@@ -259,12 +259,8 @@ class SkipDetector(
             item.providerIds.entries.firstOrNull { (k, _) -> names.any { it.equals(k, ignoreCase = true) } }?.value?.trim()?.toIntOrNull()
 
         fun looksLikeAnime(series: BaseItemDto, episode: BaseItemDto): Boolean {
-            val ids = series.providerIds.keys.map { it.lowercase() }
-            if (ids.any { it in setOf("anilist", "anidb", "myanimelist", "mal", "kitsu") }) return true
-            val genres = (series.genres + episode.genres).map { it.lowercase() }
-            if ("anime" in genres) return true
-            val japaneseAudio = episode.mediaSources.flatMap { it.mediaStreams }.any { it.isAudio && TrackSelector.normalize(it.language ?: "") == "jpn" }
-            return "animation" in genres && japaneseAudio
+            val audio = episode.mediaSources.flatMap { it.mediaStreams }.filter { it.isAudio }.map { it.language }
+            return ContentKind.of(series.copy(genres = series.genres + episode.genres), audio) == ContentKind.Anime
         }
 
         private fun normalizeTitle(s: String) = s.lowercase().filter { it.isLetterOrDigit() }

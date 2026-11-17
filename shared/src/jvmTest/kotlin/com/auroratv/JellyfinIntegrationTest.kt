@@ -10,7 +10,6 @@ import com.auroratv.jellyfin.createJellyfinHttpClient
 import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.jellyfin.model.PlaybackReport
 import com.auroratv.jellyfin.model.msToTicks
-import com.auroratv.playback.Codecs
 import com.auroratv.playback.DeviceCapabilities
 import com.auroratv.playback.DolbyVisionSupport
 import com.auroratv.playback.HdrFormat
@@ -18,7 +17,6 @@ import com.auroratv.playback.PlayMethod
 import com.auroratv.playback.PlaybackNegotiator
 import com.auroratv.playback.PlaybackPlan
 import com.auroratv.playback.TrackSelector
-import com.auroratv.playback.VideoCodecSupport
 import com.auroratv.settings.SubtitleMode
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -66,12 +64,6 @@ class JellyfinIntegrationTest {
 
     private val sdr4k = fireTv4k.copy(hdr = emptySet())
     private val noLibass = oldStick.copy(subtitleEmbedded = setOf("srt", "subrip"), subtitleExternal = setOf("srt", "subrip", "vtt"), libassRendering = false)
-    private val mpvDesktop = fireTv4k.copy(
-        video = listOf(Codecs.H264, Codecs.HEVC, Codecs.VP9, Codecs.AV1, Codecs.MPEG2, Codecs.MPEG4).map { VideoCodecSupport(it, true, 7680, 4320, 12) },
-        canToneMapHdr = true,
-        audioDecode = setOf("aac", "mp3", "ac3", "eac3", "dts", "truehd", "flac", "opus"),
-        containers = setOf("mkv", "mp4", "avi", "ts", "mov", "webm"),
-    )
 
     @Test
     fun realServer() {
@@ -215,17 +207,13 @@ class JellyfinIntegrationTest {
                 "${p.method}; reasons=${p.transcodeReasons}"
             }
         }
-        record("4K HDR10 → Direct Play on Windows/mpv (tone-maps locally)") {
-            assertEquals(PlayMethod.DirectPlay, plan(movie("Ember Field"), mpvDesktop).method); "DirectPlay"
-        }
         dolbyVisionChecks()
         recommendationChecks(http, sm)
         record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
-        record("MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv") {
-            val m = movie("Old Reel")
-            val tv = plan(m, fireTv4k); val pc = plan(m, mpvDesktop)
-            assertTrue(tv.method != PlayMethod.DirectPlay); assertEquals(PlayMethod.DirectPlay, pc.method)
-            "Fire TV=${tv.method} (${tv.transcodeReasons.joinToString()}), Windows=${pc.method}"
+        record("MPEG-4/AVI → transcode on Fire TV") {
+            val tv = plan(movie("Old Reel"), fireTv4k)
+            assertTrue(tv.method != PlayMethod.DirectPlay)
+            "Fire TV=${tv.method} (${tv.transcodeReasons.joinToString()})"
         }
         record("Multi-track MKV: audio/subtitle selection") {
             val m = movie("Seven Rivers")
@@ -313,7 +301,7 @@ class JellyfinIntegrationTest {
 
     /**
      * Dolby Vision samples (built in CI with dovi_tool + mkvmerge): the server's range type, then
-     * where each profile is allowed to go untouched for DV TV / HDR10 TV / SDR TV / Windows mpv.
+     * where each profile is allowed to go untouched for DV TV / HDR10 TV / SDR TV.
      */
     private fun dolbyVisionChecks() {
         data class Case(val title: String, val range: String, val dvTv: Boolean, val hdr10Tv: Boolean, val sdrTv: Boolean)
@@ -333,11 +321,11 @@ class JellyfinIntegrationTest {
                 report.appendLine("| ⚠️ | Dolby Vision ${c.range} sample | server classified it as ${v.videoRangeType} (${v.videoRange}); routing covered by DolbyVisionTest |")
                 continue
             }
-            record("Dolby Vision ${c.range}: DV TV / HDR10 TV / SDR TV / Windows mpv") {
+            record("Dolby Vision ${c.range}: DV TV / HDR10 TV / SDR TV") {
                 fun direct(caps: DeviceCapabilities) = runBlocking { plan(item, caps).method == PlayMethod.DirectPlay }
-                val got = listOf(direct(fireTvDv), direct(fireTvHdr10), direct(sdr4k), direct(mpvDesktop))
-                assertEquals(listOf(c.dvTv, c.hdr10Tv, c.sdrTv, true), got, "DirectPlay for [DV TV, HDR10 TV, SDR TV, mpv]")
-                val names = listOf("DV TV", "HDR10 TV", "SDR TV", "mpv")
+                val got = listOf(direct(fireTvDv), direct(fireTvHdr10), direct(sdr4k))
+                assertEquals(listOf(c.dvTv, c.hdr10Tv, c.sdrTv), got, "DirectPlay for [DV TV, HDR10 TV, SDR TV]")
+                val names = listOf("DV TV", "HDR10 TV", "SDR TV")
                 "${v.codec} ${v.videoRangeType}: " + names.zip(got).joinToString { (n, d) -> "$n=${if (d) "Direct Play" else "server converts"}" }
             }
         }

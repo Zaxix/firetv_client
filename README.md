@@ -1,18 +1,19 @@
 # Sharkfin
 
-A Jellyfin client for **Amazon Fire TV / Android TV** and **Windows 10/11**, with an Apple TV-inspired
-interface, native hardware-accelerated playback, and styled ASS/SSA subtitles rendered by libass on
-both platforms.
+A Jellyfin client for **Amazon Fire TV / Android TV**, with an Apple TV-inspired interface, native
+hardware-accelerated playback, and styled ASS/SSA subtitles rendered by libass.
 
-* **Shared:** Kotlin Multiplatform + Compose Multiplatform (UI, Jellyfin client, playback logic)
-* **Fire TV / Android TV:** Media3 ExoPlayer (hardware MediaCodec) + Jellyfin FFmpeg audio extension + libass (ass-media), or **libmpv** (MediaCodec + FFmpeg + libass) selectable in Settings → Playback
-* **Windows:** libmpv (gpu-next / D3D11, hardware decoding) with libass, packaged with jpackage
+* **Supported platform:** Fire TV and Android TV (Android 6.0+). A dedicated Windows app is no longer
+  made; on a PC, use Jellyfin's own web app in a browser.
+* **Code:** Kotlin Multiplatform + Compose Multiplatform (UI, Jellyfin client, playback logic). The
+  shared code also compiles for the JVM, which is only used to run the tests.
+* **Players:** Media3 ExoPlayer (hardware MediaCodec) + Jellyfin FFmpeg audio extension + libass (ass-media), or **libmpv** (MediaCodec + FFmpeg + libass) selectable in Settings → Playback
 
 | Docs | |
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Modules, playback flow, focus system, security |
-| [Capability matrix](docs/CAPABILITIES.md) | Codecs, HDR, audio, subtitles per platform |
-| [Test results](docs/TEST_RESULTS.md) | Unit, UI, real-server integration and Windows self-test results |
+| [Capability matrix](docs/CAPABILITIES.md) | Codecs, HDR, audio, subtitles per player |
+| [Test results](docs/TEST_RESULTS.md) | Unit, UI, real-server integration and emulator results |
 | [Known limitations](docs/KNOWN_LIMITATIONS.md) | What isn't supported or still needs hardware testing |
 | [Screenshots](docs/screenshots/) | Captured from the real build against a real Jellyfin server |
 
@@ -20,27 +21,27 @@ both platforms.
 
 * Add servers by IP, hostname or URL (`192.168.1.20`, `jellyfin.local`, `https://media.example.com/jellyfin`); probes the usual ports and schemes
 * Multiple servers and users; switching servers and users; automatic reconnect at launch
-* Tokens stored in the Android Keystore (AES-256-GCM) or with Windows DPAPI; tokens are redacted from logs
+* Tokens stored in the Android Keystore (AES-256-GCM); tokens are redacted from logs
 * Home: featured carousel, Continue Watching, Next Up, Recently Added per library, Favorites; rails load lazily as they scroll into view
 * Movies, TV Shows and folder libraries with sort (A–Z, added, release, rating, last watched), filters (unwatched, watched, favorites) and paging
 * Detail pages: backdrop, logo, metadata, resume/restart, favorite, watched, seasons and episodes, cast, More Like This, media info
 * **Brand tiles** under the featured carousel (Netflix, Disney, Pixar, Marvel, Star Wars, Apple TV, Paramount, HBO, Prime Video, Hulu, National Geographic, DreamWorks, A24, Crunchyroll, Studio Ghibli), shown only for brands your library has; each opens a **Brand Hub** with new, movies and series rows and *Browse all*. Apple TV and Prime Video use the logos supplied for the app (see docs/brand); other brands use the studio image your Jellyfin server provides, or their name on the brand's colours. Hubs open instantly when you've rested on the tile (they start loading in the background), rows appear as each one loads, and results are cached for 10 minutes. Toggle in Settings → Appearance
-* **Updates itself:** every time the app opens (or from Settings → About) Sharkfin checks the `latest-build` release and offers newer builds that passed every CI job. Fire TV/Android downloads the APK, checks its SHA-256, package, signing key and version, then opens Android's install screen (you confirm; the first time Fire OS asks you to allow Sharkfin to install apps). Windows downloads the MSI, closes Sharkfin, upgrades and reopens it. The portable ZIP opens the download page instead. Every CI build is numbered (1.0.&lt;run&gt;)
+* **Updates itself:** every time the app opens (or from Settings → About) Sharkfin checks the `latest-build` release and offers newer builds that passed every CI job. Fire TV/Android downloads the APK, checks its SHA-256, package, signing key and version, then opens Android's install screen (you confirm; the first time Fire OS asks you to allow Sharkfin to install apps). Every CI build is numbered (1.0.&lt;run&gt;)
 * **Remembers your tracks per show:** pick Japanese audio and the full subtitles once and every later episode of that series uses the matching tracks (matched by language and kind, so "Signs & Songs" vs full dialogue is kept apart even when track order changes); also for returning to a movie. Settings → Subtitles → Remember my track choices
 * **Faster starts:** while a detail page is open, Sharkfin fetches the item, asks the server how to play it and downloads any subtitle fonts, so pressing Play goes straight to the video (47 ms to the engine in CI vs 650–900 ms cold); the next episode is prepared from the credits on, and the title's artwork shows instead of a black screen until the first frame
 * **Opens fast:** Home appears from a small saved copy (or straight from the server, whichever is first) without waiting for a sign-in check, then quietly refreshes; offline it still shows your last Home. Decoders are probed in the background, Play is prepared while you rest on the featured title or a Continue Watching / Next Up card, detail pages fetch everything in parallel, and an app startup profile is shipped for Android's ahead-of-time compiler
 * **Subtitle styling** for plain subtitles (SRT/VTT): text colour, outline or drop shadow, background box, bold, raised position and a dimmer white for HDR videos, with a live sample in Settings → Subtitles and quick toggles in the player's Subtitles panel. Styled ASS/SSA subtitles keep their own look
 * **Ratings and reviews** on movie and series pages: the critics score (tomato) from your server, and with free keys (Settings → Ratings) the **audience score** (popcorn bucket), IMDb, Metacritic and Letterboxd via MDBList, plus **spoiler-free reviews** from Trakt showing each reviewer's own score; open one to read it in full. Keys typed once sync to your other Sharkfin devices through your Jellyfin profile. (IMDb's own user reviews have no API and can't be scraped under IMDb's terms, so Trakt is used.)
-* **Dolby Vision, every profile:** native DV where the TV supports it, UHD Blu-ray **profile 7 converted to 8.1 on the fly** for Fire TVs and other profile-8-only decoders (libdovi, no re-encoding), HDR10/HLG base-layer playback otherwise, profile 5 left to the server only when nothing on the device can show it, and HDR10+ masking for the Fire TV models that mishandle DV + HDR10+ streams. Windows/mpv reshapes and tone-maps every profile locally
+* **Dolby Vision, every profile:** native DV where the TV supports it, UHD Blu-ray **profile 7 converted to 8.1 on the fly** for Fire TVs and other profile-8-only decoders (libdovi, no re-encoding), HDR10/HLG base-layer playback otherwise, profile 5 left to the server only when nothing on the device can show it, and HDR10+ masking for the Fire TV models that mishandle DV + HDR10+ streams
 * Search, Continue Watching, Favorites, Libraries (including collections)
-* Player (tvOS-style): a scrubber with a time bubble and **trickplay thumbnail previews** (D-pad, or mouse click/drag/hover), chapter ticks, and **intro/recap/credits ranges marked in yellow**: from server media segments, chapter names like "Opening"/"Ending", or, when the server has neither, **detected automatically** (an opening/ending chapter whose length repeats across the season, or for anime the crowd-sourced [AniSkip](https://aniskip.com) database). An **in-player episode browser** (season picker plus episode cards). Chapters, audio and subtitle sheets, and a playback info panel (play method, transcode reasons, decoder). Skip Intro/Recap/Credits prompts that hide after 8 seconds and return with the controls; **Next Episode appears only once the credits start**; Up Next with countdown, resume and progress sync. A visible **Back** button; Back/Esc leaves the player in one press, and on Windows clicking the picture pauses and closing the window exits.
+* Player (tvOS-style): a scrubber with a time bubble and **trickplay thumbnail previews** (D-pad, or mouse click/drag/hover), chapter ticks, and **intro/recap/credits ranges marked in yellow**: from server media segments, chapter names like "Opening"/"Ending", or, when the server has neither, **detected automatically** (an opening/ending chapter whose length repeats across the season, or for anime the crowd-sourced [AniSkip](https://aniskip.com) database). An **in-player episode browser** (season picker plus episode cards). Chapters, audio and subtitle sheets, and a playback info panel (play method, transcode reasons, decoder). Skip Intro/Recap/Credits prompts that hide after 8 seconds and return with the controls; **Next Episode appears only once the credits start**; Up Next with countdown, resume and progress sync. A visible **Back** button; Back leaves the player in one press.
 * Subtitles: Default / Always / Smart / Forced-only modes. Anime "Signs & Songs" tracks are never picked as the main subtitles when the audio is Japanese (the full track is used); with an English dub they act as the forced track
 * Optional **frame-rate matching** on Android TV (24p films at 24 Hz)
 * **Two players on Android TV**: ExoPlayer (default) or MPV (Android 8 / Fire OS 7 and newer), switchable in Settings → Playback. Both render ASS/SSA with libass, including embedded MKV fonts, and when the server has to transcode, Sharkfin downloads the file's font attachments and gives them to libass, so typesetting keeps its fonts either way. MPV also plays more audio formats and containers directly and supports subtitle delay
 * **"Are you still watching?"** before auto-playing the next episode after a long time without any input. *Smart* (default) waits about three episodes' worth, at least 90 minutes; fixed 1/2/3 hours or off are also available. Films are never interrupted
 * tvOS-style navigation: a floating **sidebar** (a slim icon rail that expands with labels when focused; Left or Back opens it), full-screen featured titles (Right on More Info pages to the next one), focus lift with a light sheen, rounded buttons, and the Inter typeface (open-source, in the style of San Francisco)
 * Dark, Light and System themes across the entire app, including the player; artwork-derived accent colours
-* Fire TV remote, keyboard, mouse and Xbox-compatible controllers (Windows)
+* Fire TV remote, Android TV remotes and game controllers, USB/Bluetooth keyboards and mice
 
 The design follows tvOS's layout and behaviour but uses only original artwork and the open-source Inter font. Apple's SF Pro font may only be used on Apple platforms.
 
@@ -52,8 +53,6 @@ successful CI run; the app then updates itself from there):
 | File | What it is |
 |---|---|
 | `Sharkfin-release.apk` | Fire TV / Android TV (sideload this). `Sharkfin-release.apk` and `AuroraTV-release.apk` are the same file under the old names, for builds from before the renames |
-| `Sharkfin-1.0.<n>.msi` / `.exe` | Windows installers |
-| `Sharkfin-windows-x64-portable.zip` | Windows portable copy (doesn't update itself) |
 
 ### Fire TV (sideload)
 
@@ -70,34 +69,18 @@ Release builds are signed with the project's permanent key, so a new build insta
 one (keeping your sign-in and settings). Builds made before the permanent key (before Nov 2026) were
 signed with throwaway keys: uninstall such a build once before installing a new one.
 
-### Windows
-
-Run the `.msi` or `.exe` installer (per-user, no admin needed), or unzip the portable build and run
-`Sharkfin.exe`. SmartScreen may warn because the installer isn't code-signed: *More info → Run anyway*.
-**F11** toggles fullscreen TV mode.
-
 ## Build from source
 
 Requirements: JDK 21, Android SDK (API 36), internet access to Maven Central/Google Maven.
 
 ```bash
-# Tests (shared logic + keyboard/remote navigation UI tests)
-./gradlew :shared:desktopTest :shared:testDebugUnitTest
+# Tests (shared logic + keyboard/remote navigation UI tests; jvmTest is the fast JVM test host)
+./gradlew :shared:jvmTest :shared:testDebugUnitTest
 
 # Android
 ./gradlew :androidApp:assembleDebug            # androidApp/build/outputs/apk/debug/
 ./gradlew :androidApp:assembleRelease          # signed if AURORA_KEYSTORE_* are set, else with the debug key
 ./gradlew :androidApp:bundleRelease            # AAB
-
-# Windows (run on Windows; jpackage can't cross-compile)
-#  1. Put libmpv-2.dll in desktopApp/native/windows/
-#     (from shinchiro/mpv-winbuild-cmake releases: mpv-dev-x86_64-*.7z)
-#     and vulkan-1.dll next to it (Khronos loader, e.g. from the Silk.NET.Vulkan.Loader.Native NuGet package)
-./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:createDistributable
-#  Output: desktopApp/build/compose/binaries/main/{msi,exe,app}
-
-# Run the desktop app directly (Linux/macOS dev needs libmpv installed: apt install libmpv-dev)
-./gradlew :desktopApp:run
 ```
 
 ### Release signing
@@ -129,23 +112,22 @@ Create a key with `keytool -genkeypair -v -keystore release.jks -alias aurora -k
 1. **Tests + Android:** unit tests, keyboard/D-pad navigation UI tests, debug/release APK, AAB, signature verification.
 2. **Real Jellyfin server:** generates a synthetic test library with FFmpeg (H.264+SRT, HEVC Main10+styled ASS with embedded font,
    multi-audio/multi-subtitle MKV, anime-style typesetting series, 4K HDR10, MPEG-4 AVI), starts Jellyfin in Docker,
-   runs the integration suite against it, then launches the real desktop build under Xvfb and captures screenshots.
-3. **Windows:** fetches libmpv, packages MSI/EXE/portable, runs a headless libmpv + libass self-test of the packaged app over every sample, and takes a launch screenshot.
+   and runs the integration suite against it.
+3. **Android TV emulator:** sign-in, D-pad navigation, layout and sound checks, playback and resume timings, Home timings and server request counts, with screenshots.
 
 ## Settings
 
 Appearance (theme, animation level, backdrops, carousel, artwork accents) · Playback (max quality,
-Direct Play, hardware decoding and passthrough on Windows, audio language, auto-play next, resume
-behaviour, skip intervals, intro skipping) · Subtitles (mode, language, size, default delay on Windows,
-ASS render mode on TV) · Server (diagnostics, switch user, sign out, add/switch/remove servers) ·
+Direct Play, player, frame-rate matching, audio language, auto-play next, resume behaviour, skip
+intervals, intro/outro skipping) · Subtitles (mode, language, size, style, ASS render mode) · Server (diagnostics, switch user, sign out, add/switch/remove servers) ·
 About (version, platform, token storage, detected codec/HDR/audio/subtitle capabilities, licenses).
 
 ## License
 
 GPL-3.0 (see `LICENSE`). Sharkfin bundles the Jellyfin Media3 FFmpeg decoder (GPL-3.0) and GPL
-builds of libmpv (Windows: shinchiro; Android: `dev.jdtech.mpv:libmpv`, mpv 0.42 with FFmpeg, libplacebo,
+builds of libmpv (`dev.jdtech.mpv:libmpv`, mpv 0.42 with FFmpeg, libplacebo,
 libass, fontconfig, dav1d, GPL-3.0-or-later), so the whole app is distributed under the GPL. Other components: Kotlin, kotlinx,
-Compose Multiplatform, Ktor, Coil, AndroidX Media3, JNA, the Khronos Vulkan loader (Apache-2.0); the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
+Compose Multiplatform, Ktor, Coil, AndroidX Media3; the Inter typeface (SIL OFL 1.1, `LICENSES/Inter-OFL.txt`); ass-media (MIT) with libass
 (ISC), FreeType (FTL), HarfBuzz (MIT) and FriBidi (LGPL-2.1); libdovi (MIT, from dovi_tool) via
 ExoplayerHdrUtils (MIT) for Dolby Vision profile 7 → 8.1 conversion. See *Settings → About*.
 

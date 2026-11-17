@@ -7,7 +7,7 @@ manual claims. Each run publishes its raw reports and screenshots to the
 
 ## 1. Unit and UI tests (every push)
 
-`./gradlew :shared:desktopTest :shared:testDebugUnitTest`: shared tests run on both the JVM/desktop and Android targets.
+`./gradlew :shared:jvmTest :shared:testDebugUnitTest`: shared tests run on both the JVM test host and the Android target.
 
 | Area | Tests |
 |---|---|
@@ -34,7 +34,7 @@ manual claims. Each run publishes its raw reports and screenshots to the
 | Subtitle fonts | MKV font attachments recognised by extension, MIME type or codec |
 | Next Episode | offered from the credits start (chapters, segments or detection), else the final two minutes |
 | Intro/credits detection | recurring chapter lengths across a season → opening/ending; periodic chapters ignored; AniSkip via AniList title search + sequel walk, only for anime, only for missing kinds, title/year must match, Jellyfin token never sent to third parties, nothing sent when the setting is off |
-| Dolby Vision routing | per device type (DV TV with/without libdovi, Shield, HDR10 TV with a DV decoder, SDR TV, Windows/mpv): which `VideoRangeType`s go to the server for HEVC/AV1/VP9 and which path each profile takes (native, 7 → 8.1, base layer, server); DV codec strings |
+| Dolby Vision routing | per device type (DV TV with/without libdovi, Shield, HDR10 TV with a DV decoder, SDR TV): which `VideoRangeType`s go to the server for HEVC/AV1/VP9 and which path each profile takes (native, 7 → 8.1, base layer, server); DV codec strings |
 | Dolby Vision bitstream edits | enhancement-layer (NAL 63) removal keeps every other unit byte-for-byte; start-code scan across emulation-prevention bytes; HDR10+ SEI masking changes exactly one byte per message, leaves A/53 captions and suffix SEI alone and walks emulation-prevention bytes; non-Annex-B data untouched |
 | Faster starts | preparation fetches item + PlaybackInfo with the resume point and pre-downloads ASS fonts only for transcodes; a prepared result is used once and only for the same title, session, settings and device capabilities; repeated prewarm of the same page does no duplicate requests |
 | Brand tiles | studio names matched case/punctuation-insensitively ("Apple TV+", "NETFLIX", "Lucasfilm Ltd."), grouped into brands in catalog order, server studio logo preferred when present |
@@ -77,14 +77,13 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 | ✅ | ASS kept as styled ASS when transcoding with libass | delivered as `Stream.ass` with `[V4+ Styles]` and `\k` tags intact |
 | ✅ | ASS burned in when the device has no ASS renderer | Transcode; ASS delivery = Encode (never flattened to SRT) |
 | ⚠️ | 4K HDR10 Direct Play / server tone-mapping decisions | not verifiable on this server: Jellyfin 12.4's probe reported the PQ/BT.2020 sample as SDR (ffprobe in the CI log confirms the file is PQ). The HDR decision logic is covered by `DeviceProfileTest`. |
-| ✅ | 4K HDR10 → Direct Play on Windows/mpv | DirectPlay (mpv tone-maps locally) |
-| ✅ | Dolby Vision 8.1 (`DOVIWithHDR10`) | DV TV = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
-| ✅ | Dolby Vision 5 (`DOVI`) | DV TV = Direct Play, HDR10 TV = server converts, SDR TV = server converts, Windows = Direct Play |
-| ✅ | Dolby Vision 7 FEL (`DOVIWithEL`) | DV TV (profile 8 decoder + libdovi) = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts, Windows = Direct Play |
+| ✅ | Dolby Vision 8.1 (`DOVIWithHDR10`) | DV TV = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts |
+| ✅ | Dolby Vision 5 (`DOVI`) | DV TV = Direct Play, HDR10 TV = server converts, SDR TV = server converts |
+| ✅ | Dolby Vision 7 FEL (`DOVIWithEL`) | DV TV (profile 8 decoder + libdovi) = Direct Play, HDR10 TV = Direct Play (base layer), SDR TV = server converts |
 | ✅ | Brand tiles from studio metadata | brands = netflix, disney, appletv, paramount, hbo, hulu, natgeo, a24, crunchyroll; Netflix hub → Glass Meridian |
 | ✅ | Critic score from server metadata | `CriticRating` 93 → tomatometer 93% |
 | ✅ | Rating keys typed on one device reach another | written to the user's DisplayPreferences by one key store, read into another device's vault |
-| ✅ | MPEG-4/AVI → transcode on Fire TV, Direct Play on mpv | Fire TV = Transcode (ContainerNotSupported, VideoCodecNotSupported, AudioCodecNotSupported); Windows = DirectPlay |
+| ✅ | MPEG-4/AVI → transcode on Fire TV | Fire TV = Transcode (ContainerNotSupported, VideoCodecNotSupported, AudioCodecNotSupported) |
 | ✅ | Multi-track MKV: audio/subtitle selection | 3 audio (aac, ac3, eac3), 3 subs; ja → jpn, forced → English Forced, smart → English Full; DirectPlay |
 | ✅ | External SRT sidecar detected | 2 subtitle streams, 1 external |
 | ✅ | Direct stream authenticates via header (no token in URL) | HTTP 206 |
@@ -96,34 +95,10 @@ and NFO metadata (`ci/make_artwork.py`), starts `jellyfin/jellyfin:latest` in Do
 
 **Result: 23 passed, 1 not verifiable on this server version, 0 failed.**
 
-## 3. Windows: packaged app self-test (every push)
+## 3. Windows (removed)
 
-The MSI/EXE/portable build is packaged on `windows-2022`, then the **packaged** `Sharkfin.exe
---self-test` loads the bundled `libmpv-2.dll` (mpv 0.42) and decodes every sample headlessly.
-
-| Sample | Result |
-|---|---|
-| Ember Field: HEVC Main10 4K HDR10, E-AC3 | PASS |
-| Glass Meridian: HEVC Main10, AC3 5.1, ASS | PASS |
-| Harbor Lights: H.264, AAC, SRT | PASS |
-| Old Reel: MPEG-4 Part 2 AVI, MP3 | PASS |
-| Seven Rivers: 3 audio / 3 subtitle tracks | PASS (forced subtitle rendered: `[FORCED] Sign: "Station"`) |
-| Skylark Isles S01E01–E03: HEVC Main10 + anime ASS | PASS |
-| Prism Coast: Dolby Vision 8.1 | PASS, `doviProfile=8 colormatrix=dolbyvision` |
-| Neon Tide: Dolby Vision 5 | PASS, `doviProfile=5 colormatrix=dolbyvision` |
-| Velvet Static: Dolby Vision 7 FEL | PASS, `doviProfile=7 colormatrix=dolbyvision` |
-
-`colormatrix=dolbyvision` means mpv picked up the RPU metadata and hands it to libplacebo, which
-applies the Dolby Vision reshaping when rendering with gpu-next (the self-test decodes with `vo=null`,
-so the reshaped picture itself is checked on real hardware only).
-
-The runner has no GPU, so decoding was software (`hwdec=no`); D3D11VA/NVDEC hardware decoding needs
-real hardware. The first run found that libmpv requires `vulkan-1.dll`, which PCs without GPU drivers
-lack, so the Khronos Vulkan loader is now bundled.
-
-A launch smoke test then starts the installed-layout app, confirms it stays running and captures a
-screenshot. A best-effort step signs in to the public Jellyfin demo server and captures Home and the player:
-real video plays through mpv in its own window, with Sharkfin's transparent controls drawn on top.
+The Windows app and its CI job (packaging plus a libmpv self-test) were removed when Windows support
+was dropped; older results are in the git history of this file.
 
 ## 4. Android TV emulator (every push)
 
@@ -166,7 +141,7 @@ The emulator runs found and fixed three real bugs:
 1. **The on-screen keyboard stayed active after sign-in and swallowed the remote's D-pad** (Select
    typed "q"). Sharkfin now dismisses the keyboard on connect, on sign-in and when the main app opens.
 2. Android TV's default pivot scrolling clipped the top of Home; replaced with minimal scroll-into-view.
-3. The shared arrow-key handler is now desktop-only; Android uses its native D-pad focus search.
+3. The shared arrow-key handler now only runs where the platform doesn't move focus itself (the JVM test host); Android uses its native D-pad focus search.
 
 The emulator occasionally fails to boot in CI (an infrastructure timeout, not an app failure);
 re-running the job fixes it.
@@ -175,5 +150,5 @@ re-running the job fixes it.
 
 Fire TV hardware decoders (HEVC/AV1/DV) and Dolby Vision output (native, profile 7 → 8.1 conversion,
 HDR10+ masking), live MDBList/Trakt calls with real keys, HDMI audio passthrough, HDR output on a TV, libass overlay
-performance on low-end sticks, Windows GPU decoding and HDR output, Xbox controllers. See
+performance on low-end sticks. See
 [Known limitations](KNOWN_LIMITATIONS.md).

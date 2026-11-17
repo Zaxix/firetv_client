@@ -108,6 +108,10 @@ data class BaseItemDto(
     @SerialName("OfficialRating") val officialRating: String? = null,
     @SerialName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerialName("Genres") val genres: List<String> = emptyList(),
+    /** Keywords / tags from the metadata provider (field "Tags"). */
+    @SerialName("Tags") val tags: List<String> = emptyList(),
+    /** Countries of production, e.g. "Japan" (field "ProductionLocations"). */
+    @SerialName("ProductionLocations") val productionLocations: List<String> = emptyList(),
     /** External ids, e.g. "Tmdb", "Tvdb", "AniList", "MyAnimeList" (plugin dependent). */
     @SerialName("ProviderIds") val providerIds: Map<String, String> = emptyMap(),
     @SerialName("Studios") val studios: List<NameIdPair> = emptyList(),

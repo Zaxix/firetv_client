@@ -7,20 +7,19 @@ can only be confirmed on that device; CI can't test them.
 
 | Area | Verified in CI | Needs testing on your hardware |
 |---|---|---|
-| Builds | Debug/release APK, AAB, MSI, EXE, portable ZIP | — |
+| Builds | Debug/release APK, AAB | — |
 | Jellyfin API, auth, paging, search, favorites, resume, Next Up | ✅ against a real Jellyfin server in Docker | — |
 | Playback negotiation (Direct Play / transcode decisions) | ✅ against the real server for HEVC Main10, 4K HDR10, multi-track, AVI/MPEG-4, ASS | — |
 | ASS kept as ASS when transcoding; burned in when unsupported | ✅ against the real server | — |
-| libmpv decoding + libass in the packaged Windows app | ✅ headless self-test on a Windows runner (software decode — runners have no GPU) | D3D11 hardware decode and HDR output on a real GPU/display |
-| Desktop UI rendering | ✅ screenshots from the real build on Linux/Xvfb + a Windows launch screenshot | — |
+| UI rendering and D-pad navigation | ✅ Android TV emulator screenshots and layout/focus/sound checks | Real remotes and TV hardware |
 | Fire TV remote navigation, Media3 HW decoding, libass overlay, HDMI passthrough, HDR | Shared focus logic is unit-tested with D-pad key events | **Everything else on a real Fire TV** |
 
 ## Android / Fire TV
 
-* **Subtitle delay isn't available on Android.** Media3's subtitle pipeline has no timing offset, and
-  libass rendering follows the player clock. The control is hidden on Android rather than shown
-  broken; Windows supports it fully. Workaround: fix timing on the server (Jellyfin's subtitle editor
-  plugins) or play on Windows.
+* **Subtitle delay isn't available with ExoPlayer.** Media3's subtitle pipeline has no timing offset,
+  and libass rendering follows the player clock, so the control is hidden rather than shown broken.
+  The optional mpv player (Settings → Playback, Android 8+) supports it. Otherwise fix timing on the
+  server (Jellyfin's subtitle editor plugins).
 * **Fonts for ASS while transcoding:** when the server transcodes video, the `.ass` file is delivered
   separately, so fonts embedded in the MKV aren't available and libass falls back to system fonts.
   Direct Play (the normal case on HEVC-capable Fire TVs) uses the embedded fonts.
@@ -59,20 +58,10 @@ can only be confirmed on that device; CI can't test them.
 * **Scrub thumbnails need trickplay on the server.** Turn on "Enable trickplay image extraction" in
   the library settings (Jellyfin 10.9 or newer); without it, scrubbing shows only the time.
 
-## Windows
+## Platforms
 
-* **Video window composition:** mpv renders into its own child window, and the controls are a
-  transparent dialog on top. This is the standard approach, but on unusual setups (some screen
-  recorders, remote desktop) the overlay may not composite. Fullscreen (F11) is the intended TV mode.
-* **Audio passthrough** must be enabled manually (Settings → Playback): Windows can't reliably report
-  what a receiver connected over S/PDIF/HDMI accepts.
-* **libmpv needs `vulkan-1.dll`.** It ships with every GPU driver, and Sharkfin bundles the Khronos loader
-  as well, so the app also starts on PCs or VMs without GPU drivers (playback then uses software decoding).
-* **Controllers:** XInput (Xbox-compatible) controllers are supported. DirectInput-only and
-  PlayStation pads need Steam Input or DS4Windows to present as XInput.
-* **The installers aren't code-signed**, so Windows SmartScreen will warn on first run ("More info →
-  Run anyway"). Signing needs a paid certificate.
-* Built for **x64 only** (no ARM64 Windows build).
+* **Fire TV and Android TV only.** The dedicated Windows app was removed. Sharkfin has never had a
+  browser version; on a PC, Jellyfin's own web app works as before.
 
 ## Server features
 
@@ -97,10 +86,9 @@ can only be confirmed on that device; CI can't test them.
 
 * **In-app updates** need one confirmation on Android/Fire TV per update: sideloaded apps can't install
   silently, so Android's install screen always appears. On Fire OS the first update also asks you to
-  allow Sharkfin under *Install unknown apps*. Debug APKs, the Windows portable ZIP and Linux builds
-  don't install updates themselves (they open the download page). The update flow is unit-tested
-  with a fake platform; the real Android install screen and the Windows MSI upgrade have not been
-  exercised by CI, which can't confirm an install.
+  allow Sharkfin under *Install unknown apps*. Debug APKs don't install updates themselves (they
+  open the download page). The update flow is unit-tested with a fake platform; the real Android
+  install screen hasn't been exercised by CI, which can't confirm an install.
 * **Remembered tracks** are stored on each device, not synced between devices.
 
 ## Profiles

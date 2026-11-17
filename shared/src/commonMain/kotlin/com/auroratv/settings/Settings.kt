@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 data class Settings(
     // Appearance
     val theme: ThemeMode = ThemeMode.Dark,
-    /** Size of everything on screen in percent; 0 = automatic (80% on TVs, 100% on Windows). */
+    /** Size of everything on screen in percent; 0 = automatic (80% on TVs). */
     val interfaceScalePercent: Int = 0,
     val animations: AnimationLevel = AnimationLevel.Full,
     val showBackdrops: Boolean = true,
@@ -41,9 +41,8 @@ data class Settings(
     val maxBitrateMbps: Int = 0,
     val enableDirectPlay: Boolean = true,
     val hardwareDecoding: Boolean = true,
-    /** Android TV: which video player to use. Windows always uses mpv. */
+    /** Which video player to use (ExoPlayer, or mpv on Android 8+). */
     val playerEngine: PlayerEngineChoice = PlayerEngineChoice.ExoPlayer,
-    val audioPassthrough: Boolean = false,
     val preferredAudioLanguage: String = "",
     val autoPlayNext: Boolean = true,
     /** When to ask "Are you still watching?" before auto-playing another episode. */

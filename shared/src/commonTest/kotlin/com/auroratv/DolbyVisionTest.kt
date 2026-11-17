@@ -75,12 +75,6 @@ class DolbyVisionTest {
     }
 
     @Test
-    fun windowsMpvTakesEverything() {
-        val pc = sdrTv.copy(canToneMapHdr = true)
-        assertTrue(ranges(pc).containsAll(listOf("DOVI", "DOVIWithEL", "HDR10Plus", "HLG", "DOVIWithELHDR10Plus")))
-    }
-
-    @Test
     fun codecStrings() {
         assertEquals(7, DolbyVisionCodecs.profile("dvhe.07.06"))
         assertEquals(8, DolbyVisionCodecs.profile("dvh1.08.09"))

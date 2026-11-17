@@ -38,7 +38,7 @@ data class ReleaseInfo(
     val version: String,
     val commit: String = "",
     val publishedAt: String = "",
-    /** Every CI job passed (tests, real server, emulator, Windows). Failing builds are never offered. */
+    /** Every CI job passed (tests, real server, emulator). Failing builds are never offered. */
     val ok: Boolean = false,
     val changes: List<String> = emptyList(),
     val assets: Map<String, ReleaseAsset> = emptyMap(),
@@ -50,7 +50,7 @@ interface AppUpdater {
     val currentBuild: Int
     val currentVersion: String
 
-    /** The release file this install updates from, or null when it can't update itself (portable copy, Linux, debug build). */
+    /** The release file this install updates from, or null when it can't update itself (a debug build). */
     fun pickAsset(names: Collection<String>): String?
 
     /** A reason the install can't start yet (e.g. Android's "install unknown apps" switch), or null. */
@@ -62,7 +62,7 @@ interface AppUpdater {
     /** Downloads [url] to a local file, checking size and SHA-256; returns the file path. */
     suspend fun download(http: HttpClient, url: String, asset: ReleaseAsset, onProgress: (Float) -> Unit): String
 
-    /** Hands the verified file to the system installer. Windows closes the app to let the installer replace it. */
+    /** Hands the verified file to the system installer. */
     suspend fun install(path: String)
 
     fun openUrl(url: String)

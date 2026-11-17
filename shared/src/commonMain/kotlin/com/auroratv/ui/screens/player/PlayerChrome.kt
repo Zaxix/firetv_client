@@ -145,8 +145,7 @@ private const val PREFETCH_MIN_BUFFER_MS = 25_000L
  * Performance: the engine publishes position a few times a second. Only the leaf composables that
  * show time (timeline, clocks) read it, and everything else reads [derivedStateOf] values that
  * change rarely (playing, buffering, active skip range), so the overlay isn't re-laid-out while
- * video plays and, with the controls hidden, nothing redraws at all. On Windows the overlay is a
- * separate transparent window, so this directly frees the GPU for video.
+ * video plays and, with the controls hidden, nothing redraws at all.
  */
 @Composable
 fun PlayerChrome(
@@ -422,7 +421,7 @@ fun PlayerChrome(
                 }
             }
             .pointerInput(panel) {
-                // Clicking the picture closes a panel, otherwise toggles play/pause (mouse on Windows).
+                // Clicking the picture closes a panel, otherwise toggles play/pause (mouse or touch).
                 detectTapGestures(onTap = { if (panel != Panel.None) closePanel() else togglePlay() })
             }
     ) {
