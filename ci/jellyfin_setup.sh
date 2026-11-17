@@ -51,7 +51,7 @@ for i in $(seq 1 120); do
   M=$(curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Movie" -H "$A" | jq .TotalRecordCount)
   E=$(curl -sf "$URL/Items?userId=$USER_ID&recursive=true&includeItemTypes=Episode" -H "$A" | jq .TotalRecordCount)
   echo "scan: movies=$M episodes=$E" >&2
-  [ "$M" -ge "${EXPECTED_MOVIES:-5}" ] && [ "$E" -ge 3 ] && break
+  [ "$M" -ge "${EXPECTED_MOVIES:-5}" ] && [ "$E" -ge "${EXPECTED_EPISODES:-3}" ] && break
   sleep 3
 done
 sleep 10 # let image/metadata providers settle
@@ -59,7 +59,7 @@ sleep 10 # let image/metadata providers settle
 TP=$(curl -sf "$URL/ScheduledTasks" -H "$A" | jq -r '.[] | select(.Key=="RefreshTrickplayImages") | .Id')
 if [ -n "$TP" ]; then
   curl -sf -X POST "$URL/ScheduledTasks/Running/$TP" -H "$A" || true
-  for i in $(seq 1 60); do
+  for i in $(seq 1 100); do
     sleep 3
     ST=$(curl -sf "$URL/ScheduledTasks/$TP" -H "$A" | jq -r '.State + " " + (.LastExecutionResult.Status // "-")')
     echo "trickplay: $ST" >&2

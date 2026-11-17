@@ -268,6 +268,33 @@ for e in 1 2 3; do
     "$W/Season 02/Wavelength Street - S02E0$e.mkv"
 done
 
+# ---------- 6b) A live-action show whose closing credits look alike but sound different ----------
+# White text rolling up a black screen at the end of every episode, over music that changes every
+# episode (so listening can't find it), and in episode 2 a post-credits scene after them. Exercises
+# the on-screen credits check (trickplay thumbnails) and Skip Outro landing on the post-credits scene.
+H="$OUT/tv/Harbor Precinct"; mkdir -p "$H/Season 01"
+cat > "$H/tvshow.nfo" <<'NFO'
+<?xml version="1.0" encoding="utf-8"?><tvshow><title>Harbor Precinct</title><year>2019</year><genre>Crime</genre><genre>Drama</genre><plot>Detectives on the night shift at a waterfront station. Synthetic live-action-style test series: closing credits on black, different music every episode.</plot></tvshow>
+NFO
+for i in $(seq 1 60); do echo "Role $i ........ Actor Name $i"; done > "$TMP/credits.txt"
+for e in 1 2 3; do
+  tag=$([ "$e" = 2 ] && echo 20 || echo 0)
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=170:size=640x360:rate=25" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "$TMP/hp_body.mp4"
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "color=c=black:size=640x360:rate=25:duration=45" \
+    -vf "drawtext=fontfile=$FONT:textfile=$TMP/credits.txt:fontcolor=white:fontsize=18:line_spacing=10:x=(w-tw)/2:y=h-t*45" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "$TMP/hp_credits.mp4"
+  parts=("$TMP/hp_body.mp4" "$TMP/hp_credits.mp4")
+  if [ "$tag" -gt 0 ]; then
+    ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc=duration=$tag:size=640x360:rate=25" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "$TMP/hp_tag.mp4"
+    parts+=("$TMP/hp_tag.mp4")
+  fi
+  : > "$TMP/hp_list.txt"; for f in "${parts[@]}"; do echo "file '$f'" >> "$TMP/hp_list.txt"; done
+  ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "$TMP/hp_list.txt" -c copy "$TMP/hp_video.mp4"
+  story $((215 + tag)) "$((e + 40))" "$TMP/hp_audio.wav"
+  ffmpeg -nostdin -y -loglevel error -i "$TMP/hp_video.mp4" -i "$TMP/hp_audio.wav" -map 0:v -map 1:a -shortest \
+    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 96k -metadata title="Case $e" \
+    "$H/Season 01/Harbor Precinct - S01E0$e.mkv"
+done
+
 # ---------- 7) Dolby Vision: profile 8.1 (HDR10 base), 5 (no base layer), 7 (UHD Blu-ray) ----------
 # Needs dovi_tool + mkvmerge (CI installs both); skipped otherwise. mkvmerge writes the DV
 # configuration record from the RPUs, which is what Jellyfin reads to classify the range type.

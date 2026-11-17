@@ -4,8 +4,8 @@ tags: [feature]
 # Video Player
 
 ## What it does
-Plays movies and episodes with hardware decoding: **Media3/ExoPlayer** on Android/Fire TV (MPV is
-an opt-in alternative on Android 8+), **libmpv** on Windows. Shows a frosted control overlay with
+Plays movies and episodes with hardware decoding: **Media3/ExoPlayer** (MPV is an opt-in alternative
+on Android 8+). Shows a frosted control overlay with
 the timeline, tracks, episode list, skip buttons and "Next Episode".
 
 ## How it works
@@ -24,14 +24,25 @@ flowchart LR
    resume point ([[Playback Resume]]) and reports playback (every 10 s and on pause).
 4. Skip markers ([[Skip Markers]]) and "Are you still watching?" (`StillWatching`) run alongside.
 
-Buffering: Media3 buffers up to 2 min / 160 MB ahead and keeps 15 s behind; mpv keeps a 400 MiB
-forward / 100 MiB back cache. Seeks go to the nearest keyframe.
+Buffering: Media3 buffers up to 2 min / 160 MB ahead and keeps 15 s behind; mpv keeps 150 MiB ahead
+and 50 MiB behind (96/24 MiB on low-RAM devices). Seeks go to the nearest keyframe.
+
+## Audio track choice
+`PlaybackPreparer` picks the audio track, in this order:
+1. A track picked by hand earlier for this series or movie ([[Subtitles]] → TrackMemory).
+2. Settings → Playback → *Audio language*, when a language is set.
+3. **Automatic** (the default): **English** for everything except anime; anime keeps the file's own
+   default track (normally its original Japanese). Whether a title is anime comes from `ContentKind`
+   (anime database ids, an "Anime" genre/tag, or animated *and* Japanese). For an episode the series
+   is looked up once (one small request, remembered for the session), and only when it matters: the
+   file has an English track, more than one audio track, and a default that isn't already English.
+4. The server's default track, else the file's default.
 
 ## Relevant files
 `playback/` (PlayerController, PlaybackNegotiator, PlaybackPreparer, DeviceProfileBuilder,
 TrackSelector, StillWatching), `ui/screens/player/` (PlayerScreen, PlayerChrome,
 TrickplayFrames), `androidMain/.../ExoPlayerEngine.kt`, `MpvAndroidEngine.kt`,
-`DolbyVisionPlayback.kt`, `FrameRateMatcher.kt`, `desktopMain/.../MpvEngine.kt`, `LibMpv.kt`.
+`DolbyVisionPlayback.kt`, `FrameRateMatcher.kt`, `playback/ContentKind.kt` (anime or not, for the audio default).
 
 ## Dependencies
 [[API Endpoints]] (PlaybackInfo, Videos, Sessions/Playing) · [[Streaming Performance]] ·

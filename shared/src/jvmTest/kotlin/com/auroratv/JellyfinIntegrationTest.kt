@@ -210,6 +210,7 @@ class JellyfinIntegrationTest {
         dolbyVisionChecks()
         recommendationChecks(http, sm)
         record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
+        record("Outro found on screen (live-action credits, different music every episode, post-credits scene)") { screenCheck() }
         record("MPEG-4/AVI → transcode on Fire TV") {
             val tv = plan(movie("Old Reel"), fireTv4k)
             assertTrue(tv.method != PlayMethod.DirectPlay)
@@ -392,6 +393,32 @@ class JellyfinIntegrationTest {
     }
 
     /** Wavelength Street (CI sample): the same theme after cold opens of 20 / 8 / 25 s, and the same credits music. */
+    /**
+     * Harbor Precinct: closing credits are white text on black in every episode but over different
+     * music, so listening finds nothing and the trickplay thumbnails have to. Episode 2 has a 20 s
+     * scene after its credits, which Skip Outro must land on (not skip).
+     */
+    private suspend fun screenCheck(): String {
+        val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Harbor Precinct", limit = 5)).items.firstOrNull()
+            ?: return "skipped: sample series not in this library"
+        val eps = api.episodes(series.id)
+        assertEquals(3, eps.size)
+        val ep2 = api.item(eps[1].id)
+        if (ep2.trickplay.isNullOrEmpty()) return "skipped: the server made no trickplay thumbnails for this run"
+        val detector = com.auroratv.playback.SkipDetector(api, io.ktor.client.HttpClient(), audioAllowed = { true }, onlineAllowed = { false })
+        val t0 = System.currentTimeMillis()
+        val result = assertNotNull(detector.detect(ep2, setOf(com.auroratv.playback.SkipRange.Kind.Intro, com.auroratv.playback.SkipRange.Kind.Recap)), "found no outro")
+        val ms = System.currentTimeMillis() - t0
+        val credits = assertNotNull(result.ranges.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Credits }, "no outro: ${result.ranges}")
+        assertTrue(result.source.contains("on screen"), "found by ${result.source}")
+        // Credits are 170–215 s; thumbnails are 10 s apart, so the start is at most one thumbnail late.
+        assertTrue(credits.startMs in 165_000..181_000, "outro starts at 2:50: $credits")
+        assertTrue(credits.endMs in 205_000..216_000, "ends before the post-credits scene at 3:35: $credits")
+        val ui = com.auroratv.playback.PlayerUiState(item = ep2)
+        assertTrue(!ui.creditsRunToEnd(credits), "Skip Outro lands on the post-credits scene")
+        return "episode 2: outro ${credits.startMs / 1000.0}–${credits.endMs / 1000.0} s (true 170–215, scene after it) via ${result.source}; took $ms ms"
+    }
+
     private suspend fun listeningCheck(): String {
         val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Wavelength", limit = 5)).items.firstOrNull()
             ?: return "skipped: sample series not in this library"

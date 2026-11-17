@@ -93,8 +93,10 @@ class RatingsStore(private val files: FileStore, private val today: () -> Int) {
 }
 
 /**
- * Skip markers this device worked out itself (matching chapters across a season, AniSkip) for
- * episodes being watched, so they're there at once when playback resumes. Temporary by design:
+ * Skip markers this device worked out itself (matching chapters across a season, AniSkip, matching
+ * audio, credits on screen) for episodes being watched, so they're there at once when playback
+ * resumes, and which kinds were already looked for, so a search that found nothing isn't repeated
+ * (no repeated analysis of the same episode). Temporary by design:
  *
  * - only *detected* markers are kept; server segments and chapter names come with the episode
  *   itself and are never copied here;
@@ -102,8 +104,9 @@ class RatingsStore(private val files: FileStore, private val today: () -> Int) {
  * - anything untouched for [ABANDON_DAYS] (started, never finished) is pruned when the profile opens.
  */
 class SkipMarkerStore(private val files: FileStore, private val today: () -> Int) {
+    /** [r] ranges, [s] source, [d] day stored, [t] kinds already looked for ("i", "c", "r"). */
     @Serializable
-    private data class Entry(val r: String, val s: String, val d: Int)
+    private data class Entry(val r: String, val s: String, val d: Int, val t: String = "")
 
     private var profile: String? = null
     private var map: MutableMap<String, Entry> = mutableMapOf()
@@ -120,7 +123,7 @@ class SkipMarkerStore(private val files: FileStore, private val today: () -> Int
     /** Remembered markers for an episode in progress (and where they came from), or null. */
     fun get(episodeId: String): Pair<List<SkipRange>, String>? {
         val e = map[episodeId] ?: return null
-        val ranges = e.r.split(';').mapNotNull { part ->
+        val ranges = e.r.split(';').filter { it.isNotEmpty() }.mapNotNull { part ->
             val kind = when (part.firstOrNull()) { 'i' -> SkipRange.Kind.Intro; 'r' -> SkipRange.Kind.Recap; 'c' -> SkipRange.Kind.Credits; else -> null }
             val (a, b) = part.drop(1).split('-').takeIf { it.size == 2 } ?: return@mapNotNull null
             val start = a.toLongOrNull(); val end = b.toLongOrNull()
@@ -129,13 +132,17 @@ class SkipMarkerStore(private val files: FileStore, private val today: () -> Int
         return if (ranges.isEmpty()) null else ranges to e.s
     }
 
-    fun put(episodeId: String, ranges: List<SkipRange>, source: String) {
-        if (profile == null || ranges.isEmpty()) return
-        val packed = ranges.joinToString(";") { r ->
-            val k = when (r.kind) { SkipRange.Kind.Intro -> 'i'; SkipRange.Kind.Recap -> 'r'; SkipRange.Kind.Credits -> 'c' }
-            "$k${r.startMs}-${r.endMs}"
-        }
-        map[episodeId] = Entry(packed, source.take(40), today())
+    /** Kinds already looked for in this episode (found or not). */
+    fun tried(episodeId: String): Set<SkipRange.Kind> {
+        val e = map[episodeId] ?: return emptySet()
+        return e.t.mapNotNull { letterKind(it) }.toSet() + (get(episodeId)?.first?.map { it.kind }.orEmpty())
+    }
+
+    /** Stores [ranges] (may be empty when nothing was found) and that [tried] kinds were looked for. */
+    fun put(episodeId: String, ranges: List<SkipRange>, source: String, tried: Set<SkipRange.Kind> = ranges.map { it.kind }.toSet()) {
+        if (profile == null || (ranges.isEmpty() && tried.isEmpty())) return
+        val packed = ranges.joinToString(";") { r -> "${kindLetter(r.kind)}${r.startMs}-${r.endMs}" }
+        map[episodeId] = Entry(packed, source.take(40), today(), tried.map(::kindLetter).sorted().joinToString(""))
         while (map.size > MAX) map.remove(map.keys.first())
         persist()
     }
@@ -146,6 +153,9 @@ class SkipMarkerStore(private val files: FileStore, private val today: () -> Int
     }
 
     val size: Int get() = map.size
+
+    private fun kindLetter(k: SkipRange.Kind) = when (k) { SkipRange.Kind.Intro -> 'i'; SkipRange.Kind.Recap -> 'r'; SkipRange.Kind.Credits -> 'c' }
+    private fun letterKind(c: Char) = when (c) { 'i' -> SkipRange.Kind.Intro; 'r' -> SkipRange.Kind.Recap; 'c' -> SkipRange.Kind.Credits; else -> null }
 
     private fun persist() {
         val key = profile ?: return

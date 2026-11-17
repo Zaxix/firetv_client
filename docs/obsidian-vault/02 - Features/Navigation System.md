@@ -14,7 +14,7 @@ profile button, screens, rows and the back stack.
   Settings.
 - **Regions** (`FocusRegions`): sidebar, content and header (profile button) have explicit rules
   instead of Compose's geometric search. See [[Focus Management]].
-- Windows: arrow keys via `arrowKeyNavigation()`; XInput controllers bridged to the same keys.
+- Keyboards: arrow keys work like the D-pad (Android moves focus itself; `arrowKeyNavigation()` does it on the JVM test host).
 
 ```mermaid
 stateDiagram-v2
@@ -26,7 +26,7 @@ stateDiagram-v2
 
 ## Relevant files
 `ui/nav/Navigator.kt`, `ui/nav/FocusRegions.kt`, `ui/components/Focus.kt`, `ui/App.kt`
-(MainShell, SideBar), `desktopApp/.../GamepadBridge`.
+(MainShell, SideBar).
 
 ## Dependencies
 [[Focus Management]] · [[UI Sounds]]

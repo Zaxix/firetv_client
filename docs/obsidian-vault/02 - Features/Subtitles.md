@@ -8,7 +8,7 @@ Full ASS/SSA rendering (libass on both platforms), styled text subtitles, rememb
 per series.
 
 ## How it works
-- ASS/SSA: libass overlay on Android (or *Simple* mode for weak devices), built into mpv on Windows.
+- ASS/SSA: libass overlay with ExoPlayer (or *Simple* mode for weak devices), built into mpv with the mpv player.
   When the server transcodes video, ASS stays ASS (sent separately) rather than being burned in.
   Unsupported formats are burned in by the server (`Encode`).
 - Text subtitles use `SubtitleStyle` (size, colour, background, edge); ASS keeps its own styling.

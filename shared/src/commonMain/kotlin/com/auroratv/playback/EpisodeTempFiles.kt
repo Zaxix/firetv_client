@@ -57,28 +57,28 @@ class EpisodeTempFiles(
     private val serializer = MapSerializer(String.serializer(), Entry.serializer())
 
     /** The start of [key] was fetched ahead for [profile] (it may never be played). */
-    fun fetchedAhead(key: String, itemId: String, profile: String) = run { hold(key, itemId, profile) }
+    fun fetchedAhead(key: String, itemId: String, profile: String) = work { hold(key, itemId, profile) }
 
     /** Playback of [key] began: protected until [stopped]. */
-    fun started(key: String, itemId: String, profile: String) = run {
+    fun started(key: String, itemId: String, profile: String) = work {
         playing[key] = (playing[key] ?: 0) + 1
         hold(key, itemId, profile)
     }
 
     /** Playback of [key] ended; [finished]: watched to the end (the episode won't be resumed). */
-    fun stopped(key: String, profile: String, finished: Boolean) = run {
+    fun stopped(key: String, profile: String, finished: Boolean) = work {
         playing[key]?.let { n -> if (n <= 1) playing.remove(key) else playing[key] = n - 1 }
         val m = load()
-        val e = m[key] ?: return@run
+        val e = m[key] ?: return@work
         val holds = if (finished) e.holds - profile else e.holds + (profile to now() + KEEP_MS)
         if (holds.isEmpty()) delete(key, if (finished) "finished" else "unused") else { m[key] = e.copy(holds = holds); save() }
     }
 
     /** A profile was removed from the device: it no longer holds anything. */
-    fun profileRemoved(profile: String) = run {
+    fun profileRemoved(profile: String) = work {
         val m = load()
         val touched = m.filterValues { profile in it.holds }.keys
-        if (touched.isEmpty()) return@run
+        if (touched.isEmpty()) return@work
         touched.forEach { k -> m[k] = m.getValue(k).let { it.copy(holds = it.holds - profile) } }
         save()
         collect()
@@ -89,9 +89,9 @@ class EpisodeTempFiles(
      * gone are dropped, and files without a record (from before this ledger, or an interrupted run)
      * are adopted with a fresh 5 days.
      */
-    fun sweep() = run {
+    fun sweep() = work {
         val m = load()
-        val present = runCatching { cache?.keys() }.getOrNull() ?: return@run
+        val present = runCatching { cache?.keys() }.getOrNull() ?: return@work
         var changed = false
         (m.keys - present).forEach { m.remove(it); changed = true }
         (present - m.keys).forEach { m[it] = Entry("", mapOf(ADOPTED to now() + KEEP_MS)); changed = true }
@@ -144,7 +144,7 @@ class EpisodeTempFiles(
         runCatching { if (m.isEmpty()) files.delete(FILE) else files.write(FILE, AuroraJson.encodeToString(serializer, m)) }
     }
 
-    private fun run(block: () -> Unit) {
+    private fun work(block: () -> Unit) {
         scope.launch(serial) { runCatching(block).onFailure { Log.w(TAG, "Cleanup step failed: ${it.message}") } }
     }
 

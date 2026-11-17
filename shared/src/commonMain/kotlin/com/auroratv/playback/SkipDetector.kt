@@ -38,6 +38,10 @@ import kotlin.math.abs
  *
  * 3. **Matching audio** (any show, no plugin): the theme song / credits music this episode shares
  *    with a neighbouring one, found on the device from low-rate audio the server provides.
+ * 4. **Credits on screen** (credits only, any show): the server's trickplay thumbnails (when it has
+ *    made them) of the episode's end show text on black for a stretch, and the neighbouring
+ *    episode's end does the same for a similar length (see CreditsVision). For live-action shows
+ *    whose closing credits change music every episode or have none.
  *
  * Server media segments and chapter names still win; this only fills kinds that are missing.
  * Online lookups send only the series title / MAL id and episode number, never server data.
@@ -54,6 +58,9 @@ class SkipDetector(
     private val malCache = mutableMapOf<String, MalEntry?>()
     private val anilistCache = mutableMapOf<String, AniListMedia?>()
 
+    /** True when the audio and screen checks are on, i.e. a miss means nothing could be found. */
+    val searchesEveryShow: Boolean get() = audioAllowed()
+
     /** [others]: ranges worked out on the way for other episodes (the one compared against). */
     data class Result(val ranges: List<SkipRange>, val source: String, val others: Map<String, List<SkipRange>> = emptyMap())
 
@@ -61,7 +68,12 @@ class SkipDetector(
         if (!item.isEpisode) return null
         val runtime = item.runtimeMs ?: return null
         val found = mutableListOf<Result>()
-        runCatching { fromSeasonChapters(item, runtime) }
+        // The season's episodes (with chapters and trickplay info): fetched once, only if needed.
+        var seasonList: List<BaseItemDto>? = null
+        suspend fun season(): List<BaseItemDto> = seasonList ?: item.seriesId?.let { sid ->
+            runCatching { api.episodesWithChapters(sid, item.seasonId) }.getOrNull()
+        }.orEmpty().filter { it.runtimeMs != null }.also { seasonList = it }
+        runCatching { fromSeasonChapters(item, runtime) { season() } }
             .onFailure { Log.w(tag, "Chapter pattern lookup failed: ${it.message}") }
             .getOrNull()?.let { found += it }
         val covered = alreadyHave + found.flatMap { r -> r.ranges.map { it.kind } }
@@ -74,8 +86,14 @@ class SkipDetector(
         val stillMissing = listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
             .filter { it !in alreadyHave && found.none { r -> r.ranges.any { x -> x.kind == it } } }
         if (audioAllowed() && stillMissing.isNotEmpty()) {
-            runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(90_000) { fromAudio(item, runtime, stillMissing.toSet()) } } }
+            runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(90_000) { fromAudio(item, runtime, stillMissing.toSet(), season()) } } }
                 .onFailure { Log.w(tag, "Audio match failed: ${it.message}") }
+                .getOrNull()?.let { found += it }
+        }
+        val creditsMissing = SkipRange.Kind.Credits !in alreadyHave && found.none { r -> r.ranges.any { it.kind == SkipRange.Kind.Credits } }
+        if (audioAllowed() && creditsMissing && item.trickplay != null) {
+            runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(60_000) { fromScreen(item, runtime, season()) } } }
+                .onFailure { Log.w(tag, "On-screen credits check failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
         }
         if (found.isEmpty()) return null
@@ -86,15 +104,17 @@ class SkipDetector(
         if (ranges.isEmpty()) return null
         val sources = found.filter { r -> r.ranges.any { it in ranges } }.joinToString(" + ") { it.source }
         Log.i(tag, "Detected ${ranges.joinToString { "${it.kind} ${it.startMs / 1000}-${it.endMs / 1000}s" }} via $sources")
-        return Result(ranges, sources, found.fold(emptyMap<String, List<SkipRange>>()) { acc, r -> acc + r.others })
+        // Other episodes' ranges from every step (e.g. the neighbour's intro by audio, its outro on screen).
+        val others = HashMap<String, List<SkipRange>>()
+        found.forEach { r -> r.others.forEach { (id, list) -> others[id] = (others[id].orEmpty() + list).distinctBy { it.kind } } }
+        return Result(ranges, sources, others)
     }
 
     // ---- 1. Recurring chapters ---------------------------------------------------------------
 
-    private suspend fun fromSeasonChapters(item: BaseItemDto, runtime: Long): Result? {
-        if (item.chapters.size < 3) return null
-        val seriesId = item.seriesId ?: return null
-        val others = api.episodesWithChapters(seriesId, item.seasonId)
+    private suspend fun fromSeasonChapters(item: BaseItemDto, runtime: Long, season: suspend () -> List<BaseItemDto>): Result? {
+        if (item.chapters.size < 3 || item.seriesId == null) return null
+        val others = season()
             .filter { it.id != item.id && it.chapters.size >= 3 }
             .take(12)
             .mapNotNull { ep -> ep.runtimeMs?.let { ep.chapters to it } }
@@ -110,15 +130,13 @@ class SkipDetector(
      * season as low-rate audio, and find the stretch of sound they share (see AudioFingerprint).
      * About 4 KB per second of audio; the server only decodes sound for it.
      */
-    private suspend fun fromAudio(item: BaseItemDto, runtime: Long, want: Set<SkipRange.Kind>): Result? {
-        val seriesId = item.seriesId ?: return null
-        val season = api.episodesWithChapters(seriesId, item.seasonId).filter { it.runtimeMs != null }
-        val at = season.indexOfFirst { it.id == item.id }
-        // The previous episode if there is one (most likely already watched, its markers cached), else the next.
-        val other = (if (at > 0) season[at - 1] else season.getOrNull(at + 1))?.takeIf { it.id != item.id } ?: return null
+    private suspend fun fromAudio(item: BaseItemDto, runtime: Long, want: Set<SkipRange.Kind>, season: List<BaseItemDto>): Result? {
+        val partners = partners(item, season)
+        val other = partners.firstOrNull() ?: return null
         val otherRuntime = other.runtimeMs ?: return null
         val rate = AudioFingerprint.SAMPLE_RATE
         val mine = mutableListOf<SkipRange>(); val theirs = mutableListOf<SkipRange>()
+        val others = HashMap<String, MutableList<SkipRange>>()
 
         suspend fun prints(id: String, startMs: Long, seconds: Int): IntArray? =
             api.audioSample(id, startMs, seconds, rate)?.let { AudioFingerprint.fingerprint(AudioFingerprint.wavSamples(it)) }
@@ -135,24 +153,83 @@ class SkipDetector(
                 theirs += SkipRange(SkipRange.Kind.Intro, m.bStart * AudioFingerprint.FRAME_MS, m.bEnd * AudioFingerprint.FRAME_MS)
             }
         }
+        if (theirs.isNotEmpty()) others[other.id] = theirs.toMutableList()
         if (SkipRange.Kind.Credits in want) {
             val windowMs = { rt: Long -> minOf(rt / 5, CREDITS_WINDOW_MS) }
-            val aFrom = runtime - windowMs(runtime); val bFrom = otherRuntime - windowMs(otherRuntime)
+            val aFrom = runtime - windowMs(runtime)
             val a = prints(item.id, aFrom, (windowMs(runtime) / 1000).toInt())
-            val b = a?.let { prints(other.id, bFrom, (windowMs(otherRuntime) / 1000).toInt()) }
-            val m = if (a != null && b != null) AudioFingerprint.longestShared(a, b, minFrames) else null
-            if (m != null) {
+            // Credits music changes more often than openings (a finale, a song per episode), so a
+            // second neighbour is tried when the first shares nothing. This episode's audio is fetched once.
+            for (partner in partners) {
+                if (a == null) break
+                val prt = partner.runtimeMs ?: continue
+                val bFrom = prt - windowMs(prt)
+                val b = prints(partner.id, bFrom, (windowMs(prt) / 1000).toInt()) ?: continue
+                val m = AudioFingerprint.longestShared(a, b, minFrames) ?: continue
                 // Credits run to the end even where the music stops a little early.
                 fun end(from: Long, frame: Int, rt: Long) = (from + frame * AudioFingerprint.FRAME_MS).let { if (rt - it < CREDITS_TAIL_MS) rt else it }
                 mine += SkipRange(SkipRange.Kind.Credits, aFrom + m.aStart * AudioFingerprint.FRAME_MS, end(aFrom, m.aEnd, runtime))
-                theirs += SkipRange(SkipRange.Kind.Credits, bFrom + m.bStart * AudioFingerprint.FRAME_MS, end(bFrom, m.bEnd, otherRuntime))
+                others.getOrPut(partner.id) { mutableListOf() } += SkipRange(SkipRange.Kind.Credits, bFrom + m.bStart * AudioFingerprint.FRAME_MS, end(bFrom, m.bEnd, prt))
+                break
             }
         }
         if (mine.isEmpty()) {
-            Log.i(tag, "Audio: nothing shared with ${other.name ?: other.id}")
+            Log.i(tag, "Audio: nothing shared with ${partners.joinToString { it.name ?: it.id }}")
             return null
         }
-        return Result(mine, "matching audio", mapOf(other.id to theirs))
+        return Result(mine, "matching audio", others)
+    }
+
+    /**
+     * Episodes to compare with, best first: the next one (its markers come out of the same
+     * comparison, so when it's played next nothing has to be fetched or analysed for it), then the
+     * previous one.
+     */
+    private fun partners(item: BaseItemDto, season: List<BaseItemDto>): List<BaseItemDto> {
+        val at = season.indexOfFirst { it.id == item.id }
+        if (at < 0) return emptyList()
+        return listOfNotNull(season.getOrNull(at + 1), season.getOrNull(at - 1)).filter { it.id != item.id }
+    }
+
+    // ---- 4. Looking: credits on screen (trickplay thumbnails) --------------------------------------
+
+    /**
+     * End credits from the server's trickplay thumbnails: a stretch of "text on black" at this
+     * episode's end, confirmed by a stretch of similar length at a neighbouring episode's end. Only
+     * static thumbnail sheets the server already made are downloaded (no video is decoded or
+     * transcoded anywhere), at most two per episode.
+     */
+    private suspend fun fromScreen(item: BaseItemDto, runtime: Long, season: List<BaseItemDto>): Result? {
+        val mine = screenRun(item, runtime) ?: run { Log.i(tag, "Screen: no credits look at the end"); return null }
+        for (partner in partners(item, season)) {
+            val prt = partner.runtimeMs ?: continue
+            val theirs = screenRun(partner, prt) ?: continue
+            if (!CreditsVision.agree(mine, theirs)) continue
+            return Result(
+                listOf(SkipRange(SkipRange.Kind.Credits, mine.startMs, mine.endMs)),
+                "credits on screen",
+                mapOf(partner.id to listOf(SkipRange(SkipRange.Kind.Credits, theirs.startMs, theirs.endMs))),
+            )
+        }
+        Log.i(tag, "Screen: credits look at the end not confirmed by a neighbouring episode")
+        return null
+    }
+
+    private suspend fun screenRun(ep: BaseItemDto, runtime: Long): CreditsVision.Run? {
+        val (sourceId, info) = CreditsVision.pickTrickplay(ep) ?: return null
+        val tiles = CreditsVision.tailTiles(info, runtime) ?: return null
+        val perSheet = info.tileWidth * info.tileHeight
+        val looks = HashMap<Int, CreditsVision.Look>()
+        for (sheet in tiles.map { it / perSheet }.distinct()) {
+            val bytes = runCatching { api.downloadBytes(api.images.trickplayTile(ep.id, sourceId, info.width, sheet)) }.getOrNull() ?: return null
+            val sample = if (info.width >= 240) 2 else 1
+            val px = decodeImagePixels(bytes, sample) ?: return null
+            tiles.filter { it / perSheet == sheet }.forEach { i ->
+                val k = i % perSheet
+                looks[i] = CreditsVision.look(px, (k % info.tileWidth) * info.width / sample, (k / info.tileWidth) * info.height / sample, info.width / sample, info.height / sample)
+            }
+        }
+        return CreditsVision.creditsRun(tiles.map { looks[it] ?: CreditsVision.Look.Scene }, tiles.first(), info.interval.toLong(), runtime)
     }
 
     // ---- 2. AniSkip --------------------------------------------------------------------------

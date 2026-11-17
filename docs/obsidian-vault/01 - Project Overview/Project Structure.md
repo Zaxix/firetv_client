@@ -12,9 +12,10 @@ firetv_client/
 │       │   ├── data/               SessionManager (servers, users, tokens, profiles), WatchActivity
 │       │   ├── jellyfin/           JellyfinApi (Ktor), ServerAddress, ImageUrls, model/ DTOs
 │       │   ├── playback/           negotiation, PlayerController, engines interface, SkipDetector,
-│       │   │                       AudioFingerprint, MediaHeader, ResumeTuning, TrackMemory, subtitles
+│       │   │                       AudioFingerprint, CreditsVision, ContentKind, MediaHeader,
+│       │   │                       EpisodeTempFiles, ResumeTuning, TrackMemory, subtitles
 │       │   ├── profiles/           per-profile stores (ratings, skip markers, search history)
-│       │   ├── recommend/          RecommendationEngine + RecommendationService
+│       │   ├── recommend/          RecommendationEngine, Similarity, RecommendationService
 │       │   ├── ratings/            MDBList/Trakt ratings & reviews, key vault
 │       │   ├── search/             SearchIndex (fuzzy) + SearchService
 │       │   ├── brands/             streaming-brand hubs from studio metadata
@@ -25,12 +26,11 @@ firetv_client/
 │       ├── commonMain/composeResources/   drawables, fonts, files/ (UI sounds)
 │       ├── androidMain/            ExoPlayer & mpv engines, capabilities, Keystore vault,
 │       │                           SharedOkHttp, LanRoute (VPN), MediaHeaderCache, sounds
-│       ├── desktopMain/            mpv engine (JNA), desktop platform/storage/updater, sounds
+│       ├── jvmMain/                the JVM test host's few platform pieces (HTTP engine, image decoding)
 │       ├── commonTest/             unit tests (fake server via Ktor MockEngine)
-│       └── desktopTest/            integration tests against a real Jellyfin, UI tests
+│       └── jvmTest/                integration tests against a real Jellyfin, UI tests
 ├── androidApp/                     MainActivity (thin shell; CI launch extras)
-├── desktopApp/                     Main.kt, XInput GamepadBridge, packaging
-├── ci/                             emulator/desktop/Windows scripts, sample-media generator
+├── ci/                             emulator scripts, Jellyfin setup, sample-media generator
 ├── docs/                           ARCHITECTURE, CAPABILITIES, KNOWN_LIMITATIONS, TEST_RESULTS,
 │   └── obsidian-vault/             this vault
 └── .github/workflows/build.yml     the whole pipeline

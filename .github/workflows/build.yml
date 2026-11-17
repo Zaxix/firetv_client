@@ -145,7 +145,7 @@ jobs:
       - name: Start Jellyfin
         run: |
           docker run -d --name jellyfin -p 8096:8096 -v "$RUNNER_TEMP/media:/media:ro" jellyfin/jellyfin:latest
-          EXPECTED_MOVIES=$(ls -d "$RUNNER_TEMP"/media/movies/*/ | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          EXPECTED_MOVIES=$(ls -d "$RUNNER_TEMP"/media/movies/*/ | wc -l) EXPECTED_EPISODES=$(find "$RUNNER_TEMP/media/tv" -name "*.mkv" | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
           TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"
@@ -196,7 +196,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq jq >/dev/null
           docker run -d --name jellyfin -p 8096:8096 -v "$PWD/media:/media:ro" jellyfin/jellyfin:latest
-          EXPECTED_MOVIES=$(ls -d "$PWD"/media/movies/*/ | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          EXPECTED_MOVIES=$(ls -d "$PWD"/media/movies/*/ | wc -l) EXPECTED_EPISODES=$(find "$PWD/media/tv" -name "*.mkv" | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
           TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"

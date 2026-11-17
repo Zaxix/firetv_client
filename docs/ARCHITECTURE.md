@@ -92,14 +92,16 @@ key typed on a PC appears on the TV.
    each sprite sheet is decoded once and the frame is picked with an offset, so moving within a sheet
    costs no network or decode work.
 9. **Skip markers** (`SkipDetector`): server media segments → chapter names → detection, merged per
-   kind so detection only fills what the server lacks. Detection first looks for an unnamed chapter
-   whose length (±1.5 s) recurs in other episodes of the season near the start (opening) or end
-   (ending), ignoring files with periodic chapters. For anime it then asks AniSkip by MyAnimeList id
-   (from provider ids, or AniList: title search checked against the series title/year, then SEQUEL
-   relations for later seasons and split cours). It runs after playback starts, with an 8 s real-time
-   timeout, over a plain HTTP client that never carries the Jellyfin token.
+   kind so detection only fills what the server lacks, and only kinds never searched for this
+   episode (results, including misses, are remembered while it's in progress). Detection: recurring
+   unnamed chapter lengths across the season; AniSkip for anime (MyAnimeList id from provider ids or
+   a checked AniList search); matching audio with the next (else previous) episode; and for outros,
+   the credits' look in trickplay thumbnails confirmed by a neighbour (`CreditsVision`). It runs after
+   playback starts with real-time timeouts, over a plain HTTP client that never carries the Jellyfin
+   token for online lookups.
 10. **Next Episode** is offered from the start of the credits range (or the final two minutes when
-   there's no credits marker), not throughout the episode.
+   there's no credits marker), not throughout the episode. When something follows the credits (a
+   post-credits scene), the prompt is **Skip Outro** and lands on it.
 11. **Errors**: an engine error offers "Try with transcoding", which renegotiates with Direct Play
    disabled. That's the right fallback for decoder or container failures.
 

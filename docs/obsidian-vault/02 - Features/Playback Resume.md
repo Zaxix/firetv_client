@@ -32,7 +32,8 @@ prefetch only runs for titles with a resume position (`startMs > 0`).
 ## Data storage
 Android cache directory: MKV headers only (≤ 48 MB each, 256 MB in all, least recently used
 removed first). Video is never stored. The key includes file id, size and ETag, so a replaced file
-never reuses old bytes.
+never reuses old bytes. Deleted when the episode is finished, or 5 days after it was last left
+unfinished; see [[Temporary File Lifecycle]].
 
 ## Performance considerations
 - Nothing is transcoded ahead of time: the prewarmer asks the server only for the PlaybackInfo

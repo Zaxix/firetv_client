@@ -201,7 +201,7 @@ fun PlayerChrome(
         if (skip != null) { delay(SKIP_PROMPT_MS); skipExpired = true }
     }
     // With the controls up, credits don't need a second "Next Episode" button: the controls row has one.
-    val skipIsNextEpisode = skip?.kind == SkipRange.Kind.Credits && nextAvailable
+    val skipIsNextEpisode = skip?.kind == SkipRange.Kind.Credits && nextAvailable && ui.creditsRunToEnd(skip)
     val showSkip = skip != null && !showUpNext && ui.error == null && panel == Panel.None &&
         (if (controlsVisible) !skipIsNextEpisode else !skipExpired)
 
@@ -532,7 +532,8 @@ fun PlayerChrome(
             exit = fadeOut(tween(Aurora.motion.duration(300))),
         ) {
             val shown = skip ?: return@AnimatedVisibility
-            val next = shown.kind == SkipRange.Kind.Credits && nextAvailable
+            // Credits with something after them (a post-credits scene): Skip Outro goes there instead.
+            val next = shown.kind == SkipRange.Kind.Credits && nextAvailable && ui.creditsRunToEnd(shown)
             AuroraButton(if (next) "Next Episode" else shown.kind.label, {
                 if (next) controller.playNext() else controller.skipSegment()
             }, primary = true, focusRequester = skipFocus)

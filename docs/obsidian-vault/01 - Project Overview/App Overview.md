@@ -12,7 +12,8 @@ players.
 | Platform | Shell | Player | Notes |
 |---|---|---|---|
 | Fire TV / Android TV (Android 6+, API 23) | `androidApp` | Media3 ExoPlayer (default) or libmpv | D-pad first; Fire TV is the main target |
-| Windows x64 | `desktopApp` (MSI/EXE/portable ZIP) | libmpv (D3D11) | Keyboard, mouse, XInput controllers |
+
+The Windows app was removed; see [[Supported Platforms]].
 
 ## What it does
 - Sign in to one or more Jellyfin servers; several users per device as [[User Profiles]].
@@ -20,7 +21,7 @@ players.
   libraries, brand hubs (Netflix, Disney+ … built from studio metadata), [[Search]].
 - Details pages for movies, shows, seasons and episodes ([[Movies and TV Shows]], [[Episode Browser]]).
 - Playback: Direct Play when the device can, server transcoding otherwise ([[Video Player]]), fast
-  [[Playback Resume]], full ASS/SSA [[Subtitles]], intro/credits [[Skip Markers]], Next Up, trickplay
+  [[Playback Resume]], full ASS/SSA [[Subtitles]], intro/outro [[Skip Markers]] (Skip Intro / Skip Outro), Next Up, trickplay
   scrubbing thumbnails, Dolby Vision routing.
 - [[Ratings]] (server critic score; optional MDBList/Trakt), [[Recommendations]], [[UI Sounds]].
 - In-app [[App Updates]] from this repository's `latest-build` release.

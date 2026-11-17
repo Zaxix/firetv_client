@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 
 /** A part of the timeline the user may want to skip; drawn in yellow on the progress bar. */
 data class SkipRange(val kind: Kind, val startMs: Long, val endMs: Long) {
-    enum class Kind(val label: String) { Recap("Skip Recap"), Intro("Skip Intro"), Credits("Skip Credits") }
+    enum class Kind(val label: String) { Recap("Skip Recap"), Intro("Skip Intro"), Credits("Skip Outro") }
 }
 
 data class PlayerUiState(
@@ -112,6 +112,16 @@ data class PlayerUiState(
             ?: item?.runtimeMs?.takeIf { it > 0 }?.let { (it - 120_000).coerceAtLeast(it / 2) }
     }
 
+    /**
+     * True when [range] is closing credits with nothing after them (they run to within 20 s of the
+     * end), so "Next Episode" can replace "Skip Outro". When something follows (a post-credits scene,
+     * a preview), Skip Outro jumps to it instead of leaving the episode.
+     */
+    fun creditsRunToEnd(range: SkipRange): Boolean {
+        val runtime = item?.runtimeMs ?: return true
+        return range.kind == SkipRange.Kind.Credits && runtime - range.endMs <= CREDITS_TO_END_MS
+    }
+
     fun activeSkip(positionMs: Long): SkipRange? = skipRanges.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
 
     val audioStreams: List<MediaStream> get() = plan?.audioStreams.orEmpty()
@@ -120,6 +130,7 @@ data class PlayerUiState(
     private companion object {
         val INTRO = Regex("""\b(intro|opening|op|opening credits|theme song)\b""")
         val RECAP = Regex("""\b(recap|previously)\b""")
+        const val CREDITS_TO_END_MS = 20_000L
         val CREDITS = Regex("""\b(credits|ending|ed|outro|end credits|closing)\b""")
     }
 }
@@ -214,19 +225,34 @@ class PlayerController(
                     _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
                     // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
                     val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
-                    if (have.containsAll(listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits))) return@launch
-                    // Resuming an episode: markers worked out last time are still here, no need to detect again.
-                    skipMarkers?.get(itemId)?.let { (ranges, source) ->
+                    val wanted = setOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
+                    if (have.containsAll(wanted)) return@launch
+                    // Markers worked out earlier (this episode resumed, or found while another episode was
+                    // compared with it) are used at once; only kinds never looked for are searched.
+                    val remembered = skipMarkers?.get(itemId)
+                    val tried = skipMarkers?.tried(itemId).orEmpty()
+                    remembered?.let { (ranges, source) ->
                         if (currentItemId == itemId) _state.update { it.copy(detectedSkips = ranges, detectedSource = "$source, remembered") }
+                    }
+                    val missing = wanted - have - tried
+                    if (missing.isEmpty()) return@launch
+                    val detector = skipDetector ?: return@launch
+                    val found = runCatching { detector.detect(item, have + tried) }.getOrNull()
+                    if (currentItemId != itemId || !item.isEpisode) {
+                        if (currentItemId == itemId && found != null) _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
                         return@launch
                     }
-                    val detector = skipDetector ?: return@launch
-                    val found = runCatching { detector.detect(item, have) }.getOrNull() ?: return@launch
-                    if (currentItemId == itemId) {
-                        _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
-                        if (item.isEpisode) skipMarkers?.put(itemId, found.ranges, found.source)
-                        // The episode it was compared with gets its markers too (ready when it's played).
-                        if (item.isEpisode) found.others.forEach { (id, ranges) -> if (ranges.isNotEmpty() && skipMarkers?.get(id) == null) skipMarkers?.put(id, ranges, found.source) }
+                    val ranges = remembered?.first.orEmpty().filter { r -> found?.ranges?.none { it.kind == r.kind } != false } + found?.ranges.orEmpty()
+                    val source = listOfNotNull(remembered?.second, found?.source).distinct().joinToString(" + ").ifEmpty { "nothing found" }
+                    if (found != null) _state.update { it.copy(detectedSkips = ranges, detectedSource = source) }
+                    // Remembered either way, so a search that found nothing isn't run again on resume
+                    // (unless listening was switched off: then only what was found counts as searched).
+                    val searched = if (detector.searchesEveryShow) missing else found?.ranges?.map { it.kind }?.toSet().orEmpty()
+                    skipMarkers?.put(itemId, ranges, source, tried + searched)
+                    // The episode it was compared with gets its markers too (ready when it's played).
+                    // (Only what was found counts as looked for there: a miss in this pair may be found in another.)
+                    found?.let { f ->
+                        f.others.forEach { (id, r) -> if (r.isNotEmpty() && skipMarkers?.tried(id).isNullOrEmpty()) skipMarkers?.put(id, r, f.source) }
                     }
                 }
                 launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }

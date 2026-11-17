@@ -51,8 +51,8 @@ onProfileRemoved), `profiles/ProfileStores.kt`.
 [[Watch History]] · [[Data Storage]] · [[Recommendations]] · [[Home Page]]
 
 ## Data storage
-`servers.json` (profiles list, no secrets) · tokens only in the secure vault (Android Keystore /
-Windows DPAPI), one per account (device profiles add none) · per-profile files
+`servers.json` (profiles list, no secrets) · tokens only in the secure vault (Android Keystore),
+one per account (device profiles add none) · per-profile files
 `<base>-<profile key>.json` (settings, tracks, ratings, skip markers, search history,
 recommendations, watch).
 

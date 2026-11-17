@@ -70,15 +70,15 @@ can only be confirmed on that device; CI can't test them.
   so in that case the server would neither tone-map nor flag it as HDR. If HDR titles look washed out,
   refresh their metadata on the server.
 
-* **Intro/credits markers, in order of reliability:** server media segments (Jellyfin 10.10+ with a
-  provider plugin; *Intro Skipper* fingerprints audio and covers every TV show, so it's the best
-  option), then chapter names, then Sharkfin's own detection. The detection only works when (a) the
-  files have chapters and an opening/ending chapter of the same length recurs in other episodes of
-  the season, or (b) the show is anime that AniSkip knows. AniSkip times are crowd-sourced, and
-  mapping a Jellyfin season onto a MyAnimeList entry (via provider ids, or an AniList title search
-  that must match the show's title or year) can still pick the wrong entry for unusually split
-  seasons, so markers can occasionally be off. Online lookups send only the show title or MAL id and
-  the episode number; they can be turned off in Settings → Playback.
+* **Intro/outro markers, in order of reliability:** server media segments (Jellyfin 10.10+ with a
+  provider plugin such as *Intro Skipper*), then chapter names, then Sharkfin's own detection:
+  recurring chapter lengths across the season, AniSkip (anime, optional, online), matching audio
+  with a neighbouring episode (the shared theme / closing music), and for outros the closing
+  credits' look in the server's trickplay thumbnails (text on black, confirmed by a neighbouring
+  episode). Outros with music that changes every episode are found only when the server has
+  trickplay thumbnails; credits shown over a scene or in colour aren't recognised. Anything that
+  isn't confirmed shows no button (a missed outro is preferred to a wrong skip). AniSkip lookups send
+  only the show title or MAL id and the episode number; they can be turned off in Settings → Playback.
 * Requires **Jellyfin 10.9 or newer** (uses the 10.9+ routes such as `/UserViews`, `/UserItems/Resume`,
   `/UserFavoriteItems`).
 * Live TV, music libraries, photos, SyncPlay and Quick Connect aren't implemented; Sharkfin focuses on

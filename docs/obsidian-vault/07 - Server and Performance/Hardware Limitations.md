@@ -9,7 +9,8 @@ tags: [performance]
   HEVC in hardware.
 - **Unsupported subtitles** get burned in (costly); ASS stays ASS whenever the device can render it.
 - **Audio windows for skip detection** are small low-rate audio transcodes (~4 KB/s), only for the
-  episode being watched.
+  episode being watched and its neighbour, and only once per pair (results are reused). The outro
+  screen check uses existing trickplay images, so it adds no transcoding.
 - Request bursts: Home's requests run in parallel but are a fixed, small set ([[Resource Usage]]).
 
 ## Related notes

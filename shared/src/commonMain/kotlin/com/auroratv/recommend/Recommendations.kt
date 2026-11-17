@@ -4,6 +4,8 @@ import com.auroratv.core.Log
 import com.auroratv.jellyfin.ItemQuery
 import com.auroratv.jellyfin.JellyfinApi
 import com.auroratv.jellyfin.model.BaseItemDto
+import com.auroratv.jellyfin.Fields
+import com.auroratv.playback.ContentKind
 import com.auroratv.core.AuroraJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -92,6 +94,43 @@ object RecommendationEngine {
             .take(limit).map { it.first }.toList()
     }
 
+    /** A profile's taste: content-genre weights (largest 1.0), and how its viewing splits across kinds and audiences. */
+    class Taste(val genres: Map<String, Double>, val kinds: Map<ContentKind, Double>, val audiences: Map<Similarity.Audience, Double>)
+
+    fun taste(titles: List<WatchedTitle>, details: Map<String, BaseItemDto>, genresOf: (String) -> Collection<String>): Taste {
+        val genres = genreProfile(titles) { id -> genresOf(id).filter { it.lowercase() !in setOf("animation", "anime") } }
+        val kinds = HashMap<ContentKind, Double>(); val audiences = HashMap<Similarity.Audience, Double>()
+        var total = 0.0
+        titles.filter { !it.disliked }.forEach { t ->
+            val d = details[t.id] ?: return@forEach
+            kinds[ContentKind.of(d)] = (kinds[ContentKind.of(d)] ?: 0.0) + t.weight
+            audiences[Similarity.audience(d)] = (audiences[Similarity.audience(d)] ?: 0.0) + t.weight
+            total += t.weight
+        }
+        return Taste(genres, kinds.mapValues { it.value / total.coerceAtLeast(1e-9) }, audiences.mapValues { it.value / total.coerceAtLeast(1e-9) })
+    }
+
+    /**
+     * "Recommended For You": genre match with the profile, scaled by how much of their viewing is
+     * that kind of content (a profile that watches anime gets anime; one that never does gets little)
+     * and whether they watch children's titles at all.
+     */
+    fun rankForTaste(candidates: List<BaseItemDto>, taste: Taste, limit: Int): List<BaseItemDto> {
+        if (taste.genres.isEmpty()) return emptyList()
+        val knownKinds = taste.kinds.isNotEmpty()
+        return candidates.asSequence().distinctBy { it.id }
+            .map { c ->
+                val g = Similarity.contentGenres(c)
+                val match = if (g.isEmpty()) 0.0 else g.sumOf { taste.genres[it] ?: 0.0 } / sqrt(g.size.toDouble())
+                val kind = if (knownKinds) 0.2 + 0.8 * (taste.kinds[ContentKind.of(c)] ?: 0.0) else 1.0
+                val kids = Similarity.audience(c) == Similarity.Audience.Kids && (taste.audiences[Similarity.Audience.Kids] ?: 0.0) < 0.1
+                c to (if (match < 0.2) 0.0 else match * kind * (if (kids) 0.5 else 1.0) + 0.01 * (c.communityRating ?: 0.0))
+            }
+            .filter { it.second >= 0.15 }
+            .sortedByDescending { it.second }
+            .take(limit).map { it.first }.toList()
+    }
+
     /** Two from [primary] for every one from [secondary], keeping each list's order, without repeats. */
     fun interleave(primary: List<BaseItemDto>, secondary: List<BaseItemDto>): List<BaseItemDto> {
         val out = LinkedHashMap<String, BaseItemDto>()
@@ -122,6 +161,8 @@ class RecommendationService(
         val signature: String,
         /** Genres of the watched titles (movies from the history itself, series in one request). */
         val genres: Map<String, List<String>>,
+        /** The most recent watched titles with what similarity compares (tags, description, origin…). */
+        val details: Map<String, BaseItemDto> = emptyMap(),
     ) {
         /** The titles the "Because You Watched" rows are about (newest first, never a thumbs-down). */
         val seeds: List<WatchedTitle> get() = titles.filter { !it.disliked && it.name.isNotBlank() }.take(SEEDS)
@@ -146,14 +187,17 @@ class RecommendationService(
         val history = (resume + played).distinctBy { it.id }
         val titles = RecommendationEngine.watchedTitles(history)
         val watched = history.flatMap { listOfNotNull(it.id, it.seriesId) }.toSet()
-        val signature = titles.take(12).joinToString(",") { "${it.id}:${(it.weight * 100).toInt()}" } + "|" + watched.size
+        // ALGORITHM changes the signature, so rows saved by an older ranking are worked out again once.
+        val signature = titles.take(12).joinToString(",") { "${it.id}:${(it.weight * 100).toInt()}" } + "|" + watched.size + "|" + ALGORITHM
         val genres = HashMap<String, List<String>>()
         history.filter { !it.isEpisode && it.genres.isNotEmpty() }.forEach { genres[it.id] = it.genres }
-        val series = titles.filter { it.isSeries && it.id !in genres }.take(GENRE_LOOKUPS).map { it.id }
-        if (series.isNotEmpty()) runCatching {
-            api.items(ItemQuery(ids = series, limit = series.size, recursive = true, fields = "Genres", totalCount = false, userData = false, imageTypes = "Primary")).items
-        }.getOrNull()?.forEach { genres[it.id] = it.genres }
-        return Plan(titles, watched, signature, genres)
+        // The newest titles (series and films) with everything similarity compares: one small request.
+        val lookup = titles.take(DETAIL_LOOKUPS).map { it.id }
+        val details = if (lookup.isEmpty()) emptyMap() else runCatching {
+            api.items(ItemQuery(ids = lookup, limit = lookup.size, recursive = true, fields = Fields.SIMILARITY, totalCount = false, userData = false, imageTypes = "Primary")).items
+        }.getOrNull().orEmpty().associateBy { it.id }
+        details.values.forEach { if (it.genres.isNotEmpty()) genres[it.id] = it.genres }
+        return Plan(titles, watched, signature, genres, details)
     }
 
     /**
@@ -196,38 +240,47 @@ class RecommendationService(
     private suspend fun unwatched(api: JellyfinApi, types: List<String>, genres: Collection<String>, limit: Int): List<BaseItemDto> =
         if (genres.isEmpty()) emptyList() else runCatching {
             api.items(ItemQuery(includeItemTypes = types, genres = genres.toList(), filters = listOf("IsUnplayed"), recursive = true,
-                sortBy = "CommunityRating,SortName", sortDescending = true, limit = limit, totalCount = false)).items
+                sortBy = "CommunityRating,SortName", sortDescending = true, limit = limit, totalCount = false, fields = Fields.SIMILARITY)).items
         }.getOrDefault(emptyList())
+
+    /**
+     * Where to look for titles like [seed]: anime among anime/animation, other animation among
+     * animation, live action among its own (content) genres. One request; the ranking decides.
+     */
+    private fun poolGenres(seed: BaseItemDto): List<String> = when (ContentKind.of(seed)) {
+        ContentKind.Anime -> listOf("Anime", "Animation")
+        ContentKind.Animation -> listOf("Animation")
+        ContentKind.LiveAction -> Similarity.contentGenres(seed)
+    }
 
     private suspend fun compute(api: JellyfinApi, plan: Plan): List<Row> {
         val genresOf: (String) -> Collection<String> = { id -> plan.genres[id].orEmpty() }
         val used = HashSet(plan.watchedIds)
         val rows = mutableListOf<Row>()
         plan.seeds.forEachIndexed { i, seed ->
-            // The server's own "similar" (genres, tags, studios, cast) for the same kind of title. In a
-            // small library it pads the list with unrelated titles, so each must share a genre with the seed.
-            val seedGenres = genresOf(seed.id).toSet()
-            val server = runCatching { api.similar(seed.id, limit = 24) }.getOrDefault(emptyList())
+            val seedItem = plan.details[seed.id] ?: return@forEachIndexed // nothing to compare with: no row
+            // Candidates: the server's own Similar list (it also weighs cast, crew and studios), plus
+            // unwatched titles of the same kind of content. Both are ranked by Similarity; anything
+            // without a clear reason to appear is dropped, however popular.
+            val server = runCatching { api.similar(seed.id, limit = 24, fields = Fields.SIMILARITY) }.getOrDefault(emptyList())
                 .filter { (it.isMovie || it.isSeries) && it.userData?.played != true && it.id !in used }
-                .filter { c -> seedGenres.isEmpty() || c.genres.any { it in seedGenres } }
-            // …plus the other kind (films for a show, shows for a film) that share its genres.
-            val serverIds = server.map { it.id }.toSet()
-            val other = RecommendationEngine.byGenreOverlap(
-                seedGenres,
-                unwatched(api, listOf(if (seed.isSeries) "Movie" else "Series"), seedGenres, 30).filter { it.id !in used && it.id !in serverIds },
-                OTHER_KIND,
-            )
-            val items = RecommendationEngine.interleave(server, other).take(PER_ROW)
+            val pool = unwatched(api, listOf("Movie", "Series"), poolGenres(seedItem), POOL).filter { it.id !in used }
+            val items = withContext(Dispatchers.Default) {
+                Similarity.rank(seedItem, server + pool, server.map { it.id }.toSet(), PER_ROW)
+            }
             if (items.size >= MIN_ROW) {
                 rows += Row("because-$i", "Because You Watched ${seed.name}", items)
                 items.forEach { used += it.id } // a title shows up in one row only
+            } else {
+                Log.i("Recommend", "Because You Watched ${seed.name}: ${items.size} close match(es) in the library, row left out")
             }
         }
         if (plan.titles.size >= 2) {
-            val profile = RecommendationEngine.genreProfile(plan.titles, genresOf)
-            val top = profile.entries.sortedByDescending { it.value }.take(4).map { it.key }
-            val candidates = unwatched(api, listOf("Movie", "Series"), top, 80).filter { it.id !in used }
-            val items = withContext(Dispatchers.Default) { RecommendationEngine.rankForProfile(candidates, profile, PER_ROW) }
+            val taste = RecommendationEngine.taste(plan.titles, plan.details, genresOf)
+            val top = taste.genres.entries.sortedByDescending { it.value }.take(4).map { it.key } +
+                (if ((taste.kinds[ContentKind.Anime] ?: 0.0) >= 0.3) listOf("Anime", "Animation") else emptyList())
+            val candidates = unwatched(api, listOf("Movie", "Series"), top.distinct(), 80).filter { it.id !in used }
+            val items = withContext(Dispatchers.Default) { RecommendationEngine.rankForTaste(candidates, taste, PER_ROW) }
             if (items.size >= MIN_ROW) rows += Row("foryou", "Recommended For You", items)
         }
         return rows
@@ -239,8 +292,10 @@ class RecommendationService(
         const val SEEDS = 2
         const val HISTORY = 40
         const val PER_ROW = 20
-        const val OTHER_KIND = 8
+        const val POOL = 60
         const val MIN_ROW = 3
-        const val GENRE_LOOKUPS = 8
+        const val DETAIL_LOOKUPS = 8
+        /** Bumped when the ranking changes, so saved rows are recomputed once. */
+        const val ALGORITHM = "v2"
     }
 }

@@ -5,6 +5,17 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Platform cleanup, outros, recommendations, temporary files
+| Symptom | Cause | Fix |
+|---|---|---|
+| Live-action show: intro found, outro never | Closing credits over different music each episode share nothing to hear; only one neighbour was compared; and once an intro-only result was remembered, the outro was never searched again | On-screen credits check from trickplay thumbnails (confirmed by a neighbour), a second neighbour for audio, and markers remember which kinds were searched ([[Skip Markers]]) |
+| An episode with nothing detectable was re-analysed on every resume | Only found markers were stored | "Searched, nothing found" is remembered too |
+| "Next Episode" during the credits skipped a post-credits scene | The credits prompt always offered the next episode | It's **Skip Outro** (lands on the scene) unless the credits run to the end |
+| "Because You Watched Charlotte" offered The Inbetweeners and Adventure Time | One shared genre was enough; no notion of anime vs. cartoon vs. live action | Content-kind-aware similarity score with a threshold ([[Recommendations]]) |
+| Non-anime titles could start in a foreign-language track | With no audio language set, the file's/server's default track was used | *Automatic*: English except for anime ([[Video Player]]) |
+| Saved MKV starts stayed for finished episodes until the 256 MB cap pushed them out | The header cache was size-limited only | Deleted when finished, or 5 days after last left unfinished ([[Temporary File Lifecycle]]) |
+| mpv's copies of server fonts stayed after playback; an installed update APK stayed in the cache | Never cleaned | Removed when the player closes / at the next start |
+
 ## UI polish update
 | Symptom | Cause | Fix |
 |---|---|---|

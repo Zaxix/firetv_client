@@ -90,6 +90,8 @@ object Fields {
     const val CARD = "PrimaryImageAspectRatio,Overview,Genres,ParentId,SeriesPrimaryImageTag"
     const val DETAIL = "Overview,Genres,Studios,People,Taglines,MediaSources,MediaStreams,Chapters,PrimaryImageAspectRatio,ChildCount,RecursiveItemCount,OriginalTitle,ParentId"
     const val IMAGE_TYPES = "Primary,Backdrop,Logo,Thumb"
+    /** Card fields plus what recommendations compare (tags, origin, studios, ids; the age rating always comes). */
+    const val SIMILARITY = "$CARD,Tags,ProductionLocations,OriginalTitle,Studios,ProviderIds"
     /** Just what a poster card draws: no overview/genres/child counts (child counts are costly for series). */
     const val POSTER = "PrimaryImageAspectRatio"
 }
@@ -435,13 +437,14 @@ class JellyfinApi(
             auth()
             parameter("userId", requireUser())
             seasonId?.let { parameter("seasonId", it) }
-            parameter("fields", "Chapters")
+            // Trickplay: where the episode's thumbnail sheets are (for the on-screen credits check).
+            parameter("fields", "Chapters,Trickplay")
             parameter("enableImages", false)
         }.read<QueryResult<BaseItemDto>>().items
 
-    suspend fun similar(itemId: String, limit: Int = 16): List<BaseItemDto> =
+    suspend fun similar(itemId: String, limit: Int = 16, fields: String = Fields.CARD): List<BaseItemDto> =
         http.get(url("/Items/$itemId/Similar")) {
-            auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", Fields.CARD)
+            auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", fields)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
     suspend fun setFavorite(itemId: String, favorite: Boolean) {

@@ -21,10 +21,9 @@ something is selected. Settings → Appearance → **Navigation sounds** (on/off
 - `MainShell` sets `UiSounds.suppressed = true` while the player is open: **no sounds during
   playback**.
 - Android: `SoundPool` (2 streams, `USAGE_ASSISTANCE_SONIFICATION`, so system volume/mute apply).
-  Windows: `javax.sound` `Clip` with gain.
 
 ## Relevant files
-`ui/sound/UiSounds.kt`, `androidMain/.../AndroidUiSounds.kt`, `desktopMain/.../DesktopUiSounds.kt`,
+`ui/sound/UiSounds.kt`, `androidMain/.../AndroidUiSounds.kt`,
 `ui/components/Focus.kt` (FocusSurface), `ui/App.kt`, `settings/Settings.kt`,
 `ui/screens/Settings.kt`.
 
