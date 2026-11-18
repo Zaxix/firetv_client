@@ -115,7 +115,10 @@ class ExoPlayerEngine(
             .setTransferListener(transferCounter)
 
     private val trackSelector = DefaultTrackSelector(context).apply {
-        setParameters(buildUponParameters().setTunnelingEnabled(false).build())
+        // Subtitles are always our choice (TrackSelector), never Media3's: without this it turns on a
+        // track flagged default or forced (often Signs & Songs) until our pick is applied.
+        setParameters(buildUponParameters().setTunnelingEnabled(false)
+            .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED).build())
     }
 
     /**
@@ -189,6 +192,8 @@ class ExoPlayerEngine(
     private var pendingAudio: Int? = null
     private var pendingSubtitle: SubtitleTrackRef? = null
     private var pendingApplied = false
+    /** The chosen subtitle track wasn't among the tracks yet: try again when more appear. */
+    private var subtitleRetry = false
     private var externalIds = mapOf<String, String>() // our ref id -> Media3 format id
     private var videoDecoder: String? = null
     private var audioDecoder: String? = null
@@ -246,6 +251,8 @@ class ExoPlayerEngine(
                 if (!pendingApplied && !tracks.isEmpty) {
                     pendingApplied = true
                     pendingAudio?.let { selectAudio(it) }
+                    selectSubtitle(pendingSubtitle)
+                } else if (subtitleRetry && !tracks.isEmpty) {
                     selectSubtitle(pendingSubtitle)
                 }
             }
@@ -406,6 +413,7 @@ class ExoPlayerEngine(
         pendingAudio = source.audioOrdinal
         pendingSubtitle = source.subtitle
         pendingApplied = false
+        subtitleRetry = false
         videoDecoder = null; audioDecoder = null; droppedFrames = 0
         // Transcodes already begin exactly at the start position (the server cuts a keyframe there).
         keyframeStartMs = if (!source.isHls && source.startPositionMs > 0 && com.auroratv.playback.ResumeTuning.keyframeStart) source.startPositionMs else 0L
@@ -461,6 +469,7 @@ class ExoPlayerEngine(
 
     override fun selectSubtitle(ref: SubtitleTrackRef?) {
         pendingSubtitle = ref
+        subtitleRetry = false
         val builder = trackSelector.buildUponParameters()
         if (ref == null) {
             trackSelector.setParameters(builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).clearOverridesOfType(C.TRACK_TYPE_TEXT).build())
@@ -478,6 +487,7 @@ class ExoPlayerEngine(
         }
         if (group == null) {
             Log.w(tag, "Subtitle track not found yet: $ref (have ${text.size} text groups)")
+            subtitleRetry = true
             return
         }
         trackSelector.setParameters(

@@ -125,9 +125,11 @@ class SkipMarkerStore(private val files: FileStore, private val today: () -> Int
         val e = map[episodeId] ?: return null
         val ranges = e.r.split(';').filter { it.isNotEmpty() }.mapNotNull { part ->
             val kind = when (part.firstOrNull()) { 'i' -> SkipRange.Kind.Intro; 'r' -> SkipRange.Kind.Recap; 'c' -> SkipRange.Kind.Credits; else -> null }
-            val (a, b) = part.drop(1).split('-').takeIf { it.size == 2 } ?: return@mapNotNull null
+            // A trailing "?" marks a weak match (SkipRange.confident = false).
+            val weak = part.endsWith('?')
+            val (a, b) = part.drop(1).removeSuffix("?").split('-').takeIf { it.size == 2 } ?: return@mapNotNull null
             val start = a.toLongOrNull(); val end = b.toLongOrNull()
-            if (kind == null || start == null || end == null) null else SkipRange(kind, start, end)
+            if (kind == null || start == null || end == null) null else SkipRange(kind, start, end, confident = !weak)
         }
         return if (ranges.isEmpty()) null else ranges to e.s
     }
@@ -141,7 +143,7 @@ class SkipMarkerStore(private val files: FileStore, private val today: () -> Int
     /** Stores [ranges] (may be empty when nothing was found) and that [tried] kinds were looked for. */
     fun put(episodeId: String, ranges: List<SkipRange>, source: String, tried: Set<SkipRange.Kind> = ranges.map { it.kind }.toSet()) {
         if (profile == null || (ranges.isEmpty() && tried.isEmpty())) return
-        val packed = ranges.joinToString(";") { r -> "${kindLetter(r.kind)}${r.startMs}-${r.endMs}" }
+        val packed = ranges.joinToString(";") { r -> "${kindLetter(r.kind)}${r.startMs}-${r.endMs}${if (r.confident) "" else "?"}" }
         map[episodeId] = Entry(packed, source.take(40), today(), tried.map(::kindLetter).sorted().joinToString(""))
         while (map.size > MAX) map.remove(map.keys.first())
         persist()

@@ -40,6 +40,12 @@ class MainActivity : ComponentActivity() {
         setContent { AuroraApp(container) }
     }
 
+    /** `am start --activity-single-top ... --es route section:Movies` on the running app (CI, launchers). */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("route")?.let { container.links.value = it }
+    }
+
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val handled = super.dispatchKeyEvent(event)
         // Debug builds log remote input so CI can verify D-pad delivery; release builds don't.

@@ -178,20 +178,26 @@ private fun Splash() {
     }
 }
 
+private fun openLink(nav: Navigator, link: String) {
+    when {
+        link.startsWith("section:") -> Section.entries.firstOrNull { it.name.equals(link.substringAfter(':'), true) }?.let(nav::selectSection)
+        link.startsWith("detail:") -> nav.push(Route.Detail(link.substringAfter(':')))
+        link.startsWith("player:") -> nav.push(Route.Player(link.substringAfter(':')))
+        link.startsWith("brand:") -> com.auroratv.brands.BrandCatalog.all.firstOrNull { it.id == link.substringAfter(':') }?.let { nav.push(Route.Brand(it.id, it.name)) }
+    }
+}
+
 @Composable
 private fun MainShell(container: AppContainer) {
     val navigator = remember {
         Navigator(Route.Root(Section.Home)).also { nav ->
             val link = container.initialRoute
             container.initialRoute = null
-            when {
-                link == null -> Unit
-                link.startsWith("section:") -> Section.entries.firstOrNull { it.name.equals(link.substringAfter(':'), true) }?.let(nav::selectSection)
-                link.startsWith("detail:") -> nav.push(Route.Detail(link.substringAfter(':')))
-                link.startsWith("player:") -> nav.push(Route.Player(link.substringAfter(':')))
-                link.startsWith("brand:") -> com.auroratv.brands.BrandCatalog.all.firstOrNull { it.id == link.substringAfter(':') }?.let { nav.push(Route.Brand(it.id, it.name)) }
-            }
+            if (link != null) openLink(nav, link)
         }
+    }
+    LaunchedEffect(navigator) {
+        container.links.collect { link -> if (link != null) { container.links.value = null; openLink(navigator, link) } }
     }
     val entry = navigator.current
 

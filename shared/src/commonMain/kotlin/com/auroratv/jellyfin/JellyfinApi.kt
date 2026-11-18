@@ -431,6 +431,20 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
+    /**
+     * The server's own list of a series' episodes airing from yesterday on (from its metadata:
+     * virtual items for episodes not in the library yet). Names, numbers and dates only.
+     */
+    suspend fun upcomingEpisodes(seriesId: String, limit: Int = 40): List<BaseItemDto> =
+        http.get(url("/Shows/Upcoming")) {
+            auth()
+            parameter("userId", requireUser())
+            parameter("parentId", seriesId)
+            parameter("limit", limit)
+            parameter("enableImages", false)
+            parameter("enableUserData", false)
+        }.read<QueryResult<BaseItemDto>>().items
+
     /** A season's episodes with their chapter lists (used to spot recurring openings/endings). */
     suspend fun episodesWithChapters(seriesId: String, seasonId: String?): List<BaseItemDto> =
         http.get(url("/Shows/$seriesId/Episodes")) {
@@ -486,12 +500,14 @@ class JellyfinApi(
 
     /**
      * [seconds] of an item's sound from [startMs], as 8-bit mono WAV at [sampleRate] (≈4 KB a second
-     * at 4 kHz), for intro/credits detection on the device. Reads only what it needs, then hangs up,
-     * which ends the server's encode. Uses its own play-session id so it never touches the stream
+     * at 4 kHz), for intro/credits detection on the device. Reads only what it needs, then hangs up
+     * and tells the server to end that encode (only that play session's). Uses its own play-session id so it never touches the stream
      * being watched (or another window's). Null when the server can't provide it.
      */
-    suspend fun audioSample(itemId: String, startMs: Long, seconds: Int, sampleRate: Int): ByteArray? =
-        http.prepareGet(url("/Audio/$itemId/stream")) {
+    suspend fun audioSample(itemId: String, startMs: Long, seconds: Int, sampleRate: Int): ByteArray? {
+        val session = "sharkfin-scan-${itemId.take(12)}-$startMs"
+        var stoppedEarly = false
+        val bytes = http.prepareGet(url("/Audio/$itemId/stream")) {
             auth()
             parameter("static", false)
             parameter("container", "wav")
@@ -501,7 +517,7 @@ class JellyfinApi(
             parameter("startTimeTicks", startMs * 10_000)
             // Jellyfin names a progressive encode by file + device + play session (not start point), so
             // each window needs its own session id or it's handed the earlier window's encode.
-            parameter("playSessionId", "sharkfin-scan-${itemId.take(12)}-$startMs")
+            parameter("playSessionId", session)
             timeout { requestTimeoutMillis = 120_000; socketTimeoutMillis = 45_000 }
         }.execute { response ->
             if (!response.status.isSuccess()) {
@@ -517,8 +533,14 @@ class JellyfinApi(
                 if (r < 0) break
                 n += r
             }
+            stoppedEarly = n >= want
             buf.copyOf(n)
         }
+        // Only a stretch was needed: end the server's encode now rather than let it run on through
+        // the rest of the episode (it has no "duration" option).
+        if (stoppedEarly) stopTranscoding(session)
+        return bytes
+    }
 
     // A device profile's viewing is recorded on the device, never reported as the account's (that
     // would move the account's resume points and watched marks). Only a keep-alive ping goes to the

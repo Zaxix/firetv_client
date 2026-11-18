@@ -248,6 +248,7 @@ grep -E "Negotiator|Caps|Capabilities|ExoEngine|MpvEngine|font attachments|libas
 echo "---- Key / focus trace ----"; grep -E "AuroraKeys" "$OUT/logcat-aurora.txt" | grep -E "DPAD|BACK|ENTER" | head -80
 echo "---- Time from Play to engine start ----"; grep -E "Ready to play" "$OUT/logcat-aurora.txt" | sed -E "s/^.*Ready/Ready/" || true
 echo "---- Time from Play to the picture moving ----"; grep -E "Perf *: Playing after" "$OUT/logcat-full.txt" | sed -E "s/^.*Playing/Playing/" || true
+echo "---- Skip markers: time from Play to ready ----"; grep -E "Perf *: Skip markers|SkipDetector" "$OUT/logcat-full.txt" | sed -E "s/^.*(Perf|SkipDetector) *: //" || true
 echo "---- Aurora log excerpt ----"; grep -vE "AuroraKeys|AuroraFocus" "$OUT/logcat-aurora.txt" | tail -40
 if grep -q "FATAL EXCEPTION" "$OUT/logcat-full.txt"; then echo "App crashed"; grep -A30 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | head -60; exit 1; fi
 if [ "${NAVFAIL:-0}" = 1 ]; then echo "Navigation checks failed:"; cat "$OUT/navigation.txt"; exit 1; fi

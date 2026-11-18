@@ -176,7 +176,43 @@ class RecommendationService(
 
     private val cache = HashMap<String, Pair<String, Deferred<List<Row>?>>>()
 
-    /** One small request (plus one for series genres): recently finished titles, and what's in progress ([resume]). */
+    /** A profile's plan as last loaded: which watch activity it reflects and when it was loaded. */
+    private class CachedPlan(val plan: Plan, val watchVersion: Int, val loadedAt: kotlin.time.TimeSource.Monotonic.ValueTimeMark)
+    private val plans = HashMap<String, CachedPlan>()
+    /** Plan loads under way, per profile, so Home opened twice (or refreshed) asks the server once. */
+    private val planLoads = HashMap<String, Pair<Int, Deferred<Plan>>>()
+
+    /** [plan] is the last one loaded for the profile; [fresh]: nothing was watched since and it's recent. */
+    class Peek(val plan: Plan, val fresh: Boolean)
+
+    /**
+     * The profile's last plan from memory (no request), if there is one. Fresh while no title has
+     * been watched, marked or favourited on this device since ([watchVersion]) and for
+     * [PLAN_FRESH_MS] (to notice what was watched on other devices); otherwise it's still shown while
+     * a new one loads (stale-while-revalidate).
+     */
+    fun peekPlan(profileKey: String, watchVersion: Int): Peek? = plans[profileKey]?.let { c ->
+        Peek(c.plan, c.watchVersion == watchVersion && c.loadedAt.elapsedNow().inWholeMilliseconds < PLAN_FRESH_MS)
+    }
+
+    /**
+     * The profile's plan: from memory while fresh, else loaded once however many callers ask at the
+     * same time. Kept in memory for the next time Home opens.
+     */
+    suspend fun planFor(api: JellyfinApi, profileKey: String, watchVersion: Int, resume: List<BaseItemDto>): Plan {
+        peekPlan(profileKey, watchVersion)?.takeIf { it.fresh }?.let { return it.plan }
+        planLoads[profileKey]?.let { (v, d) -> if (v == watchVersion && !d.isCompleted) return d.await() }
+        val d = scope.async {
+            plan(api, resume).also { p ->
+                plans[profileKey] = CachedPlan(p, watchVersion, kotlin.time.TimeSource.Monotonic.markNow())
+                Log.i("Recommend", "History loaded for this profile (${p.titles.size} title(s)); kept in memory")
+            }
+        }
+        planLoads[profileKey] = watchVersion to d
+        return try { d.await() } finally { if (planLoads[profileKey]?.second === d && d.isCompleted) planLoads.remove(profileKey) }
+    }
+
+    /** One small request (plus one for series genres): recently finished titles, and what's in progress ([resume]). Not cached; see [planFor]. */
     suspend fun plan(api: JellyfinApi, resume: List<BaseItemDto>): Plan {
         val played = api.items(
             ItemQuery(
@@ -220,9 +256,11 @@ class RecommendationService(
             }
             try {
                 val t0 = kotlin.time.TimeSource.Monotonic.markNow()
-                compute(api, plan).also { rows ->
+                // Kept (in memory and on disk) as the ranked titles with what a card shows, not the
+                // tags, cast and descriptions the ranking compared.
+                compute(api, plan).map { r -> r.copy(items = r.items.map(::slim)) }.also { rows ->
                     Log.i("Recommend", "${rows.size} row(s) in ${t0.elapsedNow().inWholeMilliseconds} ms: " + rows.joinToString { "${it.title} (${it.items.size})" })
-                    runCatching { files?.write(file, AuroraJson.encodeToString(Saved.serializer(), Saved(plan.signature, rows.map { r -> r.copy(items = r.items.map(::slim)) }))) }
+                    runCatching { files?.write(file, AuroraJson.encodeToString(Saved.serializer(), Saved(plan.signature, rows))) }
                 }
             } catch (c: CancellationException) { throw c } catch (t: Throwable) {
                 Log.w("Recommend", "Couldn't work out recommendations: ${t.message}"); null
@@ -234,7 +272,8 @@ class RecommendationService(
 
     /** What a card needs, without long text (keeps the saved file small). */
     private fun slim(i: BaseItemDto) = i.copy(overview = i.overview?.take(240), taglines = emptyList(), people = emptyList(),
-        mediaSources = emptyList(), mediaStreams = emptyList(), chapters = emptyList(), studios = emptyList(), providerIds = emptyMap())
+        mediaSources = emptyList(), mediaStreams = emptyList(), chapters = emptyList(), studios = emptyList(), providerIds = emptyMap(),
+        tags = emptyList(), productionLocations = emptyList())
 
     /** Unwatched titles of [types] in any of [genres], best rated first: one small, filtered request. */
     private suspend fun unwatched(api: JellyfinApi, types: List<String>, genres: Collection<String>, limit: Int): List<BaseItemDto> =
@@ -286,7 +325,7 @@ class RecommendationService(
         return rows
     }
 
-    fun forget(profileKey: String) { cache.remove(profileKey) }
+    fun forget(profileKey: String) { cache.remove(profileKey); plans.remove(profileKey); planLoads.remove(profileKey) }
 
     private companion object {
         const val SEEDS = 2
@@ -297,5 +336,7 @@ class RecommendationService(
         const val DETAIL_LOOKUPS = 8
         /** Bumped when the ranking changes, so saved rows are recomputed once. */
         const val ALGORITHM = "v2"
+        /** How long a profile's history is trusted without asking the server again (when nothing was watched here). */
+        const val PLAN_FRESH_MS = 30 * 60_000L
     }
 }

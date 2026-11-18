@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -94,6 +95,8 @@ class DetailModel(preview: BaseItemDto?) {
     var episodes by mutableStateOf<List<BaseItemDto>?>(null)
     var nextUp by mutableStateOf<BaseItemDto?>(null)
     var similar by mutableStateOf<List<BaseItemDto>>(emptyList())
+    /** Episodes of this series that haven't aired, with their dates (see AirDateService). */
+    var upcoming by mutableStateOf<List<com.auroratv.data.UpcomingEpisode>>(emptyList())
     var ratings by mutableStateOf<com.auroratv.ratings.ExternalRatings?>(preview?.let { com.auroratv.ratings.RatingsService.fromJellyfin(it) })
     var reviews by mutableStateOf<List<com.auroratv.ratings.Review>>(emptyList())
     var openReview by mutableStateOf<com.auroratv.ratings.Review?>(null)
@@ -163,6 +166,19 @@ fun DetailScreen(route: Route.Detail) {
             launch { container.ratings.ratings(item)?.let { model.ratings = it } }
             launch { model.reviews = container.ratings.reviews(item) }
         }
+    }
+    // Air dates of upcoming episodes: after the page is up, from memory when this series was opened
+    // in the last few hours, else one small request (never for a series that has ended).
+    LaunchedEffect(loadedId) {
+        val item = model.item ?: return@LaunchedEffect
+        if (loadedId == null) return@LaunchedEffect
+        val series = when {
+            item.isSeries -> item.takeUnless { it.status.equals("Ended", ignoreCase = true) }
+            item.isSeason && item.seriesId != null -> BaseItemDto(id = item.seriesId, type = "Series", name = item.seriesName)
+            else -> null
+        } ?: return@LaunchedEffect
+        model.upcoming = container.airDates.cached(series.id) ?: runCatching { container.airDates.upcoming(api, series) }
+            .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }.getOrDefault(emptyList())
     }
     ScreenFocus(entry, navigator, playFocus, ready = model.item != null)
 
@@ -236,17 +252,26 @@ fun DetailScreen(route: Route.Detail) {
                     onFavorite = ::toggleFavorite,
                     onPlayed = ::togglePlayed,
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
-                    episodesFallback = model.episodes?.firstOrNull(),
+                    episodesFallback = model.episodes?.firstOrNull { it.locationType != "Virtual" },
+                    nextAir = if (item.isSeries) com.auroratv.data.Upcoming.next(model.upcoming) else null,
                 )
                 }
             }
-            if (item.isSeries && model.seasons.isNotEmpty()) {
+            // Seasons that haven't started yet get their premiere date ("Premieres …" when firm,
+            // "Expected …" when not); one the server doesn't list yet is added after the others.
+            val airedSeasons = model.seasons.filter { it.locationType != "Virtual" }.mapNotNull { it.indexNumber }.toSet()
+            val premieres = com.auroratv.data.Upcoming.seasonPremieres(model.upcoming, airedSeasons)
+            val seasons = model.seasons + premieres.keys.filter { n -> model.seasons.none { it.indexNumber == n } }.sorted()
+                .map { n -> BaseItemDto(id = "$UPCOMING_SEASON$n", type = "Season", name = "Season $n", indexNumber = n, locationType = "Virtual") }
+            if (item.isSeries && seasons.isNotEmpty()) {
                 item(key = "seasons") {
-                    SeasonPicker(model.seasons, model.selectedSeason) { sid ->
+                    SeasonPicker(seasons, model.selectedSeason, premieres) { sid ->
                         if (sid != model.selectedSeason) {
                             model.selectedSeason = sid
                             model.episodes = null
-                            scope.launch { model.episodes = runCatching { api.episodes(item.id, seasonId = sid) }.getOrDefault(emptyList()) }
+                            // A season the server doesn't list has nothing to fetch: its episodes are the upcoming ones.
+                            if (sid.startsWith(UPCOMING_SEASON)) model.episodes = emptyList()
+                            else scope.launch { model.episodes = runCatching { api.episodes(item.id, seasonId = sid) }.getOrDefault(emptyList()) }
                         }
                     }
                 }
@@ -255,7 +280,11 @@ fun DetailScreen(route: Route.Detail) {
                 item(key = "episodes") {
                     val eps = model.episodes
                     if (eps == null) Box(Modifier.fillMaxWidth().height(220.dp)) { LoadingState() }
-                    else EpisodeRow(eps) { ep -> navigator.push(Route.Detail(ep.id, ep)) }
+                    else {
+                        val season = if (item.isSeason) item else seasons.firstOrNull { it.id == model.selectedSeason }
+                        val shown = remember(eps, model.upcoming, season?.id) { withUpcoming(eps, model.upcoming, season) }
+                        EpisodeRow(shown.first, shown.second) { ep -> if (ep.id !in shown.second) navigator.push(Route.Detail(ep.id, ep)) }
+                    }
                 }
             }
             if (model.reviews.isNotEmpty()) {
@@ -300,6 +329,7 @@ private fun DetailHeader(
     onPlayed: () -> Unit,
     onSeries: (() -> Unit)?,
     episodesFallback: BaseItemDto?,
+    nextAir: com.auroratv.data.UpcomingEpisode? = null,
 ) {
     val colors = Aurora.colors
     val api = LocalSession.current.api
@@ -321,7 +351,22 @@ private fun DetailHeader(
             formatRating(item.communityRating)?.takeIf { ratings?.imdb == null }?.let { "★ $it" },
             item.status?.takeIf { item.isSeries },
         ).joinToString("  ·  ")
-        Text(meta, style = AuroraType.bodyStrong, color = colors.onSurfaceMuted)
+        // "Continuing — Next Episode: 24 November 2026": the date in yellow, only when it's known
+        // and still ahead (see AirDates).
+        val next = nextAir?.takeIf { item.isSeries && !item.status.equals("Ended", ignoreCase = true) }
+        Text(
+            androidx.compose.ui.text.buildAnnotatedString {
+                append(meta)
+                if (next != null) {
+                    append(if (item.status.isNullOrBlank()) (if (meta.isEmpty()) "" else "  ·  ") else " — ")
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = AiringYellow))
+                    append("Next Episode: ")
+                    append(airLabel(next.date, capitalised = false))
+                    pop()
+                }
+            },
+            style = AuroraType.bodyStrong, color = colors.onSurfaceMuted,
+        )
         if (item.genres.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
             Text(item.genres.joinToString(", "), style = AuroraType.body, color = colors.onSurfaceFaint)
@@ -369,17 +414,56 @@ private fun DetailHeader(
 }
 
 @Composable
-private fun SeasonPicker(seasons: List<BaseItemDto>, selected: String?, onSelect: (String) -> Unit) {
+private fun SeasonPicker(seasons: List<BaseItemDto>, selected: String?, premieres: Map<Int, com.auroratv.data.AirDate>, onSelect: (String) -> Unit) {
     RowScroll { LazyRow(contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusRow().revealOnFocus()) {
         items(seasons, key = { it.id }) { season ->
-            AuroraChip(season.name ?: "Season ${season.indexNumber}", season.id == selected, onClick = { onSelect(season.id) }, focusKey = "season/${season.id}")
+            // "Season 3 — Premieres 24 November 2026" for a season that hasn't started (only with a known date).
+            val premiere = season.indexNumber?.let { premieres[it] }?.takeIf { season.locationType == "Virtual" || season.id.startsWith(UPCOMING_SEASON) }
+            AuroraChip(season.name ?: "Season ${season.indexNumber}", season.id == selected, onClick = { onSelect(season.id) }, focusKey = "season/${season.id}",
+                note = premiere?.let { (if (it.tentative) "Expected " else "Premieres ") + it.text })
         }
     } }
 }
 
+/** Id of a season known only from upcoming episodes (not on the server yet). */
+private const val UPCOMING_SEASON = "upcoming-season-"
+
+/** "Airs 24 November 2026", "Expected 2027" (or lower-case after "Next Episode:"). */
+private fun airLabel(date: com.auroratv.data.AirDate, capitalised: Boolean = true): String =
+    if (!date.tentative) date.text else (if (capitalised) "Expected " else "expected ") + date.text
+
+/**
+ * A season's episodes with the ones that haven't aired yet: the server's own (listed when the
+ * user shows missing episodes) are marked, and upcoming ones it doesn't list are added in episode
+ * order. Returns the list and the air dates of the unreleased ones (by episode id).
+ */
+private fun withUpcoming(
+    episodes: List<BaseItemDto>,
+    upcoming: List<com.auroratv.data.UpcomingEpisode>,
+    season: BaseItemDto?,
+): Pair<List<BaseItemDto>, Map<String, com.auroratv.data.AirDate>> {
+    val now = com.auroratv.playback.wallClockMs()
+    val dates = HashMap<String, com.auroratv.data.AirDate>()
+    episodes.forEach { ep ->
+        if (ep.locationType == "Virtual") com.auroratv.data.Upcoming.airDate(ep.premiereDate, ep.name, now)?.let { dates[ep.id] = it }
+    }
+    val seasonNumber = season?.indexNumber ?: return episodes to dates
+    val extra = upcoming.filter { u ->
+        (u.seasonNumber == seasonNumber || (u.seasonId != null && u.seasonId == season.id)) && u.date.isUpcoming(now) &&
+            episodes.none { e -> e.id == u.item?.id || (u.episodeNumber != null && e.indexNumber == u.episodeNumber && e.parentIndexNumber in setOf(null, seasonNumber)) }
+    }.map { u ->
+        val ep = u.item ?: BaseItemDto(id = "upcoming-$seasonNumber-${u.episodeNumber}", type = "Episode", name = u.name,
+            indexNumber = u.episodeNumber, parentIndexNumber = seasonNumber, locationType = "Virtual")
+        dates[ep.id] = u.date
+        ep
+    }
+    if (extra.isEmpty()) return episodes to dates
+    return (episodes + extra).sortedWith(compareBy<BaseItemDto>({ it.indexNumber ?: Int.MAX_VALUE })) to dates
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Unit) {
+private fun EpisodeRow(episodes: List<BaseItemDto>, airDates: Map<String, com.auroratv.data.AirDate>, onClick: (BaseItemDto) -> Unit) {
     val api = LocalSession.current.api
     val colors = Aurora.colors
     if (episodes.isEmpty()) {
@@ -397,27 +481,48 @@ private fun EpisodeRow(episodes: List<BaseItemDto>, onClick: (BaseItemDto) -> Un
             modifier = Modifier.focusRow().focusRestorer(),
         ) {
             items(episodes, key = { it.id }) { ep ->
+                val airs = airDates[ep.id]
                 Column(Modifier.width(CardStyle.Landscape.width)) {
-                    MediaCard(ep, api.images, CardStyle.Landscape, onClick = { onClick(ep) }, focusKey = "ep/${ep.id}", showTitle = false, onFocused = { focused = ep })
+                    // Not out yet: the card is dimmed and Select does nothing, so it never looks playable.
+                    MediaCard(ep, api.images, CardStyle.Landscape, onClick = { onClick(ep) }, focusKey = "ep/${ep.id}", showTitle = false, onFocused = { focused = ep },
+                        modifier = if (airs != null) Modifier.alpha(0.5f) else Modifier)
                     Spacer(Modifier.height(10.dp))
-                    Text(listOfNotNull(ep.episodeLabel?.substringAfter(':'), ep.name).joinToString(" · "), style = AuroraType.label,
+                    Text(listOfNotNull(ep.episodeLabel?.substringAfter(':'), ep.name?.takeUnless { airs != null && it.isBlank() }).joinToString(" · "), style = AuroraType.label,
                         color = if (focused.id == ep.id) colors.onBackground else colors.onSurfaceMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    formatRuntime(ep.runtimeMs)?.let { Text(it, style = AuroraType.caption, color = colors.onSurfaceFaint, maxLines = 1) }
+                    if (airs != null) Text((if (airs.tentative) "Expected " else "Airs ") + airs.text, style = AuroraType.caption, color = AiringYellow, maxLines = 1)
+                    else formatRuntime(ep.runtimeMs)?.let { Text(it, style = AuroraType.caption, color = colors.onSurfaceFaint, maxLines = 1) }
                 }
             }
         } }
         // Fixed height (four lines), so moving between episodes never makes the page jump; the rest
         // of a long description is on the episode's own page (Select).
         Column(Modifier.padding(start = ScreenStart, end = ScreenPadding, top = 6.dp).widthIn(max = 1000.dp).height(EPISODE_TEXT_HEIGHT)) {
-            Text(listOfNotNull(focused.episodeLabel, focused.name).joinToString(" · "), style = AuroraType.bodyStrong, color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val airs = airDates[focused.id]
+            if (airs != null) {
+                // "Episode 8 — Airs 24 November 2026"
+                Text(
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        append(focused.indexNumber?.let { "Episode $it" } ?: focused.name ?: "Episode")
+                        append(" — ")
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = AiringYellow))
+                        append((if (airs.tentative) "Expected " else "Airs ") + airs.text)
+                        pop()
+                    },
+                    style = AuroraType.bodyStrong, color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(listOfNotNull(focused.episodeLabel, focused.name).joinToString(" · "), style = AuroraType.bodyStrong, color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Spacer(Modifier.height(6.dp))
-            Text(focused.overview?.takeIf { it.isNotBlank() } ?: "No description for this episode yet.", style = AuroraType.body,
+            Text(focused.overview?.takeIf { it.isNotBlank() } ?: if (airs != null) "Not out yet." else "No description for this episode yet.", style = AuroraType.body,
                 color = colors.onSurfaceMuted, maxLines = 4, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 private val EPISODE_TEXT_HEIGHT = 150.dp
+/** Air dates of episodes still to come: a soft yellow, quieter than the player's skip markers. */
+internal val AiringYellow = Color(0xFFF2C94C)
 private const val HERO_SETTLE_MS = 450L
 
 @Composable

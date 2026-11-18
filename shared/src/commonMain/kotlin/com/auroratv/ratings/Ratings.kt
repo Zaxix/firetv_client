@@ -205,6 +205,32 @@ class RatingsService(
         return reviews.orEmpty()
     }
 
+    /** The next episode of a show as Trakt lists it, with its exact air time (UTC, ISO-8601). */
+    data class NextEpisode(val season: Int?, val number: Int?, val title: String?, val firstAired: String?)
+    private val noNextEpisode = NextEpisode(null, null, null, null)
+
+    /**
+     * Trakt's next episode for [series] (null without a Trakt key, an IMDb id, or a next episode).
+     * Cached like the reviews; only the IMDb id goes to Trakt.
+     */
+    suspend fun nextEpisode(series: BaseItemDto): NextEpisode? {
+        val clientId = keys().trakt
+        val id = imdbId(series) ?: return null
+        if (clientId.isBlank() || !series.isSeries) return null
+        val result = cached("next:$id") {
+            val response = http.get("https://api.trakt.tv/shows/$id/next_episode") {
+                parameter("extended", "full")
+                header("trakt-api-version", "2")
+                header("trakt-api-key", clientId)
+            }
+            if (response.status.value == 204) noNextEpisode else {
+                response.ensure("Trakt")
+                parseTraktNextEpisode(response.bodyAsText()) ?: noNextEpisode
+            }
+        } as NextEpisode?
+        return result?.takeIf { it !== noNextEpisode && it.firstAired != null }
+    }
+
     /** Checks an MDBList key; returns a short status line for Settings. */
     suspend fun testMdbList(key: String): String = runCatching {
         val r = http.get("https://api.mdblist.com/user") { parameter("apikey", key.trim()) }
@@ -237,6 +263,14 @@ class RatingsService(
         private const val FAIL_TTL_MS = 5 * 60 * 1000L
         private const val TIMEOUT_MS = 8_000L
         private const val MAX_ENTRIES = 400
+
+        @Serializable
+        private data class TraktEpisode(val season: Int? = null, val number: Int? = null, val title: String? = null, @SerialName("first_aired") val firstAired: String? = null)
+
+        fun parseTraktNextEpisode(json: String): NextEpisode? = runCatching {
+            val e = com.auroratv.core.AuroraJson.decodeFromString(TraktEpisode.serializer(), json)
+            NextEpisode(e.season, e.number, e.title, e.firstAired)
+        }.getOrNull()
 
         fun tmdbId(item: BaseItemDto) = item.providerIds.entries.firstOrNull { it.key.equals("Tmdb", true) }?.value?.takeIf { it.isNotBlank() }
         fun imdbId(item: BaseItemDto) = item.providerIds.entries.firstOrNull { it.key.equals("Imdb", true) }?.value?.takeIf { it.startsWith("tt") }

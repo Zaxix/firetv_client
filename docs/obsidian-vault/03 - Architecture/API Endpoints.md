@@ -16,6 +16,7 @@ Every Jellyfin route Sharkfin calls (from `jellyfin/JellyfinApi.kt`). Requires J
 | `GET /UserItems/Resume` | Continue Watching (account profiles) |
 | `GET /Shows/NextUp` | Next Up (account profiles) |
 | `GET /Shows/{id}/Seasons` · `/Shows/{id}/Episodes` | Episode browser, Next Up for device profiles, chapters for skip detection |
+| `GET /Shows/Upcoming?parentId={series}` | Air dates of a series' upcoming episodes (details page, episode browser) |
 | `GET /Items/{id}/Similar` | "More like this", "Because You Watched" |
 | `GET /Persons` · `GET /Studios` | Search people · brand tiles |
 | `POST/DELETE /UserFavoriteItems/{id}` · `/UserPlayedItems/{id}` | Favourite / watched (account profiles) |
@@ -25,7 +26,7 @@ Every Jellyfin route Sharkfin calls (from `jellyfin/JellyfinApi.kt`). Requires J
 | `GET /MediaSegments/{id}` | Server intro/credits markers |
 | `POST /Sessions/Playing` · `/Progress` · `/Stopped` | Playback reporting (account profiles) |
 | `POST /Sessions/Playing/Ping` | Keep-alive during a device profile's playback |
-| `DELETE /Videos/ActiveEncodings` | Stop a transcode when playback ends |
+| `DELETE /Videos/ActiveEncodings` | Stop a transcode when playback ends, and end a skip-detection audio encode as soon as its window is read |
 | `GET/POST /DisplayPreferences/{id}` | Syncing rating-service keys between devices |
 
 Images use `ImageUrls` (`/Items/{id}/Images/{type}` with `fillWidth`, tag and quality).

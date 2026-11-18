@@ -209,8 +209,16 @@ class JellyfinIntegrationTest {
         }
         dolbyVisionChecks()
         recommendationChecks(http, sm)
+        record("Audio windows: where the server's mid-file audio starts, and credits edges (diagnostic)") { seekCheck() }
         record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
         record("Outro found on screen (live-action credits, different music every episode, post-credits scene)") { screenCheck() }
+        record("Upcoming episodes request answers (no virtual episodes on this server)") {
+            val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), limit = 1)).items.first()
+            val list = api.upcomingEpisodes(series.id)
+            val upcoming = com.auroratv.data.Upcoming.fromServer(list, com.auroratv.playback.wallClockMs())
+            assertTrue(upcoming.isEmpty(), "nothing invented: $upcoming")
+            "${series.name}: ${list.size} item(s) from /Shows/Upcoming, ${upcoming.size} shown"
+        }
         record("MPEG-4/AVI → transcode on Fire TV") {
             val tv = plan(movie("Old Reel"), fireTv4k)
             assertTrue(tv.method != PlayMethod.DirectPlay)
@@ -392,7 +400,6 @@ class JellyfinIntegrationTest {
         }
     }
 
-    /** Wavelength Street (CI sample): the same theme after cold opens of 20 / 8 / 25 s, and the same credits music. */
     /**
      * Harbor Precinct: closing credits are white text on black in every episode but over different
      * music, so listening finds nothing and the trickplay thumbnails have to. Episode 2 has a 20 s
@@ -416,9 +423,54 @@ class JellyfinIntegrationTest {
         assertTrue(credits.endMs in 205_000..216_000, "ends before the post-credits scene at 3:35: $credits")
         val ui = com.auroratv.playback.PlayerUiState(item = ep2)
         assertTrue(!ui.creditsRunToEnd(credits), "Skip Outro lands on the post-credits scene")
-        return "episode 2: outro ${credits.startMs / 1000.0}–${credits.endMs / 1000.0} s (true 170–215, scene after it) via ${result.source}; took $ms ms"
+        return "episode 2: outro ${credits.startMs / 1000.0}–${credits.endMs / 1000.0} s (true 170–215, scene after it) via ${result.source}; took $ms ms [${detector.lastTimings}]"
     }
 
+    /**
+     * Fetches Wavelength Street episode 2's audio from the start and from 3:12 (as the credits
+     * check does), and finds where the second really begins inside the first: the difference is
+     * how far the server's mid-file audio is from where it was asked to start.
+     */
+    private suspend fun seekCheck(): String {
+        val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Wavelength", limit = 5)).items.firstOrNull()
+            ?: return "skipped: sample series not in this library"
+        val ep = api.episodes(series.id)[1]
+        val rate = com.auroratv.playback.AudioFingerprint.SAMPLE_RATE
+        val whole = com.auroratv.playback.AudioFingerprint.wavSamples(assertNotNull(api.audioSample(ep.id, 0, 250, rate)))
+        val asked = 192_000L
+        val part = com.auroratv.playback.AudioFingerprint.wavSamples(assertNotNull(api.audioSample(ep.id, asked, 30, rate)))
+        // Best sample offset of part's first 5 s inside whole (search ±3 s around where it should be).
+        val probe = 5 * rate
+        fun v(b: ByteArray, i: Int) = ((b[i].toInt() and 0xFF) - 128).toDouble()
+        var best = 0; var bestScore = Double.MAX_VALUE
+        val expected = (asked * rate / 1000).toInt()
+        for (off in expected - 3 * rate..expected + 3 * rate) {
+            if (off < 0 || off + probe > whole.size) continue
+            var d = 0.0
+            var i = 0
+            while (i < probe) { val x = v(whole, off + i) - v(part, i); d += x * x; i += 4 }
+            if (d < bestScore) { bestScore = d; best = off }
+        }
+        val actualMs = best * 1000L / rate
+        // The credits comparison itself, frame by frame around where the credits music starts (3:35).
+        val eps = api.episodes(series.id)
+        fun endOf(e: com.auroratv.jellyfin.model.BaseItemDto): Pair<Long, ByteArray> {
+            val rt = e.runtimeMs!!; val from = rt - minOf(rt / 5, 240_000L)
+            return from to com.auroratv.playback.AudioFingerprint.wavSamples(assertNotNull(kotlinx.coroutines.runBlocking { api.audioSample(e.id, from, ((rt - from) / 1000).toInt() + 8, rate) }))
+        }
+        val (fa, pa) = endOf(eps[1]); val (fb, pb) = endOf(eps[2])
+        val a = com.auroratv.playback.AudioFingerprint.fingerprint(pa); val b = com.auroratv.playback.AudioFingerprint.fingerprint(pb)
+        val m = com.auroratv.playback.AudioFingerprint.longestShared(a, b, 96)
+        val f = com.auroratv.playback.AudioFingerprint.FRAME_MS
+        return "asked for 3:12.000, the audio started at ${actualMs / 1000.0} s (${actualMs - asked} ms off); whole file ${whole.size * 1000L / rate} ms, runtime ${ep.runtimeMs} ms; " +
+            "credits rough ${m?.let { "${(fa + it.aStart * f) / 1000.0}–${(fa + it.aEnd * f) / 1000.0} (ep3 ${(fb + it.bStart * f) / 1000.0}–${(fb + it.bEnd * f) / 1000.0})" }}; " +
+            "refined ${m?.let { com.auroratv.playback.AudioFingerprint.refine(a, b, it) }?.let { "${(fa + it.aStart * f) / 1000.0}–${(fa + it.aEnd * f) / 1000.0}" }} (true 215–240)"
+    }
+
+    /**
+     * Wavelength Street (CI sample): the same theme after cold opens of 20 / 8 / 25 s, and the same
+     * credits music; episode 3 has a 15 s scene after its credits.
+     */
     private suspend fun listeningCheck(): String {
         val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Wavelength", limit = 5)).items.firstOrNull()
             ?: return "skipped: sample series not in this library"
@@ -432,10 +484,22 @@ class JellyfinIntegrationTest {
         val ms = System.currentTimeMillis() - t0
         val intro = assertNotNull(result.ranges.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Intro }, "no intro: ${result.ranges}")
         val credits = assertNotNull(result.ranges.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Credits }, "no credits: ${result.ranges}")
-        assertTrue(kotlin.math.abs(intro.startMs - 8_000) <= 2_000 && kotlin.math.abs(intro.endMs - 38_000) <= 2_000, "episode 2 intro is 8–38 s: $intro")
-        assertTrue(kotlin.math.abs(credits.startMs - 215_000) <= 2_500, "credits start at 3:35: $credits")
+        // Accuracy: no story skipped at either edge (a frame's leeway for the encoder), and at most
+        // 1.25 s of theme left unskipped.
+        assertTrue(intro.startMs in 7_875..9_250 && intro.endMs in 36_750..38_125, "episode 2 intro is 8–38 s: $intro")
+        assertTrue(credits.startMs in 214_875..216_250, "credits start at 3:35: $credits")
+        assertEquals(eps[1].runtimeMs ?: 240_000L, credits.endMs, "credits music runs to the end: $credits")
+        assertTrue(intro.confident && credits.confident, "a full theme is a confident match")
         val other = result.others.values.flatten().firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Intro }
-        return "episode 2: intro ${intro.startMs / 1000.0}–${intro.endMs / 1000.0} s (true 8–38), credits from ${credits.startMs / 1000.0} s (true 215); " +
-            "compared with ${result.others.keys.size} other episode (its intro ${other?.let { "${it.startMs / 1000.0}–${it.endMs / 1000.0} s" }}); took $ms ms"
+        // Episode 3 (compared with): its credits music ends at 4:00 and a 15 s scene follows, which Skip Outro must land on.
+        val ep3Credits = result.others[eps[2].id]?.firstOrNull { it.kind == com.auroratv.playback.SkipRange.Kind.Credits }
+        if (ep3Credits != null) {
+            assertTrue(ep3Credits.endMs in 238_500..240_250, "episode 3's credits end before its post-credits scene: $ep3Credits")
+            assertTrue(!com.auroratv.playback.PlayerUiState(item = api.item(eps[2].id)).creditsRunToEnd(ep3Credits), "Skip Outro lands on the scene")
+        }
+        return "episode 2: intro ${intro.startMs / 1000.0}–${intro.endMs / 1000.0} s (true 8–38), credits ${credits.startMs / 1000.0}–${credits.endMs / 1000.0} s (true 215–end); " +
+            "compared with ${result.others.keys.joinToString { k -> eps.indexOfFirst { it.id == k }.let { "episode ${it + 1}" } }} " +
+            "(its intro ${other?.let { "${it.startMs / 1000.0}–${it.endMs / 1000.0} s" }}${ep3Credits?.let { ", episode 3 credits ${it.startMs / 1000.0}–${it.endMs / 1000.0} s (true 215–240, scene after)" } ?: ""}); " +
+            "took $ms ms [${detector.lastTimings}]"
     }
 }

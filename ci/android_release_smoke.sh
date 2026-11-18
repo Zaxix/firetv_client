@@ -62,6 +62,15 @@ perf_round "as installed"
 # What a TV does on its own once idle: compile the app with its startup profile.
 adb shell cmd package compile -m speed-profile -f "$PKG" >/dev/null 2>&1 || true
 perf_round "after profile compile"
+# ---- Home opened again in the same session (side menu: Movies, then Home) ----
+# How soon its rows are back and what that costs the server ("Perf: Home opened again").
+adb shell am force-stop "$PKG"; sleep 2; adb logcat -c
+adb shell am start -n "$PKG/$ACT" --es route section:Home >/dev/null; sleep 15
+for i in 1 2 3; do
+  adb shell am start --activity-single-top -n "$PKG/$ACT" --es route section:Movies >/dev/null; sleep 5
+  adb shell am start --activity-single-top -n "$PKG/$ACT" --es route section:Home >/dev/null; sleep 13
+done
+adb logcat -d -s Perf | tr -d '\r' | grep -o 'Home opened again: .*' | sed 's/^/revisit: /' | tee -a "$OUT/perf.txt"
 open() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -n "$PKG/$ACT" --es route "$1"; }
 open "player:$EP1"; sleep 20; shot release-03-player-ass
 adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; screencap -p /sdcard/scrub.png'

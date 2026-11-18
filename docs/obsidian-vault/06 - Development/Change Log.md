@@ -6,6 +6,56 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Subtitles, Home recommendations cache, upcoming air dates, faster and more accurate skip markers
+### Subtitles
+Signs & Songs is no longer chosen when a normal English track exists: dialogue ranking (full →
+SDH/CC → other → S&S/forced only if alone), blank language = English, and the players no longer turn
+on a file's default/forced track themselves. See [[Subtitles]].
+
+### Home: "Recommended For You" kept per profile
+The history plan is kept in memory per profile (fresh until something is watched/marked here, or
+30 min), deduplicated, and shown stale while a new one loads. Home's own rows are kept for the
+session, so opening Home again from the side menu requests nothing for 5 minutes.
+See [[Recommendations]], [[Home Page]].
+
+### Upcoming air dates
+- Details page: "Continuing — Next Episode: 24 November 2026" (yellow).
+- Episode browser: "Airs …" on dimmed, non-playable cards; seasons show "Premieres …" or
+  "Expected …".
+- Sources: the server's own metadata (`/Shows/Upcoming`), plus Trakt's exact time when a key is set.
+  Calendar dates are never shifted by the time zone.
+
+See [[Details Page Layout]], [[Episode Browser]].
+
+### Skip markers
+- Remembered markers show before any request.
+- Audio windows are fetched two at a time, and each server encode ends once its window is read.
+- Edges are frame-exact and never reach into the story.
+- Post-credits scenes are protected, and weak matches are never auto-skipped.
+
+See [[Skip Markers]].
+
+### Measured (CI; "before" = the previous release's code with the same measurements added, run twice)
+| | Before | After |
+|---|---|---|
+| Home opened again: rows on screen | 81 / 127 / 51 ms; 144 / 75 / 82 ms | 5 / 6 / 6 ms; 5 / 8 / 13 ms |
+| Home opened again: API requests in first 10 s | 10 / 13 / 10; 14 / 10 / – | 0 / 0 / 2; 0 / 0 / 3 |
+| Home cold start, rows shown (6 starts per run; the ~0.4 s ones are when the saved copy was already in memory) | 413–1140 ms; 475–1168 ms | 1028–1162 ms; 1156–1246 ms |
+| Home cold start API requests | 11–13; 11–13 | 11–14; 11–14 |
+| Listening detection (Wavelength ep 2, integration test) | 2683, 2702, 2671 ms | 1307, 1208 ms |
+| On-screen outro (Harbor Precinct ep 2, whole detection) | 1477, 1061, 1975 ms | 2630, 1729, 766, 1787, 1696, 788 ms (no clear change: noisy) |
+| Intro edges (true 8–38 s) | 7.375–38.5 s | 8.0–37.625 s |
+| Credits start (true 215 s) | 214.144 s | 215.144 s |
+| Resume, current path, from detail page (L2) | 1356, 1286; 1770, 1869 ms | 1462, 1448; 1693, 1722 ms |
+| Resume, current path, deep link (L2) | 1917, 1890; 2021, 2263 ms | 2093, 2034; 2324, 2160 ms |
+| Anime resume from detail page | 1702; 1567 ms | 1530; 1641 ms |
+
+The resume ranges overlap run to run (the second "before" run was itself slower than the first), so
+no playback change is attributable to this update. Home's cold start: the first "after" run matched
+"before", the second was ~60–100 ms slower than the typical "before" start; nothing in this update
+runs before Home's rows on a cold start beyond reading the (empty) memory maps, so this reads as
+runner variation, but it's noted here as unproven either way. Not measured on a Fire TV.
+
 ## Platform cleanup, outros, recommendations, temporary files, audio default
 ### Removed: the Windows app
 The `desktopApp` module, the libmpv/JNA/DPAPI/updater/sound code for Windows, the Windows CI job,

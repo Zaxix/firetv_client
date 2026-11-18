@@ -258,12 +258,15 @@ story() { # seconds seed: speech-like sound that differs every episode (a tone t
 }
 names=("" "Night Shift" "Overnight" "Relay")
 opens=(0 20 8 25)
+# Episode 3 has a 15 s scene after its credits music (a post-credits tag), which must not be skipped.
+tags=(0 0 0 15)
 for e in 1 2 3; do
-  o=${opens[$e]}; body=$((240 - o - 30 - 25))
-  story "$o" "$e" "$TMP/open$e.wav"; story "$body" "$((e + 10))" "$TMP/body$e.wav"
-  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=240:size=640x360:rate=25" \
-    -i "$TMP/open$e.wav" -i "$TMP/theme.wav" -i "$TMP/body$e.wav" -i "$TMP/credits.wav" \
-    -filter_complex "[1:a][2:a][3:a][4:a]concat=n=4:v=0:a=1[a]" -map 0:v -map "[a]" \
+  o=${opens[$e]}; tag=${tags[$e]}; body=$((240 - o - 30 - 25))
+  story "$o" "$e" "$TMP/open$e.wav"; story "$body" "$((e + 10))" "$TMP/body$e.wav"; story $((tag > 0 ? tag : 1)) "$((e + 20))" "$TMP/tag$e.wav"
+  if [ "$tag" -gt 0 ]; then mix="[1:a][2:a][3:a][4:a][5:a]concat=n=5:v=0:a=1[a]"; else mix="[1:a][2:a][3:a][4:a]concat=n=4:v=0:a=1[a]"; fi
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=$((240 + tag)):size=640x360:rate=25" \
+    -i "$TMP/open$e.wav" -i "$TMP/theme.wav" -i "$TMP/body$e.wav" -i "$TMP/credits.wav" -i "$TMP/tag$e.wav" \
+    -filter_complex "$mix" -map 0:v -map "[a]" \
     -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 128k -metadata title="${names[$e]}" \
     "$W/Season 02/Wavelength Street - S02E0$e.mkv"
 done

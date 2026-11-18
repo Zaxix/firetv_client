@@ -52,6 +52,27 @@ class AudioFingerprintTest {
     }
 
     @Test
+    fun refinedEdgesNeverReachIntoTheStory() {
+        val a = AudioFingerprint.fingerprint(u8(programme(40.0, 1), theme(30.0, 1.0), programme(50.0, 2)))
+        val b = AudioFingerprint.fingerprint(u8(programme(15.07, 3), theme(30.0, 0.7), programme(70.0, 4)))
+        val m = assertNotNull(AudioFingerprint.refine(a, b, assertNotNull(AudioFingerprint.longestShared(a, b, minFrames = 96))))
+        val ms = AudioFingerprint.FRAME_MS
+        // The theme is 40–70 s in A: neither edge reaches into the story, and at most a second of theme is left out.
+        assertTrue(m.aStart * ms in 40_000..41_000 && m.aEnd * ms in 69_000..70_000, "A: ${m.aStart * ms}-${m.aEnd * ms} ms")
+        assertTrue(AudioFingerprint.agreement(a, b, m) >= 0.5, "a shared theme agrees throughout")
+    }
+
+    @Test
+    fun aSilentGapIsFoundBetweenMusicAndStory() {
+        val gap = DoubleArray(rate * 3 / 10) // 300 ms of silence at 10.0–10.3 s
+        val pcm = u8(programme(10.0, 5), gap, theme(10.0, 1.0))
+        val mid = assertNotNull(AudioFingerprint.silenceBetween(pcm, 9_500, 11_000))
+        assertTrue(mid in 10_050..10_250, "gap middle: $mid ms")
+        assertNull(AudioFingerprint.silenceBetween(u8(programme(10.0, 6)), 0, 10_000), "no silence in story")
+        assertTrue(AudioFingerprint.loudness(pcm, 0, rate) > 0.1 && AudioFingerprint.loudness(pcm, rate * 10 + 100, rate * 10 + 900) < AudioFingerprint.QUIET)
+    }
+
+    @Test
     fun differentEpisodesWithoutAThemeShareNothing() {
         val a = AudioFingerprint.fingerprint(u8(programme(90.0, 11)))
         val b = AudioFingerprint.fingerprint(u8(programme(90.0, 12)))

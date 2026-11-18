@@ -332,6 +332,9 @@ class MpvAndroidEngine(
         workHandler.post {
             l.setOptionString("start", String.format(Locale.ROOT, "%.3f", source.startPositionMs / 1000.0))
             l.setOptionString("pause", "no")
+            // No subtitles until ours is applied (onFileLoaded): mpv would otherwise start with the
+            // track flagged default/forced, often Signs & Songs.
+            l.setOptionString("sid", "no")
             l.command(arrayOf("loadfile", stripCredentials(source.url), "replace"))
         }
     }

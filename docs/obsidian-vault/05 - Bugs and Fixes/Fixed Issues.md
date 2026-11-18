@@ -5,6 +5,16 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Subtitles, recommendations cache, air dates, skip markers (Nov 2026)
+| Symptom | Cause | Fix |
+|---|---|---|
+| Signs & Songs subtitles chosen although a normal English track existed | Default mode with no default-flagged track took "a forced track" (release groups flag S&S forced); a blank subtitle language meant no preference; Media3/mpv could turn on the default/forced track before ours applied, and Media3 never retried a pick that wasn't among the first tracks | Dialogue ranking (full → SDH → other → S&S only if alone), blank = English, players ignore file flags and retry ([[Subtitles]]) |
+| "Recommended For You" reloaded every time Home was opened | Choosing Home in the side menu builds a new Home; it re-read everything and re-requested the history, and the recommendation rows were merged in late | Per-profile plan in memory (stale-while-revalidate, deduplicated) and Home's rows kept for the session ([[Recommendations]]) |
+| Skip Intro/Outro skipped up to ~0.9 s of story at its edges | The rough audio match's ±1 s smoothing set the edges | Frame-exact edges that never reach into the programme ([[Skip Markers]]) |
+| A post-credits scene in the last 20 s could be skipped (credits extended to the end; "Next Episode" offered) | Credits music ending in the last 20 s counted as "runs to the end" | Only when silence follows or it's within 3 s; "Next Episode" only within 8 s and for confident credits |
+| Weak (short/partial) matches were treated as certain | No notion of confidence | `SkipRange.confident`: weak ranges never auto-skip or replace Skip Outro |
+| Markers were slow to appear | Audio windows fetched one after another; remembered markers waited for a server request | Parallel pairs, memory first ([[Skip Markers]]) |
+
 ## Platform cleanup, outros, recommendations, temporary files
 | Symptom | Cause | Fix |
 |---|---|---|

@@ -99,7 +99,8 @@ class ProfileStoresTest {
         var day = 20_000
         val store = SkipMarkerStore(files) { day }
         store.switchProfile("alice")
-        val ranges = listOf(SkipRange(SkipRange.Kind.Intro, 61_000, 150_000), SkipRange(SkipRange.Kind.Credits, 1_300_000, 1_420_000))
+        // A weak match stays weak after a restart (never auto-skipped).
+        val ranges = listOf(SkipRange(SkipRange.Kind.Intro, 61_000, 150_000), SkipRange(SkipRange.Kind.Credits, 1_300_000, 1_420_000, confident = false))
         store.put("ep1", ranges, "AniSkip")
         // Stopped halfway, app restarted: still there.
         val resumed = SkipMarkerStore(files) { day }

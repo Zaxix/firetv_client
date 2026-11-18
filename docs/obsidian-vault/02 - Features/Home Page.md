@@ -38,7 +38,16 @@ sequenceDiagram
   (marked stale) instead of a skeleton.
 - **Banner is separate.** It reuses the same "Recently Added" responses (one request per library,
   not two), so it costs no extra requests, and it never holds the rows up.
-- **Recommendations don't block.** The history request is sent with the others. Its rows are placed
+- **Opened again in the same session** (side menu → Home): the rows, banner and brand tiles Home
+  showed last time come from memory (`HomeSnapshot` in `AppContainer.homeMemory`, the last two
+  profiles) and nothing is requested unless they're over 5 minutes old (then they're refreshed in
+  place). Before, choosing Home from the side menu built Home from scratch: about 10–14 requests, and
+  the recommendation rows reloaded. Measured on the CI emulator: rows on screen in 5–13 ms (was
+  51–144 ms), 0–3 API requests in the first 10 s (was 10–14). See [[Recommendations]].
+- **The history comes from memory when it can.** A profile's history plan is reused (no request) until
+  something is watched, marked or favourited on this device, or 30 minutes pass; an older one still
+  places the rows at once while a new one loads.
+- **Recommendations don't block.** The history request (when needed) is sent with the others. Its rows are placed
   with the rest only if it's back by then (or within `REC_WAIT_MS`, 600 ms, of Home opening; the
   budget counts from the start, so it never adds to a slow server's wait). Otherwise the rows show
   without it and the recommendation rows are merged in when it arrives.
@@ -59,7 +68,9 @@ sequenceDiagram
 
 ## Data storage
 `home-cache-….json` per profile (removed with the profile). No other Home state is persisted;
-the screen model lives in the back-stack entry so returning to Home is instant.
+the screen model lives in the back-stack entry so returning to Home is instant, and a copy of what it
+showed (`HomeSnapshot`) is kept in memory for the session so Home opened again from the side menu is
+instant too.
 
 ## Performance considerations
 - One request per library for "Recently Added", shared with the banner.

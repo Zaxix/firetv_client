@@ -132,7 +132,47 @@ class HomeModel {
     val listState = LazyListState()
     /** The WatchActivity version these rows reflect; a newer one refreshes the personal rows. */
     var seenWatch = com.auroratv.data.WatchActivity.version.value
+    /** Perf log: when this Home was opened, and whether an earlier Home was opened in this session. */
+    val createdAt = kotlin.time.TimeSource.Monotonic.markNow()
+    var isRevisit = false
+    var revisitLogged = false
+    var apiAtOpen: Int? = null
+    /** When the rows were last loaded from the server (null: not yet). */
+    var loadedAt: kotlin.time.TimeSource.Monotonic.ValueTimeMark? = null
+    /** Started from the rows Home showed earlier in this session (see HomeSnapshot). */
+    var seeded = false
+
+    fun seedFrom(s: HomeSnapshot) {
+        hero = s.hero; rails = s.rails; brands = s.brands; seenWatch = s.seenWatch; loadedAt = s.loadedAt; seeded = true
+    }
+
+    fun snapshot(api: com.auroratv.jellyfin.JellyfinApi): HomeSnapshot? {
+        val r = rails ?: return null
+        val at = loadedAt ?: return null
+        return HomeSnapshot(api, hero, r, brands, seenWatch, at)
+    }
 }
+
+/**
+ * Home's rows as last shown for a profile, kept in memory for this session (AppContainer.homeMemory):
+ * opening Home again from the side menu shows them at once, and only asks the server again once
+ * they're [HOME_FRESH_MS] old. The personal rows still follow what's watched (WatchActivity).
+ */
+class HomeSnapshot(
+    /** The signed-in connection the rows load through; a new sign-in starts afresh. */
+    val api: com.auroratv.jellyfin.JellyfinApi,
+    val hero: List<BaseItemDto>,
+    val rails: List<RailState>,
+    val brands: List<com.auroratv.brands.ResolvedBrand>,
+    val seenWatch: Int,
+    val loadedAt: kotlin.time.TimeSource.Monotonic.ValueTimeMark,
+)
+
+private var homesOpened = 0
+
+/** API requests made so far (from Platform.requestStats), or null where it isn't counted. */
+private fun apiRequestsSoFar(container: com.auroratv.ui.AppContainer): Int? =
+    container.platform.requestStats()?.let { Regex("""api=(\d+)""").find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
 /** Continue Watching, Next Up and the recommendation rows: the ones that change as this profile watches. */
 private fun isPersonalRail(key: String) = key == "resume" || key == "nextup" || key == "foryou" || key.startsWith("because-")
@@ -198,7 +238,17 @@ fun HomeScreen() {
     val session = LocalSession.current
     val navigator = LocalNavigator.current
     val entry = LocalEntry.current!!
-    val model = entry.model("home") { HomeModel() }
+    val profileKey = remember(session) { session.profile.key }
+    val model = entry.model("home") {
+        HomeModel().also { m ->
+            m.isRevisit = homesOpened++ > 0; m.apiAtOpen = apiRequestsSoFar(container)
+            container.homeMemory[profileKey]?.takeIf { it.api === session.api }?.let(m::seedFrom)
+        }
+    }
+    // Leaving Home (to another section, a detail page, the player): remember what it showed.
+    androidx.compose.runtime.DisposableEffect(model) {
+        onDispose { model.snapshot(session.api)?.let { container.rememberHome(profileKey, it) } }
+    }
     val api = session.api
     val settings = container.settings.current
     val heroFocus = remember { FocusRequester() }
@@ -206,7 +256,6 @@ fun HomeScreen() {
     val scope = rememberCoroutineScope()
 
     val homeCache = remember(session) { HomeCache(container.platform.files, session.server.id, session.user.id + (session.local?.let { "-p${it.id}" } ?: "")) }
-    val profileKey = remember(session) { session.profile.key }
     // Moving onto the featured title or a Continue Watching / Next Up card gets Play ready in the
     // background (after a short pause, so scrolling past cards costs nothing).
     val prewarmRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -215,7 +264,16 @@ fun HomeScreen() {
     }
 
     LaunchedEffect(reloadKey) {
-        if (model.rails != null && reloadKey == 0) return@LaunchedEffect
+        if (model.rails != null && reloadKey == 0) {
+            // Back on this screen (from a detail page or the player): nothing to load. Opened again
+            // from the side menu: the rows from memory are shown, and refreshed only once they're old.
+            val age = model.loadedAt?.elapsedNow()?.inWholeMilliseconds ?: Long.MAX_VALUE
+            if (!model.seeded || age < HOME_FRESH_MS) {
+                if (model.seeded) com.auroratv.core.Log.i("Home", "Rows from memory (${age / 1000} s old), no requests")
+                return@LaunchedEffect
+            }
+            com.auroratv.core.Log.i("Home", "Rows from memory (${age / 1000} s old), refreshing them")
+        }
         model.error = null
         // Instant Home: last session's rows from disk, read alongside (not before) the server requests
         // and shown only if they win the race.
@@ -237,10 +295,13 @@ fun HomeScreen() {
                 val views = async { api.userViews() }
                 val resume = async { runCatching { api.resumeItems() }.getOrDefault(emptyList()) }
                 val nextUp = async { runCatching { api.nextUp() }.getOrDefault(emptyList()) }
-                // This profile's recent history, for the recommendation rows (one small request).
+                // This profile's recent history, for the recommendation rows: from memory while nothing
+                // has been watched since (no request), else one small request shared by every caller.
+                val watchNow = com.auroratv.data.WatchActivity.version.value
+                val peek = container.recommendations.peekPlan(profileKey, watchNow)
                 val recPlan = async {
-                    runCatching { container.recommendations.plan(api, resume.await()) }
-                        .onFailure { com.auroratv.core.Log.w("Recommend", "No history: ${it.message}") }.getOrNull()
+                    peek?.takeIf { it.fresh }?.plan ?: runCatching { container.recommendations.planFor(api, profileKey, watchNow, resume.await()) }
+                        .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Recommend", "No history: ${it.message}") }.getOrNull()
                 }
                 val libraryViews = views.await().filter { it.collectionType in setOf("movies", "tvshows", "homevideos", "musicvideos", null) }
                 val latestRails = libraryViews.associate { view ->
@@ -263,10 +324,13 @@ fun HomeScreen() {
                 // the rows show without it and the recommendation rows are merged in when it arrives.
                 // The budget counts from the start, so it never adds to a slow server's wait.
                 val budget = (REC_WAIT_MS - loadStart.elapsedNow().inWholeMilliseconds).coerceAtLeast(0)
-                val plan = if (recPlan.isCompleted) recPlan.await() else kotlinx.coroutines.withTimeoutOrNull(budget) { recPlan.await() }
+                // A plan kept from earlier (even an old one) places the rows at once; a newer one
+                // replaces it in place if the history has changed.
+                val plan = peek?.plan ?: if (recPlan.isCompleted) recPlan.await() else kotlinx.coroutines.withTimeoutOrNull(budget) { recPlan.await() }
                 val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites)
-                if (plan == null) launch {
+                if (plan == null || peek?.fresh == false) launch {
                     val late = recPlan.await() ?: return@launch
+                    if (plan != null && late.signature == plan.signature && late.seeds.map { it.id } == plan.seeds.map { it.id }) return@launch
                     val now = model.rails ?: return@launch
                     model.rails = mergeRails(now, arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, late),
                         now.filter { it.key.startsWith("latest-") }, now.firstOrNull { it.key == "favorites" }))
@@ -275,6 +339,7 @@ fun HomeScreen() {
                 val shown = model.rails?.associateBy { it.key }.orEmpty()
                 rails.forEach { r -> if (r.items == null) shown[r.key]?.items?.takeIf { it.isNotEmpty() }?.let { r.items = it; r.stale = true } }
                 model.rails = rails
+                model.loadedAt = kotlin.time.TimeSource.Monotonic.markNow()
                 container.logHomeReady()
                 // The banner: from the same loads, without holding anything else up.
                 launch {
@@ -315,7 +380,8 @@ fun HomeScreen() {
             coroutineScope {
                 val resume = async { api.resumeItems() }
                 val nextUp = async { api.nextUp() }
-                val plan = runCatching { container.recommendations.plan(api, resume.await()) }.getOrNull()
+                val plan = runCatching { container.recommendations.planFor(api, profileKey, watchVersion, resume.await()) }
+                    .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }.getOrNull()
                 val current = model.rails ?: return@coroutineScope
                 val fresh = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan),
                     current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" })
@@ -329,6 +395,17 @@ fun HomeScreen() {
     LaunchedEffect(Unit) {
         delay(HOME_COST_AFTER_MS)
         container.platform.requestStats()?.let { com.auroratv.core.Log.i("Perf", "Server requests in the first ${HOME_COST_AFTER_MS / 1000} s: $it") }
+    }
+    // Perf log (CI reads it): Home opened again in this session (from the side menu): how soon its
+    // rows are on screen, and how many server requests that costs in its first 10 s.
+    LaunchedEffect(model, model.rails != null) {
+        if (!model.isRevisit || model.rails == null || model.revisitLogged) return@LaunchedEffect
+        model.revisitLogged = true
+        val before = model.apiAtOpen
+        com.auroratv.core.Log.i("Perf", "Home opened again: rows on screen in ${model.createdAt.elapsedNow().inWholeMilliseconds} ms")
+        delay(HOME_COST_AFTER_MS)
+        val after = apiRequestsSoFar(container)
+        if (before != null && after != null) com.auroratv.core.Log.i("Perf", "Home opened again: ${after - before} API request(s) in its first ${HOME_COST_AFTER_MS / 1000} s")
     }
     val rails = model.rails
     ScreenFocus(entry, navigator, heroFocus, ready = rails != null)
@@ -396,6 +473,8 @@ fun HomeScreen() {
 private const val HERO_WAIT_MS = 4_000L
 private const val HOME_COST_AFTER_MS = 10_000L
 private const val REC_WAIT_MS = 600L
+/** Home opened again within this long of its last load shows the same rows without asking the server. */
+private const val HOME_FRESH_MS = 5 * 60_000L
 private const val PREWARM_DELAY_MS = 700L
 private const val SAVED_PER_ROW = 12
 
@@ -433,14 +512,14 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
 
     // On the I/O pool: at launch the CPU pool is busy (start-up work, image decoding) and a read
     // queued there waited ~0.4 s for a thread, while the read itself takes a few milliseconds.
-    suspend fun read(): HomeSnapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    suspend fun read(): SavedHome? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             val t0 = kotlin.time.TimeSource.Monotonic.markNow()
             val text = files.read(name) ?: return@runCatching null
             val t1 = t0.elapsedNow().inWholeMilliseconds
             val saved = json.decodeFromString(Saved.serializer(), text)
             com.auroratv.core.Log.i("Perf", "Saved Home: ${text.length / 1024} KB, file $t1 ms, decode ${t0.elapsedNow().inWholeMilliseconds - t1} ms")
-            HomeSnapshot(
+            SavedHome(
                 hero = saved.hero,
                 rails = saved.rails.mapNotNull { r ->
                     val style = CardStyle.entries.firstOrNull { it.name == r.style } ?: return@mapNotNull null
@@ -466,7 +545,7 @@ private class HomeCache(private val files: com.auroratv.platform.FileStore, serv
     }
 }
 
-private class HomeSnapshot(val hero: List<BaseItemDto>, val rails: List<RailState>)
+private class SavedHome(val hero: List<BaseItemDto>, val rails: List<RailState>)
 
 /** A rail that couldn't load (server busy or offline): say so and offer another go instead of vanishing. */
 @Composable

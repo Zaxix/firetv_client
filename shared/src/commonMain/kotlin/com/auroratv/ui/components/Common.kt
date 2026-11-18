@@ -124,7 +124,7 @@ fun IconAction(
 
 /** Selectable chip for filters, sorts and seasons. */
 @Composable
-fun AuroraChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, focusKey: String? = null) {
+fun AuroraChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, focusKey: String? = null, note: String? = null) {
     val colors = Aurora.colors
     FocusSurface(onClick = onClick, shape = RoundedCornerShape(50), sheen = false, focusKey = focusKey, modifier = modifier) { focused ->
         val bg = when {
@@ -133,7 +133,12 @@ fun AuroraChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
             else -> Color.Transparent
         }
         Text(
-            text,
+            // A note after the label ("— Premieres 24 November 2026") in the air-date yellow (darker when focused, on white).
+            if (note == null) androidx.compose.ui.text.AnnotatedString(text) else androidx.compose.ui.text.buildAnnotatedString {
+                append(text); append(" — ")
+                pushStyle(androidx.compose.ui.text.SpanStyle(color = if (focused) Color(0xFF7A5A00) else Color(0xFFF2C94C)))
+                append(note); pop()
+            },
             style = AuroraType.label,
             color = if (focused) Color.Black else if (selected) colors.onBackground else colors.onSurfaceMuted,
             modifier = Modifier.background(bg).padding(horizontal = 18.dp, vertical = 9.dp),

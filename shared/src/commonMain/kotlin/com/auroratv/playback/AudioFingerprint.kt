@@ -158,6 +158,88 @@ object AudioFingerprint {
     }
 
     /** The 8-bit samples of a WAV stream (or the bytes as they are when there's no header). */
+    /** Codes that agree closely (at most 2 of 15 bits differ): stricter than inside a run, for its edges. */
+    private fun close(x: Int, y: Int) = x != SILENT && y != SILENT && (x xor y).countOneBits() <= 2
+
+    /**
+     * The edges of [m], placed so no programme sound is inside: the run's ±1 s smoothing lets it
+     * start or end where stray codes happened to agree (story sound can resemble the theme for a
+     * frame or two). The edge is the first (last) frame that agrees closely, with one of the next two
+     * agreeing too (a lone agreeing frame is chance; slices half a frame out of step agree every other
+     * frame) and at least 4 of the 10 frames inward; then the start moves in by a frame (a quarter-second slice
+     * straddling the edge can still agree) and the end by [END_MARGIN] frames (the last frames of a
+     * theme blur into what follows). Tuned on synthetic episodes so that no edge
+     * reached into the programme (and on CI's real server decode, where the frame before the credits
+     * music agreed by chance), leaving at most ~1.4 s of theme unskipped at an edge. Searched within [slack]
+     * frames of the rough edges; null when no such edge is found at one of them.
+     */
+    fun refine(a: IntArray, b: IntArray, m: Match, slack: Int = 16): Match? {
+        val d = m.aStart - m.bStart
+        fun ok(i: Int) = i in a.indices && (i - d) in b.indices && close(a[i], b[i - d])
+        // A lone agreeing frame isn't an edge: the next (previous) frame or the one after must agree too.
+        val start = ((m.aStart - slack..m.aStart + slack).firstOrNull { i ->
+            ok(i) && (ok(i + 1) || ok(i + 2)) && (0 until EDGE_WINDOW).count { ok(i + it) } >= EDGE_NEED
+        } ?: return null) + START_MARGIN
+        val end = ((m.aEnd + slack downTo m.aEnd - slack).firstOrNull { k ->
+            ok(k - 1) && (ok(k - 2) || ok(k - 3)) && (1..EDGE_WINDOW).count { ok(k - it) } >= EDGE_NEED
+        } ?: return null) - END_MARGIN
+        if (end - start < m.frames / 2) return null
+        return Match(start, end, start - d, end - d)
+    }
+
+    /** Without exact edges: [m] pulled in by [frames] at both ends, past where the smoothing can reach. */
+    fun shrink(m: Match, frames: Int = 5): Match =
+        if (m.frames <= frames * 4) m else Match(m.aStart + frames, m.aEnd - frames, m.bStart + frames, m.bEnd - frames)
+
+    private const val EDGE_WINDOW = 10
+    private const val EDGE_NEED = 4
+    private const val END_MARGIN = 3
+    private const val START_MARGIN = 1
+
+    /** Share of [m]'s frames whose codes agree: near 1 for a shared theme, low for a weak match. */
+    fun agreement(a: IntArray, b: IntArray, m: Match): Double {
+        if (m.frames <= 0) return 0.0
+        val d = m.aStart - m.bStart
+        val good = (m.aStart until m.aEnd).count { i ->
+            i in a.indices && (i - d) in b.indices && a[i] != SILENT && b[i - d] != SILENT && (a[i] xor b[i - d]).countOneBits() <= 4
+        }
+        return good.toDouble() / m.frames
+    }
+
+    /** RMS loudness (0–1) of 8-bit samples [from, to). */
+    fun loudness(pcm: ByteArray, from: Int, to: Int): Double {
+        val a = from.coerceIn(0, pcm.size); val b = to.coerceIn(a, pcm.size)
+        if (b <= a) return 0.0
+        var sum = 0.0
+        for (i in a until b) { val v = ((pcm[i].toInt() and 0xFF) - 128) / 128.0; sum += v * v }
+        return kotlin.math.sqrt(sum / (b - a))
+    }
+
+    /**
+     * The middle of a near-silent gap (≥ 100 ms) between [fromMs] and [toMs] of [pcm] (offsets in
+     * ms from its start), or null. Themes and credits usually begin and end at such a gap, so an
+     * edge moved into it lands between the music and the story.
+     */
+    fun silenceBetween(pcm: ByteArray, fromMs: Long, toMs: Long): Long? {
+        val block = SAMPLE_RATE / 20 // 50 ms
+        val first = (fromMs * SAMPLE_RATE / 1000 / block).toInt().coerceAtLeast(0)
+        val last = (toMs * SAMPLE_RATE / 1000 / block).toInt().coerceAtMost(pcm.size / block - 1)
+        var best: IntRange? = null; var run = -1
+        for (k in first..last + 1) {
+            val quiet = k <= last && loudness(pcm, k * block, (k + 1) * block) < QUIET
+            if (quiet && run < 0) run = k
+            if (!quiet && run >= 0) {
+                if (k - run >= 2 && (best == null || k - run > best.count())) best = run until k
+                run = -1
+            }
+        }
+        val gap = best ?: return null
+        return ((gap.first + gap.last + 1) * block / 2) * 1000L / SAMPLE_RATE
+    }
+
+    /** Quieter than this (RMS) is silence: well under speech or music, above the noise of re-encoding. */
+    const val QUIET = 0.015
+
     fun wavSamples(bytes: ByteArray): ByteArray {
         val limit = minOf(bytes.size - 8, 512)
         for (i in 12 until limit) {

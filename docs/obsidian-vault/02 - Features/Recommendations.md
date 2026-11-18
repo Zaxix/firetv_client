@@ -63,9 +63,51 @@ flowchart LR
 | Adventure Time (Western cartoon) | ×0.35 | 0.12 | ❌ |
 | The Inbetweeners (live-action sitcom) | ×0.2 | 0.08 | ❌ |
 
+## Kept in memory per profile (Nov 2026)
+**The bug:** "Recommended For You" reloaded every time Home was opened again. Choosing Home in the
+side menu builds a new Home screen (`Navigator.selectSection` starts a new back-stack entry), so each
+visit started from nothing:
+- the saved copy was read from disk;
+- the history was asked for again (two requests);
+- the recommendation rows waited for it (up to 600 ms) and were otherwise merged in late, which is
+  the visible reload.
+
+**Now** (`RecommendationService.planFor` / `peekPlan`, `HomeSnapshot`):
+- **Per-profile plan in memory.** The history plan (ids, weights, likes, genres, and the signature
+  that identifies the ranking) is kept per profile. It's *fresh* while no title has been watched,
+  marked played or favourited on this device (`WatchActivity`) and for 30 minutes (to notice
+  activity on other devices). A fresh plan costs no request.
+- **Stale-while-revalidate.** An old plan still places the rows at once; a new one loads in the
+  background and replaces the rows in place only if the history signature (or the seed titles)
+  changed.
+- **Deduplicated.** Homes asking at the same time share one load (`planLoads`).
+- **Rows recomputed only when the history or likes change** (the signature includes the weights,
+  which carry thumbs up/down). They're kept as ranked lists of card-only records (`slim`: no tags,
+  cast, descriptions beyond 240 characters, media or chapter data), in memory and in
+  `recommendations-<profile>.json`.
+- **Home itself is remembered** for the session (`AppContainer.homeMemory`, the last two profiles):
+  Home opened again shows the same rows, banner and brand tiles at once, and asks the server
+  nothing for 5 minutes after its last load. Watching something still refreshes Continue Watching,
+  Next Up and the recommendations (the `WatchActivity` effect).
+
+**Measured** (CI emulator, release build; Home → Movies → Home three times, `Perf: Home opened again`;
+two CI runs each):
+
+| | Before | After |
+|---|---|---|
+| Rows on screen after reopening Home | 81 / 127 / 51 ms; 144 / 75 / 82 ms | 6 / 5 / 6 ms; 8 / 13 / 5 ms |
+| API requests in its first 10 s | 10 / 13 / 10; 14 / 10 / – | 0 / 0 / 2; 0 / 0 / 3 |
+
+The 2–3 requests on some visits are most likely the Movies screen's own requests finishing after the
+switch (the counter is app-wide); not confirmed.
+
+Unit test: `RecommendationCacheTest` (memory hit, one load for simultaneous callers, new load after
+watch activity, per-profile, forgotten on profile removal).
+
 ## Relevant files
 `recommend/Recommendations.kt` (RecommendationEngine, RecommendationService), `recommend/Similarity.kt`,
-`playback/ContentKind.kt`, `ui/screens/Home.kt` (recommendationRails), `jellyfin/JellyfinApi.kt`
+`playback/ContentKind.kt`, `ui/screens/Home.kt` (recommendationRails, HomeSnapshot), `ui/AppContainer.kt`
+(homeMemory), `data/WatchActivity.kt`, `jellyfin/JellyfinApi.kt`
 (`Fields.SIMILARITY`, `similar(fields)`).
 
 ## Dependencies

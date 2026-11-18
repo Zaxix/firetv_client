@@ -30,7 +30,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /** A part of the timeline the user may want to skip; drawn in yellow on the progress bar. */
-data class SkipRange(val kind: Kind, val startMs: Long, val endMs: Long) {
+data class SkipRange(
+    val kind: Kind,
+    val startMs: Long,
+    val endMs: Long,
+    /**
+     * False for a weak match (short, or not much agreement): the Skip button is still offered, but
+     * it's never skipped automatically and never treated as "the credits run to the end".
+     */
+    val confident: Boolean = true,
+) {
     enum class Kind(val label: String) { Recap("Skip Recap"), Intro("Skip Intro"), Credits("Skip Outro") }
 }
 
@@ -113,13 +122,14 @@ data class PlayerUiState(
     }
 
     /**
-     * True when [range] is closing credits with nothing after them (they run to within 20 s of the
-     * end), so "Next Episode" can replace "Skip Outro". When something follows (a post-credits scene,
-     * a preview), Skip Outro jumps to it instead of leaving the episode.
+     * True when [range] is closing credits with nothing after them (they run to within a few
+     * seconds of the end), so "Next Episode" can replace "Skip Outro". When something follows (a
+     * post-credits scene, a preview, even a short one), Skip Outro jumps to it instead of leaving
+     * the episode. (Detection already extends credits to the end when only silence or black follows.)
      */
     fun creditsRunToEnd(range: SkipRange): Boolean {
         val runtime = item?.runtimeMs ?: return true
-        return range.kind == SkipRange.Kind.Credits && runtime - range.endMs <= CREDITS_TO_END_MS
+        return range.kind == SkipRange.Kind.Credits && range.confident && runtime - range.endMs <= CREDITS_TO_END_MS
     }
 
     fun activeSkip(positionMs: Long): SkipRange? = skipRanges.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
@@ -130,7 +140,7 @@ data class PlayerUiState(
     private companion object {
         val INTRO = Regex("""\b(intro|opening|op|opening credits|theme song)\b""")
         val RECAP = Regex("""\b(recap|previously)\b""")
-        const val CREDITS_TO_END_MS = 20_000L
+        const val CREDITS_TO_END_MS = 8_000L
         val CREDITS = Regex("""\b(credits|ending|ed|outro|end credits|closing)\b""")
     }
 }
@@ -222,22 +232,26 @@ class PlayerController(
                 Log.i(tag, "Ready to play in ${t0.elapsedNow().inWholeMilliseconds} ms (${if (warm != null) "prepared on the detail page" else "cold"}, ${plan.method.jellyfinName})")
                 // Secondary lookups never block playback.
                 launch {
-                    _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
-                    // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
-                    val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
-                    val wanted = setOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
-                    if (have.containsAll(wanted)) return@launch
+                    val markStart = kotlin.time.TimeSource.Monotonic.markNow()
+                    fun markersLog(how: String) = Log.i("Perf", "Skip markers $how in ${markStart.elapsedNow().inWholeMilliseconds} ms")
                     // Markers worked out earlier (this episode resumed, or found while another episode was
-                    // compared with it) are used at once; only kinds never looked for are searched.
+                    // compared with it) are shown at once, before even the server is asked; only kinds
+                    // never looked for are searched.
                     val remembered = skipMarkers?.get(itemId)
                     val tried = skipMarkers?.tried(itemId).orEmpty()
                     remembered?.let { (ranges, source) ->
                         if (currentItemId == itemId) _state.update { it.copy(detectedSkips = ranges, detectedSource = "$source, remembered") }
                     }
+                    _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
+                    // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
+                    val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
+                    val wanted = setOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
+                    if (have.containsAll(wanted)) { markersLog("from the server"); return@launch }
                     val missing = wanted - have - tried
-                    if (missing.isEmpty()) return@launch
+                    if (missing.isEmpty()) { markersLog("remembered"); return@launch }
                     val detector = skipDetector ?: return@launch
                     val found = runCatching { detector.detect(item, have + tried) }.getOrNull()
+                    markersLog(if (found != null) "found (${found.source})" else "searched, none found")
                     if (currentItemId != itemId || !item.isEpisode) {
                         if (currentItemId == itemId && found != null) _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
                         return@launch
@@ -390,7 +404,7 @@ class PlayerController(
                 }
                 if (settings().skipIntro != SkipIntroMode.Auto) continue
                 val range = _state.value.activeSkip(engine.state.value.positionMs) ?: continue
-                if (range.kind != SkipRange.Kind.Credits) {
+                if (range.kind != SkipRange.Kind.Credits && range.confident) {
                     val key = "${currentItemId}:${range.startMs}"
                     if (autoSkipped.add(key)) engine.seekTo(range.endMs)
                 }

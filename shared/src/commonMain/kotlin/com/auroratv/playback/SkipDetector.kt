@@ -15,7 +15,13 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
@@ -64,46 +70,104 @@ class SkipDetector(
     /** [others]: ranges worked out on the way for other episodes (the one compared against). */
     data class Result(val ranges: List<SkipRange>, val source: String, val others: Map<String, List<SkipRange>> = emptyMap())
 
+    /** Detection under way per episode: a second request for the same one waits for it instead of repeating it. */
+    private val running = HashMap<String, CompletableDeferred<Result?>>()
+    /** One episode's detection at a time on this server (a few small audio requests each, at most two at once). */
+    private val jobs = Semaphore(1)
+    /** A season's episode list (chapters, trickplay info), kept a few minutes: the next episode reuses it. */
+    private val seasons = LinkedHashMap<String, Pair<kotlin.time.TimeSource.Monotonic.ValueTimeMark, List<BaseItemDto>>>()
+    /** Audio windows already fetched (this episode's end is the next one's partner): no second request. */
+    private val windows = LinkedHashMap<String, AudioWindow>()
+
+    /** Low-rate audio of one stretch of an episode, and its fingerprint. */
+    private class AudioWindow(val startMs: Long, val pcm: ByteArray, val prints: IntArray)
+
+    /** Per-step timings of the last detection (for the Perf log and the integration test). */
+    var lastTimings: String = ""
+        private set
+
     suspend fun detect(item: BaseItemDto, alreadyHave: Set<SkipRange.Kind>): Result? {
+        running[item.id]?.let { return it.await() }
+        val done = CompletableDeferred<Result?>()
+        running[item.id] = done
+        try {
+            val result = jobs.withPermit { detectNow(item, alreadyHave) }
+            done.complete(result)
+            return result
+        } catch (t: Throwable) {
+            done.completeExceptionally(t)
+            throw t
+        } finally {
+            running.remove(item.id)
+        }
+    }
+
+    private suspend fun seasonEpisodes(item: BaseItemDto): List<BaseItemDto> {
+        val sid = item.seriesId ?: return emptyList()
+        val key = "$sid/${item.seasonId}"
+        seasons[key]?.takeIf { it.first.elapsedNow().inWholeMilliseconds < SEASON_FRESH_MS }?.let { return it.second }
+        val list = runCatching { api.episodesWithChapters(sid, item.seasonId) }.getOrNull().orEmpty().filter { it.runtimeMs != null }
+        if (list.isNotEmpty()) {
+            seasons.remove(key); seasons[key] = kotlin.time.TimeSource.Monotonic.markNow() to list
+            while (seasons.size > 4) seasons.remove(seasons.keys.first())
+        }
+        return list
+    }
+
+    private suspend fun detectNow(item: BaseItemDto, alreadyHave: Set<SkipRange.Kind>): Result? {
         if (!item.isEpisode) return null
         val runtime = item.runtimeMs ?: return null
         val found = mutableListOf<Result>()
+        val clock = kotlin.time.TimeSource.Monotonic.markNow()
+        val timings = mutableListOf<String>()
+        fun step(name: String, from: kotlin.time.TimeSource.Monotonic.ValueTimeMark) { timings += "$name ${from.elapsedNow().inWholeMilliseconds} ms" }
         // The season's episodes (with chapters and trickplay info): fetched once, only if needed.
         var seasonList: List<BaseItemDto>? = null
-        suspend fun season(): List<BaseItemDto> = seasonList ?: item.seriesId?.let { sid ->
-            runCatching { api.episodesWithChapters(sid, item.seasonId) }.getOrNull()
-        }.orEmpty().filter { it.runtimeMs != null }.also { seasonList = it }
+        suspend fun season(): List<BaseItemDto> = seasonList ?: seasonEpisodes(item).also { seasonList = it }
+        var t = kotlin.time.TimeSource.Monotonic.markNow()
         runCatching { fromSeasonChapters(item, runtime) { season() } }
             .onFailure { Log.w(tag, "Chapter pattern lookup failed: ${it.message}") }
             .getOrNull()?.let { found += it }
-        val covered = alreadyHave + found.flatMap { r -> r.ranges.map { it.kind } }
+        step("chapters", t)
+        // Only a confident find counts as found: a weak one is kept but the next source still looks.
+        fun hasFirm(kind: SkipRange.Kind) = found.any { r -> r.ranges.any { it.kind == kind && it.confident } }
+        val covered = alreadyHave + SkipRange.Kind.entries.filter(::hasFirm)
         if (onlineAllowed() && !covered.containsAll(listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits))) {
+            t = kotlin.time.TimeSource.Monotonic.markNow()
             // Real-time timeout (Dispatchers.Default), so a slow third-party API never holds anything up.
             runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(8_000) { fromAniSkip(item, runtime) } } }
                 .onFailure { Log.w(tag, "AniSkip lookup failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
+            step("AniSkip", t)
         }
-        val stillMissing = listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
-            .filter { it !in alreadyHave && found.none { r -> r.ranges.any { x -> x.kind == it } } }
+        val stillMissing = listOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits).filter { it !in alreadyHave && !hasFirm(it) }
         if (audioAllowed() && stillMissing.isNotEmpty()) {
+            t = kotlin.time.TimeSource.Monotonic.markNow()
             runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(90_000) { fromAudio(item, runtime, stillMissing.toSet(), season()) } } }
                 .onFailure { Log.w(tag, "Audio match failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
+            step("listening", t)
         }
-        val creditsMissing = SkipRange.Kind.Credits !in alreadyHave && found.none { r -> r.ranges.any { it.kind == SkipRange.Kind.Credits } }
+        val creditsMissing = SkipRange.Kind.Credits !in alreadyHave && !hasFirm(SkipRange.Kind.Credits)
         if (audioAllowed() && creditsMissing && item.trickplay != null) {
+            t = kotlin.time.TimeSource.Monotonic.markNow()
             runCatching { withContext(Dispatchers.Default) { withTimeoutOrNull(60_000) { fromScreen(item, runtime, season()) } } }
                 .onFailure { Log.w(tag, "On-screen credits check failed: ${it.message}") }
                 .getOrNull()?.let { found += it }
+            step("screen", t)
         }
+        lastTimings = (timings + "total ${clock.elapsedNow().inWholeMilliseconds} ms").joinToString(", ")
+        Log.i(tag, "Timings: $lastTimings")
         if (found.isEmpty()) return null
-        // Per kind, take the best source; never override what the server already provided.
+        // Per kind, take the best source (a confident one before a weak one, else in the order
+        // above); never override what the server already provided.
         val ranges = SkipRange.Kind.entries.filter { it !in alreadyHave }.flatMap { kind ->
-            found.firstNotNullOfOrNull { r -> r.ranges.filter { it.kind == kind }.takeIf { it.isNotEmpty() } }.orEmpty()
+            (found.firstNotNullOfOrNull { r -> r.ranges.filter { it.kind == kind && it.confident }.takeIf { it.isNotEmpty() } }
+                ?: found.firstNotNullOfOrNull { r -> r.ranges.filter { it.kind == kind }.takeIf { it.isNotEmpty() } }).orEmpty()
         }
         if (ranges.isEmpty()) return null
         val sources = found.filter { r -> r.ranges.any { it in ranges } }.joinToString(" + ") { it.source }
-        Log.i(tag, "Detected ${ranges.joinToString { "${it.kind} ${it.startMs / 1000}-${it.endMs / 1000}s" }} via $sources")
+        Log.i(tag, "Detected ${ranges.joinToString { "${it.kind} ${it.startMs / 1000.0}-${it.endMs / 1000.0}s${if (it.confident) "" else " (weak)"}" }} via $sources")
         // Other episodes' ranges from every step (e.g. the neighbour's intro by audio, its outro on screen).
         val others = HashMap<String, List<SkipRange>>()
         found.forEach { r -> r.others.forEach { (id, list) -> others[id] = (others[id].orEmpty() + list).distinctBy { it.kind } } }
@@ -130,55 +194,113 @@ class SkipDetector(
      * season as low-rate audio, and find the stretch of sound they share (see AudioFingerprint).
      * About 4 KB per second of audio; the server only decodes sound for it.
      */
-    private suspend fun fromAudio(item: BaseItemDto, runtime: Long, want: Set<SkipRange.Kind>, season: List<BaseItemDto>): Result? {
+    private suspend fun fromAudio(item: BaseItemDto, runtime: Long, want: Set<SkipRange.Kind>, season: List<BaseItemDto>): Result? = coroutineScope {
         val partners = partners(item, season)
-        val other = partners.firstOrNull() ?: return null
-        val otherRuntime = other.runtimeMs ?: return null
-        val rate = AudioFingerprint.SAMPLE_RATE
-        val mine = mutableListOf<SkipRange>(); val theirs = mutableListOf<SkipRange>()
+        val other = partners.firstOrNull() ?: return@coroutineScope null
+        val otherRuntime = other.runtimeMs ?: return@coroutineScope null
+        val mine = mutableListOf<SkipRange>()
         val others = HashMap<String, MutableList<SkipRange>>()
-
-        suspend fun prints(id: String, startMs: Long, seconds: Int): IntArray? =
-            api.audioSample(id, startMs, seconds, rate)?.let { AudioFingerprint.fingerprint(AudioFingerprint.wavSamples(it)) }
-                ?.takeIf { it.size * AudioFingerprint.FRAME_MS >= seconds * 1000L / 2 } // too short: the server gave up
-
         val minFrames = (MIN_SHARED_MS / AudioFingerprint.FRAME_MS).toInt()
+        val introSecs = { rt: Long -> (minOf(rt / 4, INTRO_WINDOW_MS) / 1000).toInt() }
+        val creditsWindow = { rt: Long -> minOf(rt / 5, CREDITS_WINDOW_MS) }
+
         if (SkipRange.Kind.Intro in want) {
-            // Openings sit in the first quarter (at most 10 minutes), after any cold open.
-            val secs = { rt: Long -> (minOf(rt / 4, INTRO_WINDOW_MS) / 1000).toInt() }
-            val a = prints(item.id, 0, secs(runtime)); val b = a?.let { prints(other.id, 0, secs(otherRuntime)) }
-            val m = if (a != null && b != null) AudioFingerprint.longestShared(a, b, minFrames) else null
-            if (m != null && m.frames * AudioFingerprint.FRAME_MS <= MAX_INTRO_MS) {
-                mine += SkipRange(SkipRange.Kind.Intro, m.aStart * AudioFingerprint.FRAME_MS, m.aEnd * AudioFingerprint.FRAME_MS)
-                theirs += SkipRange(SkipRange.Kind.Intro, m.bStart * AudioFingerprint.FRAME_MS, m.bEnd * AudioFingerprint.FRAME_MS)
+            // Openings sit in the first quarter (at most 10 minutes), after any cold open. Both
+            // episodes' audio is fetched at the same time (two requests at most, ever).
+            val ad = async { window(item.id, 0, introSecs(runtime)) }
+            val bd = async { window(other.id, 0, introSecs(otherRuntime)) }
+            val a = ad.await(); val b = bd.await()
+            val rough = if (a != null && b != null) AudioFingerprint.longestShared(a.prints, b.prints, minFrames) else null
+            if (a != null && b != null && rough != null && rough.frames * AudioFingerprint.FRAME_MS <= MAX_INTRO_MS) {
+                // Exact edges, or (rarely) the rough ones pulled in, which then count as a weak match.
+                val exact = AudioFingerprint.refine(a.prints, b.prints, rough)
+                val m = exact ?: AudioFingerprint.shrink(rough)
+                val confident = exact != null && confident(a.prints, b.prints, m)
+                mine += edges(SkipRange.Kind.Intro, a, m.aStart, m.aEnd, runtime, confident)
+                others.getOrPut(other.id) { mutableListOf() } += edges(SkipRange.Kind.Intro, b, m.bStart, m.bEnd, otherRuntime, confident)
             }
         }
-        if (theirs.isNotEmpty()) others[other.id] = theirs.toMutableList()
         if (SkipRange.Kind.Credits in want) {
-            val windowMs = { rt: Long -> minOf(rt / 5, CREDITS_WINDOW_MS) }
-            val aFrom = runtime - windowMs(runtime)
-            val a = prints(item.id, aFrom, (windowMs(runtime) / 1000).toInt())
-            // Credits music changes more often than openings (a finale, a song per episode), so a
-            // second neighbour is tried when the first shares nothing. This episode's audio is fetched once.
-            for (partner in partners) {
+            // This episode's end and the first neighbour's together; a second neighbour only if
+            // they share nothing (credits music changes more often than openings: a finale, a song per episode).
+            val ad = async { endWindow(item.id, runtime, creditsWindow(runtime)) }
+            val first = partners.first().let { p -> p.runtimeMs?.let { prt -> async { endWindow(p.id, prt, creditsWindow(prt)) } } }
+            val a = ad.await()
+            for ((n, partner) in partners.withIndex()) {
                 if (a == null) break
                 val prt = partner.runtimeMs ?: continue
-                val bFrom = prt - windowMs(prt)
-                val b = prints(partner.id, bFrom, (windowMs(prt) / 1000).toInt()) ?: continue
-                val m = AudioFingerprint.longestShared(a, b, minFrames) ?: continue
-                // Credits run to the end even where the music stops a little early.
-                fun end(from: Long, frame: Int, rt: Long) = (from + frame * AudioFingerprint.FRAME_MS).let { if (rt - it < CREDITS_TAIL_MS) rt else it }
-                mine += SkipRange(SkipRange.Kind.Credits, aFrom + m.aStart * AudioFingerprint.FRAME_MS, end(aFrom, m.aEnd, runtime))
-                others.getOrPut(partner.id) { mutableListOf() } += SkipRange(SkipRange.Kind.Credits, bFrom + m.bStart * AudioFingerprint.FRAME_MS, end(bFrom, m.bEnd, prt))
+                val b = (if (n == 0) first?.await() else endWindow(partner.id, prt, creditsWindow(prt))) ?: continue
+                val rough = AudioFingerprint.longestShared(a.prints, b.prints, minFrames) ?: continue
+                val exact = AudioFingerprint.refine(a.prints, b.prints, rough)
+                val m = exact ?: AudioFingerprint.shrink(rough)
+                val confident = exact != null && confident(a.prints, b.prints, m)
+                mine += edges(SkipRange.Kind.Credits, a, m.aStart, m.aEnd, runtime, confident)
+                others.getOrPut(partner.id) { mutableListOf() } += edges(SkipRange.Kind.Credits, b, m.bStart, m.bEnd, prt, confident)
                 break
             }
         }
         if (mine.isEmpty()) {
             Log.i(tag, "Audio: nothing shared with ${partners.joinToString { it.name ?: it.id }}")
-            return null
+            return@coroutineScope null
         }
-        return Result(mine, "matching audio", others)
+        Result(mine, "matching audio", others)
     }
+
+    /** A strong match: long enough to be a theme, and most of it agreeing. */
+    private fun confident(a: IntArray, b: IntArray, m: AudioFingerprint.Match): Boolean =
+        m.frames * AudioFingerprint.FRAME_MS >= CONFIDENT_MS && AudioFingerprint.agreement(a, b, m) >= CONFIDENT_AGREEMENT
+
+    /**
+     * A matched stretch (frames [from], [to) of [w], already trimmed to exact edges) as a range,
+     * then moved into a silent gap at the edge if there is one (where the music meets the story). Credits
+     * run to the end of the episode only when nothing but silence follows them; anything else after
+     * them (a post-credits scene, a preview) is left to play.
+     */
+    private fun edges(kind: SkipRange.Kind, w: AudioWindow, from: Int, to: Int, runtime: Long, confident: Boolean): SkipRange {
+        val f = AudioFingerprint.FRAME_MS
+        var start = from * f
+        var end = to * f
+        // Start: a gap just before or a little into the match; end: a gap at or a little before its end.
+        AudioFingerprint.silenceBetween(w.pcm, start - EDGE_BEFORE_MS, start + EDGE_INSIDE_MS)?.let { start = it }
+        AudioFingerprint.silenceBetween(w.pcm, end - EDGE_INSIDE_MS, end + EDGE_BEFORE_MS)?.let { end = it }
+        var absEnd = w.startMs + end
+        if (kind == SkipRange.Kind.Credits) {
+            val tailFrom = (end * AudioFingerprint.SAMPLE_RATE / 1000).toInt()
+            val tailMs = runtime - absEnd
+            val quietTail = tailMs <= QUIET_TAIL_GRACE_MS || quietShare(w.pcm, tailFrom) >= 0.9
+            if (quietTail) absEnd = runtime
+        }
+        return SkipRange(kind, w.startMs + start, absEnd.coerceAtMost(runtime), confident)
+    }
+
+    /** Share of the 1-second blocks of [pcm] from sample [from] on that are silent. */
+    private fun quietShare(pcm: ByteArray, from: Int): Double {
+        val block = AudioFingerprint.SAMPLE_RATE
+        val blocks = (pcm.size - from) / block
+        if (blocks <= 0) return 1.0
+        val quiet = (0 until blocks).count { k -> AudioFingerprint.loudness(pcm, from + k * block, from + (k + 1) * block) < AudioFingerprint.QUIET * 2 }
+        return quiet.toDouble() / blocks
+    }
+
+    /** The last [lengthMs] of an episode (to the end of the file). CI checked: the server starts it exactly where asked. */
+    private suspend fun endWindow(id: String, runtime: Long, lengthMs: Long): AudioWindow? =
+        window(id, runtime - lengthMs, ((lengthMs + 999) / 1000).toInt())
+
+    /** One stretch of an episode's audio: from memory if it was fetched for an earlier comparison. */
+    private suspend fun window(id: String, startMs: Long, seconds: Int): AudioWindow? {
+        val key = "$id@$startMs+$seconds"
+        windowLock.withLock { windows[key] }?.let { return it }
+        val pcm = api.audioSample(id, startMs, seconds, AudioFingerprint.SAMPLE_RATE)?.let { AudioFingerprint.wavSamples(it) } ?: return null
+        val prints = AudioFingerprint.fingerprint(pcm)
+        if (prints.size * AudioFingerprint.FRAME_MS < seconds * 1000L / 3) return null // too short: the server gave up
+        val w = AudioWindow(startMs, pcm, prints)
+        // (Callers run in parallel on Dispatchers.Default: the cache is touched under its own lock.)
+        synchronizedWindows { windows.remove(key); windows[key] = w; while (windows.size > MAX_WINDOWS) windows.remove(windows.keys.first()) }
+        return w
+    }
+
+    private val windowLock = kotlinx.coroutines.sync.Mutex()
+    private suspend fun synchronizedWindows(block: () -> Unit) = windowLock.withLock { block() }
 
     /**
      * Episodes to compare with, best first: the next one (its markers come out of the same
@@ -237,8 +359,13 @@ class SkipDetector(
     private suspend fun fromAniSkip(item: BaseItemDto, runtime: Long): Result? {
         val episode = item.indexNumber ?: return null
         val seriesId = item.seriesId ?: return null
-        val series = runCatching { api.item(seriesId) }.getOrNull() ?: return null
-        val season = item.seasonId?.let { id -> runCatching { api.item(id) }.getOrNull() }
+        // The series and the season together (two small requests at once, not one after the other).
+        val (series, season) = coroutineScope {
+            val s = async { runCatching { api.item(seriesId) }.getOrNull() }
+            val n = item.seasonId?.let { id -> async { runCatching { api.item(id) }.getOrNull() } }
+            s.await() to n?.await()
+        }
+        series ?: return null
         if (!looksLikeAnime(series, item)) return null
         val seasonNumber = item.parentIndexNumber ?: 1
         if (seasonNumber < 1) return null // specials have no reliable mapping
@@ -324,7 +451,16 @@ class SkipDetector(
         private const val MAX_INTRO_MS = 150_000L
         private const val INTRO_WINDOW_MS = 10 * 60_000L
         private const val CREDITS_WINDOW_MS = 4 * 60_000L
-        private const val CREDITS_TAIL_MS = 20_000L
+        /** Credits ending this close to the end of the file run to the end. */
+        private const val QUIET_TAIL_GRACE_MS = 3_000L
+        /** A match at least this long, with this share of its frames agreeing, is confident. */
+        private const val CONFIDENT_MS = 20_000L
+        private const val CONFIDENT_AGREEMENT = 0.5
+        /** How far an edge may move into a silent gap: outward (away from the music) / inward. */
+        private const val EDGE_BEFORE_MS = 250L
+        private const val EDGE_INSIDE_MS = 900L
+        private const val MAX_WINDOWS = 4
+        private const val SEASON_FRESH_MS = 10 * 60_000L
 
         private val TV_FORMATS = setOf("TV", "TV_SHORT", "ONA")
         private const val ANILIST_QUERY =
@@ -375,7 +511,8 @@ class SkipDetector(
                 }
                 .filter { it.third >= 1 }
                 .maxByOrNull { it.third }
-                ?.let { (s, e, _) -> SkipRange(kind, s, e) }
+                // One other episode with a chapter of that length could be chance; two or more can't.
+                ?.let { (s, e, n) -> SkipRange(kind, s, e, confident = n >= 2 || otherSpans.size < 2) }
 
             return listOfNotNull(
                 pick(SkipRange.Kind.Intro) { s, _, rt -> s < rt * 0.4 },

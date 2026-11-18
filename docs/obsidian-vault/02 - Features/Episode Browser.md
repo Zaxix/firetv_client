@@ -17,7 +17,24 @@ episode's name and description. In the player, the Episodes panel offers the sam
 - The whole block is wrapped in `revealOnFocus()`, so focusing it scrolls the row *and* the text
   into view.
 
+## Upcoming episodes and seasons (Nov 2026)
+Episodes that haven't aired yet appear in the row with their air date, from the server's own
+metadata (`GET /Shows/Upcoming?parentId=<series>`, names/numbers/dates only) and, when a Trakt key is
+set, Trakt's next episode (exact UTC air time). See [[Details Page Layout]] for the dates' rules.
+- **Episodes:** a card for each upcoming episode of the selected season the server doesn't have yet
+  (or lists as a virtual item when the user shows missing episodes). The card is dimmed and Select
+  does nothing, so it never looks playable. Under it, in soft yellow: "Airs 24 November 2026", or
+  "Expected …" when the date is only a placeholder. The description panel reads
+  "Episode 8 — Airs 24 November 2026" and "Not out yet." when there's no overview.
+- **Seasons:** a season that hasn't started, with its first episode's date known, gets
+  "Season 3 — Premieres 24 November 2026" in its chip (yellow part), or "— Expected 2027"; with no date
+  it has no note (and a season the server doesn't list isn't added). A season known only from
+  upcoming episodes is added after the others; choosing it shows those episodes without a request.
+- The details page's "Next Episode" date and these come from the same list, so they always agree.
+
 ## Relevant files
+`data/AirDates.kt` (dates, `Upcoming`), `data/AirDateService.kt`, `ui/screens/Detail.kt`
+(`withUpcoming`, `SeasonPicker`, `EpisodeRow`), `ui/components/Common.kt` (`AuroraChip` note).
 `ui/screens/Detail.kt` (SeasonPicker, EpisodeRow), `ui/components/Cards.kt` (MediaCard),
 `ui/screens/player/PlayerChrome.kt` (Episodes panel).
 

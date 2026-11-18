@@ -38,6 +38,8 @@ class AppContainer(val platform: Platform) {
     /** Ratings remembered for a week, per profile. */
     val ratingsStore = com.auroratv.profiles.RatingsStore(platform.files, ::today)
     val ratings = com.auroratv.ratings.RatingsService(http, ratingsStore) { ratingsKeys.keys.value }
+    /** When upcoming episodes air (detail pages), per series in memory (see AirDateService). */
+    val airDates = com.auroratv.data.AirDateService(appScope, ratings)
     /** Detected skip markers for episodes in progress, per profile (deleted once watched). */
     val skipMarkers = com.auroratv.profiles.SkipMarkerStore(platform.files, ::today)
     /** Recent searches, per profile. */
@@ -46,6 +48,13 @@ class AppContainer(val platform: Platform) {
     val search = com.auroratv.search.SearchService(appScope)
     /** Home's "Because You Watched" / "Recommended For You" rows, per profile (see RecommendationService). */
     val recommendations = com.auroratv.recommend.RecommendationService(appScope, platform.files)
+    /** Home's rows as last shown, per profile (this session only; see HomeSnapshot). */
+    val homeMemory = LinkedHashMap<String, com.auroratv.ui.screens.HomeSnapshot>()
+    fun rememberHome(profileKey: String, snapshot: com.auroratv.ui.screens.HomeSnapshot) {
+        homeMemory.remove(profileKey); homeMemory[profileKey] = snapshot
+        // Only the profiles used most recently: the rows of a profile nobody's using aren't kept.
+        while (homeMemory.size > 2) homeMemory.remove(homeMemory.keys.first())
+    }
     /** Prepares what Play will start while a detail page is open (see PlaybackPrewarmer). */
     /** Audio/subtitle choices remembered per series (on this device). */
     val trackMemory = com.auroratv.playback.TrackMemory(platform.files, { com.auroratv.playback.wallClockMs() })
@@ -89,6 +98,7 @@ class AppContainer(val platform: Platform) {
             platform.files.delete("home-cache-${profile.server.id}-${profile.user.id}${profile.local?.let { "-p${it.id}" } ?: ""}.json")
             ratingsKeys.forgetProfile(profile.key)
             recommendations.forget(profile.key)
+            homeMemory.remove(profile.key)
             tempFiles.profileRemoved(profile.key)
         }
         // Once per start, after Home has settled: delete temporary files whose 5 days are up.
@@ -134,6 +144,8 @@ class AppContainer(val platform: Platform) {
      * Formats: `section:<Home|Movies|Shows|Continue|Favorites|Search|Libraries|Settings>`, `detail:<id>`, `player:<id>`.
      */
     var initialRoute: String? = null
+    /** A link delivered while the app is already open (see MainActivity.onNewIntent); same formats. */
+    val links = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     /** Set by the UI; platform back buttons route through here. Returns false when the app should close. */
     var backHandler: () -> Boolean = { false }
