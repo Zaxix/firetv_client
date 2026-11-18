@@ -56,6 +56,11 @@ no playback change is attributable to this update. Home's cold start: the first 
 runs before Home's rows on a cold start beyond reading the (empty) memory maps, so this reads as
 runner variation, but it's noted here as unproven either way. Not measured on a Fire TV.
 
+The run that published this build (same code) landed on a slower runner: everything was ~30–50 %
+slower, including the app's first frame (537–663 ms, against 372–507 ms in all four runs above), which
+happens before any code this update touched. That run gave Home shown 1421–1615 ms and L2 resume
+1942–3289 ms. Home opened again was still 8–9 ms with 0 / 0 / 3 requests, and every test passed.
+
 ## Platform cleanup, outros, recommendations, temporary files, audio default
 ### Removed: the Windows app
 The `desktopApp` module, the libmpv/JNA/DPAPI/updater/sound code for Windows, the Windows CI job,
