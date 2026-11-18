@@ -1,0 +1,309 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Every CI build gets its own number: versionName 1.0.<n>, Android versionCode <n>, MSI 1.0.<n>.
+  # The in-app updater compares it with version.json on the latest-build release.
+  AURORA_BUILD: ${{ github.run_number }}
+
+jobs:
+  android:
+    name: Tests + Android APK/AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (shared logic + keyboard/remote navigation UI tests)
+        run: ./gradlew --no-daemon --stacktrace :shared:jvmTest :shared:testDebugUnitTest
+
+      - name: Prepare release signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.AURORA_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AURORA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AURORA_KEY_PASSWORD }}
+          SIGNING_SECRET: ${{ secrets.AURORA_SIGNING_SECRET }}
+        run: |
+          if [ -n "$SIGNING_SECRET" ]; then
+            # Permanent key: committed encrypted (ci/signing), unlocked by one repository secret that
+            # is both the file's AES key and the keystore password. Same key every build, so updates
+            # install over the previous version.
+            echo "::add-mask::$SIGNING_SECRET"
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ci/signing/aurora-release.p12.enc \
+              -out "$RUNNER_TEMP/release.jks" -pass env:SIGNING_SECRET
+            echo "AURORA_KEYSTORE_PASSWORD=$SIGNING_SECRET" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=aurora" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$SIGNING_SECRET" >> "$GITHUB_ENV"
+            echo "SIGNING=permanent key (ci/signing)" >> "$GITHUB_ENV"
+          elif [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "AURORA_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNING=repository secret" >> "$GITHUB_ENV"
+          else
+            # No secret configured: sign with a throwaway key so the APK installs. Updates between
+            # builds signed with different throwaway keys require uninstalling first (see README).
+            PASS=$(openssl rand -hex 16)
+            echo "::add-mask::$PASS"
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.jks" -alias aurora -keyalg RSA -keysize 4096 \
+              -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Aurora TV CI, O=Aurora TV" >/dev/null 2>&1
+            echo "AURORA_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_ALIAS=aurora" >> "$GITHUB_ENV"
+            echo "AURORA_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "SIGNING=ephemeral CI key" >> "$GITHUB_ENV"
+          fi
+          echo "AURORA_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build debug APK, release APK and release AAB
+        run: ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
+
+      - name: Verify APK signatures and contents
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          for apk in androidApp/build/outputs/apk/*/*.apk; do
+            echo "== $apk ($(du -h "$apk" | cut -f1))"
+            $BT/apksigner verify --print-certs "$apk" | head -3
+            $BT/aapt2 dump badging "$apk" | grep -E "package:|sdkVersion|leanback|native-code" || true
+            unzip -l "$apk" | grep -E "libass|ffmpeg" | head -10 || true
+          done
+          echo "Release signed with: $SIGNING"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp androidApp/build/outputs/apk/debug/*.apk dist/AuroraTV-debug.apk
+          cp androidApp/build/outputs/apk/release/*.apk dist/AuroraTV-release.apk
+          cp androidApp/build/outputs/bundle/release/*.aab dist/AuroraTV-release.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: shared/build/reports/tests/
+
+  e2e:
+    name: Real Jellyfin server — integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install tools (FFmpeg, mkvtoolnix, dovi_tool)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core jq python3-pil mkvtoolnix >/dev/null
+          # dovi_tool (MIT) builds the Dolby Vision test samples.
+          gh release download -R quietvoid/dovi_tool --pattern '*x86_64-unknown-linux-musl.tar.gz' --dir "$RUNNER_TEMP/dovi" \
+            && tar -xzf "$RUNNER_TEMP"/dovi/*.tar.gz -C "$RUNNER_TEMP/dovi" \
+            && sudo install -m 755 "$(find "$RUNNER_TEMP/dovi" -type f -name dovi_tool | head -1)" /usr/local/bin/dovi_tool \
+            && dovi_tool --version || echo "::warning::dovi_tool unavailable; Dolby Vision samples will be skipped"
+          mkvmerge --version | head -1
+
+      - name: Generate test media + artwork
+        run: |
+          ffmpeg -hide_banner -version | head -1
+          ci/make_samples.sh "$RUNNER_TEMP/media"
+          python3 ci/make_artwork.py "$RUNNER_TEMP/media"
+          for f in "$RUNNER_TEMP"/media/movies/*/*.mkv; do echo "== $f"; ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,pix_fmt,color_transfer,color_primaries,color_space:stream_side_data=dv_profile,dv_bl_signal_compatibility_id,el_present_flag -of compact "$f" || true; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samples
+          path: ${{ runner.temp }}/media/
+          retention-days: 3
+
+      - name: Start Jellyfin
+        run: |
+          docker run -d --name jellyfin -p 8096:8096 -v "$RUNNER_TEMP/media:/media:ro" jellyfin/jellyfin:latest
+          EXPECTED_MOVIES=$(ls -d "$RUNNER_TEMP"/media/movies/*/ | wc -l) EXPECTED_EPISODES=$(find "$RUNNER_TEMP/media/tv" -name "*.mkv" | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Integration tests against the real server
+        env:
+          AURORA_IT_URL: http://localhost:8096
+          AURORA_IT_REPORT: ${{ github.workspace }}/dist/integration-report.md
+        run: |
+          mkdir -p dist
+          ./gradlew --no-daemon :shared:jvmTest --tests 'com.auroratv.JellyfinIntegrationTest' -i | grep -E "^\| |FAILED|PASSED" || true
+          test -f dist/integration-report.md && cat dist/integration-report.md
+          ! grep -q "❌" dist/integration-report.md
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e
+          path: dist/
+
+  android-e2e:
+    name: Android TV emulator — sign-in, D-pad navigation, playback
+    runs-on: ubuntu-latest
+    needs: [android, e2e]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: samples
+          path: media
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Jellyfin
+        run: |
+          sudo apt-get install -y -qq jq >/dev/null
+          docker run -d --name jellyfin -p 8096:8096 -v "$PWD/media:/media:ro" jellyfin/jellyfin:latest
+          EXPECTED_MOVIES=$(ls -d "$PWD"/media/movies/*/ | wc -l) EXPECTED_EPISODES=$(find "$PWD/media/tv" -name "*.mkv" | wc -l) ci/jellyfin_setup.sh > "$RUNNER_TEMP/jf_setup.out"
+          TOKEN=$(tail -1 "$RUNNER_TEMP/jf_setup.out")
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          echo "JF_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run on Android TV emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # The release smoke test (start-up and Home timings) runs even when an e2e check fails, so its numbers are always there.
+          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN"; e=$?; bash ci/android_release_smoke.sh apk/AuroraTV-release.apk dist/android-screenshots "$JF_TOKEN"; s=$?; exit $((e | s))
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-e2e
+          path: dist/
+
+  publish:
+    name: Publish downloads + CI results
+    runs-on: ubuntu-latest
+    needs: [android, e2e, android-e2e]
+    # Only the main branch publishes; other branches are just checked.
+    if: ${{ !cancelled() && needs.android.result == 'success' && github.ref == 'refs/heads/aurora-tv' }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 40
+
+      - name: Push screenshots and reports to the ci-results branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p results/screenshots/android results/reports
+          cp artifacts/android-e2e/android-screenshots/*.png results/screenshots/android/ 2>/dev/null || true
+          cp artifacts/e2e/integration-report.md results/reports/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/logcat-aurora.txt results/reports/ 2>/dev/null || true
+          grep -E "ExoEngine|MpvEngine|Negotiator|font attachments|AndroidRuntime|FATAL" artifacts/android-e2e/android-screenshots/logcat-release.txt > results/reports/logcat-release-aurora.txt 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/jellyfin-transcodes.txt results/reports/ 2>/dev/null || true
+          cp artifacts/android-e2e/android-screenshots/logcat-mpv.txt results/reports/ 2>/dev/null || true
+          cp -r artifacts/test-reports results/reports/unit-tests 2>/dev/null || true
+          cat > results/README.md <<MD
+          CI results for ${GITHUB_SHA} (run ${GITHUB_RUN_ID}).
+          Jobs: android=${{ needs.android.result }} e2e=${{ needs.e2e.result }} android-e2e=${{ needs.android-e2e.result }}
+          MD
+          cd results
+          git init -q -b ci-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "CI results for ${GITHUB_SHA::7} [skip ci]"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
+
+      - name: Publish rolling pre-release with the Android APK/AAB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p upload
+          cp artifacts/android/* upload/
+          for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
+          # Published under the app's current name; Nameless-release.apk and AuroraTV-release.apk stay (same
+          # file) so builds from before each rename can still find their update.
+          cp upload/AuroraTV-release.apk upload/Sharkfin-release.apk
+          cp upload/AuroraTV-release.apk upload/Nameless-release.apk
+          mv upload/AuroraTV-debug.apk upload/Sharkfin-debug.apk
+          mv upload/AuroraTV-release.aab upload/Sharkfin-release.aab
+          ls -la upload
+          # version.json: what the in-app updater reads (build number, SHA-256 of every file, recent changes).
+          OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.android-e2e.result == 'success' }}
+          python3 - "$OK" <<'PY'
+          import hashlib, json, os, subprocess, sys, datetime
+          ok = sys.argv[1] == "true"
+          assets = {}
+          for name in sorted(os.listdir("upload")):
+              path = os.path.join("upload", name)
+              h = hashlib.sha256()
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              assets[name] = {"sha256": h.hexdigest(), "size": os.path.getsize(path)}
+          subjects = subprocess.run(["git", "-C", "src", "log", "--format=%s", "-12"], capture_output=True, text=True).stdout.splitlines()
+          changes = [s for s in subjects if not s.lower().startswith(("ci", "docs", "build:", "merge"))][:8]
+          build = int(os.environ["AURORA_BUILD"])
+          info = {"build": build, "version": f"1.0.{build}", "commit": os.environ["GITHUB_SHA"][:7],
+                  "publishedAt": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+                  "ok": ok, "changes": changes, "assets": assets}
+          json.dump(info, open("upload/version.json", "w"), indent=1)
+          print(json.dumps(info, indent=1))
+          PY
+          gh release delete latest-build --yes --cleanup-tag -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          cat > notes.md <<MD
+          Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
+
+          * **Fire TV / Android TV:** install \`Sharkfin-release.apk\` (sideload; \`Nameless-release.apk\` and \`AuroraTV-release.apk\` are the same file, kept for older builds' updater). \`Sharkfin-debug.apk\` is a debuggable build; the AAB is for store uploads.
+          CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
+          MD
+          gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Sharkfin — latest build (${GITHUB_SHA::7})" --notes-file notes.md

@@ -1,0 +1,475 @@
+package com.auroratv.ui.screens
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.auroratv.playback.cycleAfter
+import com.auroratv.playback.SubtitleBackground
+import com.auroratv.playback.SubtitleEdge
+import com.auroratv.playback.SubtitleColor
+import com.auroratv.playback.SubtitleStyle
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.unit.dp
+import com.auroratv.AppInfo
+import com.auroratv.core.toAppError
+import com.auroratv.playback.DeviceCapabilities
+import com.auroratv.settings.AnimationLevel
+import com.auroratv.settings.AssRenderMode
+import com.auroratv.settings.PlayerEngineChoice
+import com.auroratv.settings.ResumeBehavior
+import com.auroratv.settings.Settings
+import com.auroratv.settings.SkipIntroMode
+import com.auroratv.settings.StillWatchingMode
+import com.auroratv.settings.SubtitleMode
+import com.auroratv.settings.ThemeMode
+import com.auroratv.ui.AppContainer
+import com.auroratv.ui.LocalSession
+import com.auroratv.ui.components.FocusSurface
+import com.auroratv.ui.components.ScreenPadding
+import com.auroratv.ui.components.ScreenStart
+import com.auroratv.ui.nav.LocalEntry
+import com.auroratv.ui.nav.LocalNavigator
+import com.auroratv.ui.nav.ScreenFocus
+import com.auroratv.ui.theme.Aurora
+import com.auroratv.ui.theme.AuroraType
+import kotlinx.coroutines.launch
+import kotlin.time.TimeSource
+
+private enum class SettingsPage(val label: String) { Appearance("Appearance"), Playback("Playback"), Subtitles("Subtitles"), Server("Server"), Ratings("Ratings"), About("About") }
+
+private val LANGUAGES = listOf("" to "Default", "eng" to "English", "spa" to "Spanish", "fra" to "French", "deu" to "German", "ita" to "Italian",
+    "por" to "Portuguese", "jpn" to "Japanese", "kor" to "Korean", "zho" to "Chinese", "rus" to "Russian", "nld" to "Dutch", "swe" to "Swedish",
+    "pol" to "Polish", "tur" to "Turkish", "ara" to "Arabic", "hin" to "Hindi")
+
+private fun <T> List<T>.after(current: T): T = this[(indexOf(current) + 1).mod(size)]
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun SettingsScreen(container: AppContainer) {
+    val navigator = LocalNavigator.current
+    val entry = LocalEntry.current!!
+    var page by remember {
+        val requested = container.pendingSettingsPage?.let { n -> SettingsPage.entries.firstOrNull { it.name == n } }
+        container.pendingSettingsPage = null
+        mutableStateOf(requested ?: SettingsPage.Appearance)
+    }
+    val first = remember { FocusRequester() }
+    val colors = Aurora.colors
+    ScreenFocus(entry, navigator, first)
+
+    Row(Modifier.fillMaxSize().padding(start = ScreenStart, top = com.auroratv.ui.ScreenTop, end = ScreenPadding)) {
+        Column(Modifier.width(260.dp).focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Settings", style = AuroraType.title, color = colors.onBackground, modifier = Modifier.padding(bottom = 24.dp))
+            SettingsPage.entries.forEachIndexed { i, p ->
+                FocusSurface(
+                    onClick = { page = p },
+                    onFocused = { page = p },
+                    shape = RoundedCornerShape(12.dp),
+                    ringWidth = 0.dp,
+                    scaleOnFocus = false,
+                    modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(first) else Modifier),
+                ) { focused ->
+                    Text(
+                        p.label,
+                        style = AuroraType.label,
+                        color = if (focused) colors.background else if (page == p) colors.onBackground else colors.onSurfaceMuted,
+                        modifier = Modifier.fillMaxWidth()
+                            .background(if (focused) colors.focusFill else if (page == p) colors.onBackground.copy(alpha = 0.1f) else colors.background.copy(alpha = 0f))
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(48.dp))
+        Column(Modifier.fillMaxHeight().weight(1f)) {
+            when (page) {
+                SettingsPage.Appearance -> AppearancePage(container)
+                SettingsPage.Playback -> PlaybackPage(container)
+                SettingsPage.Subtitles -> SubtitlePage(container)
+                SettingsPage.Server -> ServerPage(container)
+                SettingsPage.Ratings -> RatingsPage(container)
+                SettingsPage.About -> AboutPage(container)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(title: String, value: String?, description: String? = null, onClick: () -> Unit) {
+    val colors = Aurora.colors
+    FocusSurface(onClick = onClick, shape = RoundedCornerShape(12.dp), ringWidth = 0.dp, scaleOnFocus = false, modifier = Modifier.fillMaxWidth()) { focused ->
+        Row(
+            Modifier.fillMaxWidth().background(if (focused) colors.focusFill else colors.surface.copy(alpha = 0.6f)).padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = AuroraType.label, color = if (focused) colors.background else colors.onBackground)
+                description?.let { Text(it, style = AuroraType.caption, color = if (focused) colors.background.copy(alpha = 0.7f) else colors.onSurfaceFaint) }
+            }
+            value?.let { Text(it, style = AuroraType.bodyStrong, color = if (focused) colors.background else colors.onSurfaceMuted) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    LazyColumn(
+        contentPadding = PaddingValues(top = 56.dp, bottom = 64.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+        content = content,
+    )
+}
+
+@Composable
+private fun Header(text: String) {
+    Text(text, style = AuroraType.section, color = Aurora.colors.onBackground, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+}
+
+@Composable
+private fun AppearancePage(container: AppContainer) {
+    val s by container.settings.settings.collectAsState()
+    fun set(t: (Settings) -> Settings) = container.settings.update(t)
+    SettingsList {
+        item { SettingRow("Theme", s.theme.name, "Dark, Light, or follow the device") { set { it.copy(theme = ThemeMode.entries.after(it.theme)) } } }
+        item {
+            val isTv = container.platform.info.isTv
+            val label = if (s.interfaceScalePercent == 0) "Automatic (${com.auroratv.settings.automaticInterfaceScale(isTv)}%)" else "${s.interfaceScalePercent}%"
+            SettingRow("Interface size", label, "Make everything on screen smaller or bigger") {
+                val choices = com.auroratv.settings.InterfaceScaleChoices
+                set { it.copy(interfaceScalePercent = choices[(choices.indexOf(it.interfaceScalePercent) + 1) % choices.size]) }
+            }
+        }
+        item { SettingRow("Animations", s.animations.name, "Reduce motion on slower devices") { set { it.copy(animations = AnimationLevel.entries.after(it.animations)) } } }
+        item { SettingRow("Navigation sounds", onOff(s.navigationSounds), "A soft tick when moving around and a chime when choosing something (never during videos)") { set { it.copy(navigationSounds = !it.navigationSounds) } } }
+        if (s.navigationSounds) item {
+            SettingRow("Sound volume", "${s.uiSoundVolume}%", "How loud the navigation sounds are, compared with the TV's volume") {
+                set { it.copy(uiSoundVolume = UI_SOUND_STEPS.firstOrNull { v -> v > it.uiSoundVolume } ?: UI_SOUND_STEPS.first()) }
+            }
+        }
+        item { SettingRow("Backdrop artwork", onOff(s.showBackdrops), "Large background art on Home and detail pages") { set { it.copy(showBackdrops = !it.showBackdrops) } } }
+        item { SettingRow("Background behind rows", if (s.frostedBackground) "Frosted colours" else "Artwork", "On Home: frosted glass in the colours of the poster you're on, or that title's backdrop") { set { it.copy(frostedBackground = !it.frostedBackground) } } }
+        item { SettingRow("Featured carousel", onOff(s.showHeroCarousel), "Rotating featured titles at the top of Home") { set { it.copy(showHeroCarousel = !it.showHeroCarousel) } } }
+        item { SettingRow("Brand tiles", onOff(s.showBrandTiles), "Studios and services in your library (Disney, Netflix, Apple TV, Paramount…) as tiles on Home") { set { it.copy(showBrandTiles = !it.showBrandTiles) } } }
+        item { SettingRow("Artwork colour accents", onOff(s.artworkAccents), "Tint highlights with colours from the artwork") { set { it.copy(artworkAccents = !it.artworkAccents) } } }
+    }
+}
+
+private fun onOff(b: Boolean) = if (b) "On" else "Off"
+private fun languageName(code: String) = LANGUAGES.firstOrNull { it.first == code }?.second ?: code
+
+@Composable
+private fun PlaybackPage(container: AppContainer) {
+    val s by container.settings.settings.collectAsState()
+    fun set(t: (Settings) -> Settings) = container.settings.update(t)
+    val bitrates = listOf(0, 120, 80, 60, 40, 20, 10, 8, 4, 2)
+    SettingsList {
+        item { Header("Quality") }
+        item { SettingRow("Maximum streaming quality", if (s.maxBitrateMbps == 0) "Auto" else "${s.maxBitrateMbps} Mbps", "Above this, the server transcodes to a lower bitrate") { set { it.copy(maxBitrateMbps = bitrates.after(it.maxBitrateMbps)) } } }
+        item { SettingRow("Direct Play", onOff(s.enableDirectPlay), "Play original files when the device supports them") { set { it.copy(enableDirectPlay = !it.enableDirectPlay) } } }
+        if (container.platform.offersPlayerChoice) {
+            item {
+                SettingRow(
+                    "Video player",
+                    if (s.playerEngine == PlayerEngineChoice.Mpv) "MPV" else "ExoPlayer",
+                    "Both render ASS/SSA subtitles fully with libass (styling, typesetting, karaoke, embedded fonts). ExoPlayer is Android's own player; MPV can also play more audio formats and containers without the server converting them, and supports subtitle delay.",
+                ) { set { it.copy(playerEngine = if (it.playerEngine == PlayerEngineChoice.Mpv) PlayerEngineChoice.ExoPlayer else PlayerEngineChoice.Mpv) } }
+            }
+            item { SettingRow("Match frame rate", onOff(s.matchFrameRate), "Switch the TV to the video's frame rate (e.g. 24 Hz for films) for smoother motion. The screen may go black for a moment when it switches.") { set { it.copy(matchFrameRate = !it.matchFrameRate) } } }
+        }
+        item { Header("Behaviour") }
+        item { SettingRow(
+            "Audio language",
+            if (s.preferredAudioLanguage.isBlank()) "Automatic" else languageName(s.preferredAudioLanguage),
+            if (s.preferredAudioLanguage.isBlank()) "English when a title has it; anime keeps its original audio" else null,
+        ) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
+        item { SettingRow("Auto-play next episode", onOff(s.autoPlayNext)) { set { it.copy(autoPlayNext = !it.autoPlayNext) } } }
+        item {
+            SettingRow(
+                "Ask \"Are you still watching?\"",
+                when (s.stillWatching) {
+                    StillWatchingMode.Smart -> "Smart"
+                    StillWatchingMode.After1Hour -> "After 1 hour"
+                    StillWatchingMode.After2Hours -> "After 2 hours"
+                    StillWatchingMode.After3Hours -> "After 3 hours"
+                    StillWatchingMode.Off -> "Never"
+                },
+                "Before auto-playing another episode when the remote hasn't been used for a while. Smart waits about three episodes (at least 90 minutes); films are never interrupted.",
+            ) { set { it.copy(stillWatching = StillWatchingMode.entries.after(it.stillWatching)) } }
+        }
+        item { SettingRow("When starting a partly watched item", if (s.resumeBehavior == ResumeBehavior.Resume) "Resume" else "Start over") { set { it.copy(resumeBehavior = ResumeBehavior.entries.after(it.resumeBehavior)) } } }
+        item { SettingRow("Skip forward", "${s.seekForwardSeconds}s") { set { it.copy(seekForwardSeconds = listOf(10, 15, 30, 60).after(it.seekForwardSeconds)) } } }
+        item { SettingRow("Skip back", "${s.seekBackSeconds}s") { set { it.copy(seekBackSeconds = listOf(5, 10, 15, 30).after(it.seekBackSeconds)) } } }
+        item { SettingRow("Intros and recaps", when (s.skipIntro) { SkipIntroMode.ShowButton -> "Show Skip button"; SkipIntroMode.Auto -> "Skip automatically"; SkipIntroMode.Off -> "Off" }, "Uses the server's media segments or chapters, otherwise detects recurring openings and endings") { set { it.copy(skipIntro = SkipIntroMode.entries.after(it.skipIntro)) } } }
+        item { SettingRow("Find intros and outros automatically", onOff(s.audioSkipDetection), "Any show, no plugin needed: when the server has no markers, compares this episode's sound with another episode's to find the theme song and end credits, and checks the server's scrub thumbnails for closing credits (fetches a little low-quality audio and those thumbnails; nothing is transcoded)") { set { it.copy(audioSkipDetection = !it.audioSkipDetection) } } }
+        item { SettingRow("Find anime openings online", onOff(s.onlineSkipTimes), "When the server has no markers, look up opening/ending times on AniSkip (sends the show's title and episode number)") { set { it.copy(onlineSkipTimes = !it.onlineSkipTimes) } } }
+    }
+}
+
+@Composable
+private fun SubtitlePage(container: AppContainer) {
+    val s by container.settings.settings.collectAsState()
+    fun set(t: (Settings) -> Settings) = container.settings.update(t)
+    val caps by produceState<DeviceCapabilities?>(null) { value = container.capabilities() }
+    SettingsList {
+        item {
+            SettingRow("Subtitle mode", when (s.subtitleMode) {
+                SubtitleMode.Default -> "Default"; SubtitleMode.Always -> "Always"; SubtitleMode.OnlyForced -> "Forced only"; SubtitleMode.Smart -> "Smart"; SubtitleMode.Off -> "Off"
+            }, "Smart shows subtitles only when the audio isn't in your language") { set { it.copy(subtitleMode = SubtitleMode.entries.after(it.subtitleMode)) } }
+        }
+        item { SettingRow("Subtitle language", languageName(s.preferredSubtitleLanguage)) { set { it.copy(preferredSubtitleLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredSubtitleLanguage)) } } }
+        item { SettingRow("Remember my track choices", onOff(s.rememberTracks), "Audio and subtitles you pick in the player are reused for the rest of that series (and when you return to a movie)") { set { it.copy(rememberTracks = !it.rememberTracks) } } }
+        item { SettingRow("Text size", "${(s.subtitleScale * 100).toInt()}%", "Applies to SRT/VTT; styled ASS keeps its own sizes unless the engine can scale it") { set { it.copy(subtitleScale = listOf(0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).after(it.subtitleScale)) } } }
+        // Style of plain subtitles, with a live sample. Styled ASS/SSA subtitles keep their own look.
+        val st = s.subtitleStyle
+        fun style(t: (SubtitleStyle) -> SubtitleStyle) = set { it.copy(subtitleStyle = t(it.subtitleStyle)) }
+        item { com.auroratv.ui.components.SubtitlePreview(st, s.subtitleScale, Modifier.fillMaxWidth().height(180.dp)) }
+        item { SettingRow("Text colour", st.color.label) { style { it.copy(color = SubtitleColor.entries.cycleAfter(it.color)) } } }
+        item { SettingRow("Edge", st.edge.label, "An outline or shadow keeps text readable on bright scenes") { style { it.copy(edge = SubtitleEdge.entries.cycleAfter(it.edge)) } } }
+        item { SettingRow("Background", st.background.label, "A box behind the text, like streaming apps") { style { it.copy(background = SubtitleBackground.entries.cycleAfter(it.background)) } } }
+        item { SettingRow("Bold", onOff(st.bold)) { style { it.copy(bold = !it.bold) } } }
+        item { SettingRow("Position", if (st.raisePercent == 0) "Bottom" else "Raised ${st.raisePercent}%", "Lift subtitles off the bottom edge (overscan, soundbars)") { style { it.copy(raisePercent = SubtitleStyle.RaiseChoices.cycleAfter(it.raisePercent)) } } }
+        item { SettingRow("Brightness in HDR", "${st.hdrBrightnessPercent}%", "Dims subtitle text in HDR videos, where full white can be glaring") { style { it.copy(hdrBrightnessPercent = SubtitleStyle.HdrChoices.cycleAfter(it.hdrBrightnessPercent)) } } }
+        if (caps?.supportsSubtitleDelay == true) {
+            item { SettingRow("Default subtitle delay", "${s.subtitleDelayMs} ms", "Adjust per video from the player too") { set { it.copy(subtitleDelayMs = listOf(0L, 100L, 250L, 500L, 1000L, -100L, -250L, -500L, -1000L).after(it.subtitleDelayMs)) } } }
+        }
+        if (container.platform.info.isTv) {
+            item { SettingRow("ASS/SSA rendering", if (s.assRenderMode == AssRenderMode.Full) "Full (libass)" else "Simple", "Full keeps fonts, positioning and animation; Simple is lighter for older devices") { set { it.copy(assRenderMode = AssRenderMode.entries.after(it.assRenderMode)) } } }
+        }
+    }
+}
+
+@Composable
+private fun ServerPage(container: AppContainer) {
+    val session = LocalSession.current
+    val servers by container.sessions.servers.collectAsState()
+    val scope = rememberCoroutineScope()
+    var diagnostics by remember { mutableStateOf<List<String>?>(null) }
+    var confirmRemove by remember { mutableStateOf<String?>(null) }
+    SettingsList {
+        item { Header("Current") }
+        item { SettingRow(session.server.name, session.user.name + (session.local?.let { " · profile ${it.name}" } ?: ""), session.server.url) {} }
+        item {
+            SettingRow("Connection diagnostics", null, "Checks reachability, latency and server version") {
+                diagnostics = listOf("Running…")
+                scope.launch {
+                    val mark = TimeSource.Monotonic.markNow()
+                    diagnostics = try {
+                        val info = session.api.publicSystemInfo()
+                        val latency = mark.elapsedNow().inWholeMilliseconds
+                        val me = runCatching { session.api.currentUser(); "valid" }.getOrElse { "invalid (${it.toAppError().userMessage})" }
+                        val caps = container.capabilities()
+                        listOf(
+                            "Server: ${info.serverName} — Jellyfin ${info.version}",
+                            "Address: ${session.server.url}",
+                            "Response time: $latency ms",
+                            "Session token: $me",
+                            "Playback engine: ${caps.engineName}",
+                            "Direct-play video: ${caps.video.joinToString { it.codec + if (it.hardware) " (hw)" else " (sw)" }}",
+                        )
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (t: Throwable) {
+                        listOf("Failed: ${t.toAppError().userMessage}")
+                    }
+                }
+            }
+        }
+        diagnostics?.let { lines -> items(lines) { Text(it, style = AuroraType.body, color = Aurora.colors.onSurfaceMuted, modifier = Modifier.padding(start = 20.dp)) } }
+        item { SettingRow("Switch user", null, "Sign in as someone else on this server") { container.sessions.showLogin(session.server) } }
+        item { SettingRow("Sign out", null, "Removes the saved sign-in for ${session.user.name}") { scope.launch { container.sessions.signOut() } } }
+        item { Header("Servers") }
+        items(servers, key = { it.id }) { server ->
+            val isCurrent = server.id == session.server.id
+            SettingRow(server.name, if (isCurrent) "Connected" else "Switch", server.url) {
+                if (!isCurrent) scope.launch { container.sessions.switchTo(server) }
+            }
+        }
+        item { SettingRow("Add server", null, "Connect to another Jellyfin server") { container.sessions.showAddServer() } }
+        items(servers.filter { it.id != session.server.id }, key = { "remove-" + it.id }) { server ->
+            SettingRow("Remove ${server.name}", if (confirmRemove == server.id) "Press again to confirm" else null, "Forgets the server and its saved sign-ins") {
+                if (confirmRemove == server.id) { container.sessions.removeServer(server); confirmRemove = null } else confirmRemove = server.id
+            }
+        }
+    }
+}
+
+/**
+ * Optional rating sources. Keys are free, kept in the secure vault and copied to the user's
+ * Jellyfin profile, so typing them once on a PC is enough for the TV too.
+ */
+@Composable
+private fun RatingsPage(container: AppContainer) {
+    val session = LocalSession.current
+    val scope = rememberCoroutineScope()
+    val saved by container.ratingsKeys.keys.collectAsState()
+    var mdblist by remember(saved) { mutableStateOf(saved.mdblist) }
+    var trakt by remember(saved) { mutableStateOf(saved.trakt) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val colors = Aurora.colors
+    androidx.compose.runtime.LaunchedEffect(session) { runCatching { container.ratingsKeys.pull(session.api) } }
+    SettingsList {
+        item { Header("Ratings & reviews") }
+        item {
+            Text(
+                "Detail pages always show the critics score your server has. Add free keys for more: " +
+                    "MDBList brings the Rotten Tomatoes critics and audience scores, IMDb, Metacritic and Letterboxd " +
+                    "(mdblist.com → Preferences → API Access). Trakt brings spoiler-free reviews with each reviewer's score " +
+                    "(trakt.tv → Settings → Your API Apps → New Application; use urn:ietf:wg:oauth:2.0:oob as the redirect URI " +
+                    "and paste the Client ID).",
+                style = AuroraType.body, color = colors.onSurfaceMuted, modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        item {
+            Text(
+                "IMDb's own user reviews can't be shown: IMDb has no API for them and its terms don't allow scraping. Trakt reviews flagged as spoilers are never shown.",
+                style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
+        item { AuroraTextField(mdblist, { mdblist = it }, "MDBList API key", Modifier.fillMaxWidth(), password = true) }
+        item { AuroraTextField(trakt, { trakt = it }, "Trakt Client ID", Modifier.fillMaxWidth(), password = true) }
+        item {
+            SettingRow("Save and test", status, "Keys are stored encrypted on this device and in your Jellyfin profile, so your other Aurora devices get them too") {
+                val keys = com.auroratv.ratings.RatingsKeys(mdblist, trakt)
+                status = "Checking…"
+                scope.launch {
+                    container.ratingsKeys.save(keys)
+                    val results = buildList {
+                        if (keys.mdblist.isNotBlank()) add("MDBList: " + container.ratings.testMdbList(keys.mdblist))
+                        if (keys.trakt.isNotBlank()) add("Trakt: " + container.ratings.testTrakt(keys.trakt))
+                        add(runCatching { container.ratingsKeys.push(session.api, keys); "synced to your profile" }.getOrElse { "not synced (${it.toAppError().userMessage})" })
+                    }
+                    status = results.joinToString(" · ")
+                }
+            }
+        }
+        if (saved.hasAny) {
+            item {
+                SettingRow("Remove keys", null, "Forgets both keys on this device and in your Jellyfin profile") {
+                    scope.launch {
+                        container.ratingsKeys.save(com.auroratv.ratings.RatingsKeys())
+                        runCatching { container.ratingsKeys.push(session.api, com.auroratv.ratings.RatingsKeys()) }
+                        status = "Keys removed"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Settings → About: update status (select to check / install) and the automatic-check switch. */
+@Composable
+private fun UpdateRows(container: AppContainer) {
+    val updates = container.updates
+    val state by updates.state.collectAsState()
+    val s by container.settings.settings.collectAsState()
+    Column {
+        SettingRow(
+            if (state is com.auroratv.update.UpdateState.Available) "Install update" else "Check for updates",
+            updateStatusText(state, updates.supported),
+            if (updates.supported) "Only builds that passed every test are offered" else null,
+        ) {
+            when (state) {
+                is com.auroratv.update.UpdateState.Available, is com.auroratv.update.UpdateState.Failed -> updates.install()
+                else -> updates.checkNow()
+            }
+        }
+        if (updates.supported) {
+            SettingRow("Check for updates automatically", onOff(s.autoCheckUpdates), "Once a day when ${AppInfo.NAME} starts") {
+                container.settings.update { it.copy(autoCheckUpdates = !it.autoCheckUpdates) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AboutPage(container: AppContainer) {
+    val caps by produceState<DeviceCapabilities?>(null) { value = container.capabilities() }
+    val info = container.platform.info
+    val colors = Aurora.colors
+    SettingsList {
+        item { Header("${AppInfo.NAME} ${container.platform.updater?.currentVersion?.takeIf { it != "dev" } ?: AppInfo.VERSION}") }
+        item { UpdateRows(container) }
+        item { Line("Platform", "${info.platformName} · ${info.osVersion}") }
+        item { Line("Device", info.deviceName) }
+        item { Line("Token storage", container.platform.vault.description) }
+        val c = caps
+        if (c == null) item { Line("Capabilities", "Probing…") } else {
+            item { Line("Playback engine", c.engineName) }
+            items(c.video) { v ->
+                Line(v.codec.uppercase(), "${if (v.hardware) "Hardware" else "Software"} · up to ${v.maxWidth}x${v.maxHeight} · ${v.maxBitDepth}-bit" + (v.decoderName?.let { " · $it" } ?: ""))
+            }
+            item { Line("HDR output", if (c.hdr.isEmpty()) "None (server tone-maps)" else c.hdr.joinToString { it.name }) }
+            item {
+                Line(
+                    "Dolby Vision",
+                    c.dolbyVision.summary,
+                )
+            }
+            item { Line("Audio decode", c.audioDecode.sorted().joinToString()) }
+            item { Line("Audio passthrough", c.audioPassthrough.sorted().joinToString().ifBlank { "None detected" }) }
+            item { Line("Max channels", c.maxAudioChannels.toString()) }
+            item { Line("Subtitles (embedded)", c.subtitleEmbedded.sorted().joinToString()) }
+            item { Line("ASS/SSA", if (c.libassRendering) "libass — full styling" else "Basic styling only") }
+            items(c.notes) { Text("• $it", style = AuroraType.caption, color = colors.onSurfaceFaint) }
+        }
+        item { Header("Open-source licenses") }
+        item {
+            Text(
+                "${AppInfo.NAME} is free software under the GNU GPL v3. It includes: Kotlin & kotlinx (Apache 2.0), " +
+                    "Compose Multiplatform (Apache 2.0), Ktor (Apache 2.0), Coil (Apache 2.0), AndroidX Media3 (Apache 2.0), " +
+                    "Jellyfin Media3 FFmpeg decoder (GPL v3, FFmpeg LGPL/GPL), libass-android / ass-media (MIT; libass ISC, FreeType FTL, " +
+                    "HarfBuzz MIT, FriBidi LGPL), libmpv (GPL v2+ build), libdovi + ExoplayerHdrUtils (MIT). See the project README for full license details.",
+                style = AuroraType.caption, color = colors.onSurfaceMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Line(k: String, v: String) {
+    val colors = Aurora.colors
+    FocusSurface(onClick = {}, shape = RoundedCornerShape(8.dp), ringWidth = 0.dp, scaleOnFocus = false, modifier = Modifier.fillMaxWidth()) { focused ->
+        Row(Modifier.fillMaxWidth().background(if (focused) colors.onBackground.copy(alpha = 0.08f) else colors.background.copy(alpha = 0f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(k, style = AuroraType.label, color = colors.onSurfaceFaint, modifier = Modifier.width(220.dp))
+            Text(v, style = AuroraType.body, color = colors.onBackground)
+        }
+    }
+}
+
+@Suppress("unused")
+private val spacer = Modifier.height(1.dp)
+
+private val UI_SOUND_STEPS = listOf(25, 50, 75, 100)
