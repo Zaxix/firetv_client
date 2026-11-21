@@ -288,8 +288,9 @@ key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 # Top 10 in Your Home: the titles played above, ranked by time watched, as a row of posters with
 # their places drawn as numerals behind them.
 adb logcat -c
-open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 3; shot android-40-home-top10-a
-key KEYCODE_DPAD_DOWN; sleep 3; shot android-41-home-top10-b
+# (Banner → brand tiles → Continue Watching → Next Up → Top 10.)
+open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 3; shot android-40-home-top10-a
+key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT; sleep 3; shot android-41-home-top10-b
 top=$(adb logcat -d -s Top10:I | tr -d '\r' | grep -o 'Top 10 in Your Home: .*' | tail -1)
 if echo "$top" | grep -qE ': ([3-9]|10) titles shown'; then
   echo "✅ $top" | tee -a "$OUT/navigation.txt"
