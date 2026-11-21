@@ -257,7 +257,8 @@ fun RankedRail(
                         // Outline first, twice as wide, then the fill over it: only the outer half of the
                         // outline shows, so the lines where a glyph's own strokes cross (inside a 4) don't.
                         drawText(layout, color = RankOutline, topLeft = top, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 6.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round))
-                        drawText(layout, color = colors.background, topLeft = top)
+                        // Fill named outright: a text layout keeps the last draw style it was given.
+                        drawText(layout, color = colors.background, topLeft = top, drawStyle = androidx.compose.ui.graphics.drawscope.Fill)
                     }
                     MediaCard(
                         item = item,
