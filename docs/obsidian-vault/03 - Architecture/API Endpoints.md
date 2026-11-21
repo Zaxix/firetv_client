@@ -16,6 +16,7 @@ Every Jellyfin route Sharkfin calls (from `jellyfin/JellyfinApi.kt`). Requires J
 | `GET /UserItems/Resume` | Continue Watching (account profiles) |
 | `GET /Shows/NextUp` | Next Up (account profiles) |
 | `GET /Shows/{id}/Seasons` · `/Shows/{id}/Episodes` | Episode browser, Next Up for device profiles, chapters for skip detection |
+| `GET /Items?ids=…&fields=Chapters,Path` | Once per season with possible multi-episode files: their chapters ([[Virtual Episode Splitting]]) |
 | `GET /Shows/Upcoming?parentId={series}` | Air dates of a series' upcoming episodes (details page, episode browser) |
 | `GET /Items/{id}/Similar` | "More like this", "Because You Watched" |
 | `GET /Persons` · `GET /Studios` | Search people · brand tiles |

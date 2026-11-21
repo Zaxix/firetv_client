@@ -260,6 +260,7 @@ private fun SubtitlePage(container: AppContainer) {
         item { SettingRow("Edge", st.edge.label, "An outline or shadow keeps text readable on bright scenes") { style { it.copy(edge = SubtitleEdge.entries.cycleAfter(it.edge)) } } }
         item { SettingRow("Background", st.background.label, "A box behind the text, like streaming apps") { style { it.copy(background = SubtitleBackground.entries.cycleAfter(it.background)) } } }
         item { SettingRow("Bold", onOff(st.bold)) { style { it.copy(bold = !it.bold) } } }
+        item { SettingRow("Film fonts", onOff(s.filmSubtitleFonts), "Normal subtitles in a font that suits the film (the Harry Potter films for now). Styled and picture subtitles keep their own look") { set { it.copy(filmSubtitleFonts = !it.filmSubtitleFonts) } } }
         item { SettingRow("Position", if (st.raisePercent == 0) "Bottom" else "Raised ${st.raisePercent}%", "Lift subtitles off the bottom edge (overscan, soundbars)") { style { it.copy(raisePercent = SubtitleStyle.RaiseChoices.cycleAfter(it.raisePercent)) } } }
         item { SettingRow("Brightness in HDR", "${st.hdrBrightnessPercent}%", "Dims subtitle text in HDR videos, where full white can be glaring") { style { it.copy(hdrBrightnessPercent = SubtitleStyle.HdrChoices.cycleAfter(it.hdrBrightnessPercent)) } } }
         if (caps?.supportsSubtitleDelay == true) {

@@ -122,6 +122,7 @@ class SessionManager(
     private val deviceName: String,
 ) {
     private val tag = "Session"
+    private val splitStores = HashMap<String, com.auroratv.jellyfin.SplitStore>()
     private val fileName = "servers.json"
     private var store: ServerStoreFile = load()
 
@@ -288,9 +289,16 @@ class SessionManager(
     /** A session for [user] on [server], as [local] when given (its own watch history on this device). */
     private fun sessionFor(server: SavedServer, user: SavedUser, token: String, local: LocalProfile?, url: String = server.url): UserSession {
         val api = JellyfinApi(http, url, identity, token, user.id)
-        if (local != null) api.local = LocalWatchStore(files, Profile(server, user, local).key)
+        val key = Profile(server, user, local).key
+        if (local != null) api.local = LocalWatchStore(files, key)
+        // Episodes stored several to a file: the server's splits are shared, each profile's progress is its own.
+        api.virtual = com.auroratv.jellyfin.VirtualEpisodes(splitStore(server.id), LocalWatchStore(files, key, base = "split-watch"))
         return UserSession(server, user, api, local)
     }
+
+    /** One SplitStore per server, shared by every session on it (they describe the server's files). Main thread. */
+    fun splitStore(serverId: String): com.auroratv.jellyfin.SplitStore =
+        splitStores.getOrPut(serverId) { com.auroratv.jellyfin.SplitStore(files, serverId) }
 
     private fun replaceUser(serverId: String, user: SavedUser) {
         store = store.copy(servers = store.servers.map { s -> if (s.id == serverId) s.copy(users = s.users.map { if (it.id == user.id) user else it }) else s })

@@ -67,6 +67,8 @@ data class Settings(
     val subtitleScale: Float = 1.0f,
     /** Look of plain subtitles (colour, edge, background, position, HDR brightness). */
     val subtitleStyle: com.auroratv.playback.SubtitleStyle = com.auroratv.playback.SubtitleStyle(),
+    /** Normal subtitles in a font that suits the film (SubtitleThemes; the Harry Potter films for now). */
+    val filmSubtitleFonts: Boolean = true,
     val subtitleDelayMs: Long = 0,
     val assRenderMode: AssRenderMode = AssRenderMode.Full,
 )

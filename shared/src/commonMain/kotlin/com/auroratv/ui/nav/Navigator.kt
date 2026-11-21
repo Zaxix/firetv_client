@@ -23,7 +23,10 @@ sealed interface Route {
     /** Brand Hub: titles from one studio/network family (see BrandCatalog). */
     data class Brand(val brandId: String, val name: String) : Route
     data class Detail(val itemId: String, val preview: BaseItemDto? = null) : Route
-    data class Player(val itemId: String, val startFromBeginning: Boolean = false, val preview: BaseItemDto? = null) : Route
+    /** [previewAtMs]: play the whole file from that point without recording anything (checking a split). */
+    data class Player(val itemId: String, val startFromBeginning: Boolean = false, val preview: BaseItemDto? = null, val previewAtMs: Long? = null) : Route
+    /** Where the episodes in one file start and end (Virtual Episode Splitting). */
+    data class SplitEditor(val itemId: String) : Route
 }
 
 /**

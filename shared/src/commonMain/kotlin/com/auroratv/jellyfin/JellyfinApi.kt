@@ -147,6 +147,18 @@ class JellyfinApi(
     private fun BaseItemDto.withLocal(): BaseItemDto = local?.let { l -> copy(userData = l.userData(this)) } ?: this
     private fun List<BaseItemDto>.withLocal(): List<BaseItemDto> = if (local == null) this else map { it.withLocal() }
 
+    /**
+     * Episodes stored several to a file, shown and played separately (see VirtualEpisodes). Null: no
+     * splitting (nothing changes anywhere).
+     */
+    @kotlin.concurrent.Volatile var virtual: VirtualEpisodes? = null
+
+    /** Split files shown as their episodes (no work when nothing is split). */
+    private fun List<BaseItemDto>.split(): List<BaseItemDto> = virtual?.expand(this) ?: this
+
+    /** The server's item for [id]: a virtual episode's file, or [id] itself. */
+    private fun sid(id: String) = VirtualIds.serverId(id)
+
     /** [ids] in that order (a device profile's resume/favourite/history lists). */
     private suspend fun itemsInOrder(ids: List<String>, fields: String = Fields.CARD): List<BaseItemDto> {
         if (ids.isEmpty()) return emptyList()
@@ -237,7 +249,7 @@ class JellyfinApi(
         }.read<QueryResult<BaseItemDto>>().items
 
     suspend fun items(query: ItemQuery): QueryResult<BaseItemDto> {
-        val l = local ?: return serverItems(query)
+        val l = local ?: return serverItems(query).let { r -> if (virtual == null) r else r.copy(items = r.items.split()) }
         // A device profile: favourites and watched/in-progress filters come from its own history;
         // the server is only asked for the items themselves.
         var q = query
@@ -268,7 +280,7 @@ class JellyfinApi(
         val result = serverItems(q)
         val items = result.items.withLocal()
         return result.copy(
-            items = orderBy?.let { order -> val byId = items.associateBy { it.id }; order.mapNotNull { byId[it] } } ?: items,
+            items = (orderBy?.let { order -> val byId = items.associateBy { it.id }; order.mapNotNull { byId[it] } } ?: items).split(),
             totalRecordCount = total ?: result.totalRecordCount,
         )
     }
@@ -353,14 +365,26 @@ class JellyfinApi(
         }.ensureOk()
     }
 
-    suspend fun item(itemId: String): BaseItemDto =
-        http.get(url("/Items/$itemId")) {
+    /** The server's item for [itemId] (a virtual episode's file), whole: no episode split applied. */
+    suspend fun fileItem(itemId: String): BaseItemDto =
+        http.get(url("/Items/${sid(itemId)}")) {
             auth(); parameter("userId", requireUser())
         }.read<BaseItemDto>().withLocal()
 
+    suspend fun item(itemId: String): BaseItemDto {
+        val dto = fileItem(itemId)
+        val v = virtual ?: return dto
+        // A virtual episode is built from its file; a shared-file entry gets its part's length and progress.
+        VirtualIds.part(itemId)?.let { k ->
+            val split = v.splits[dto.id]?.takeIf { it.isSplit && it.fits(dto) } ?: return dto
+            if (k in split.parts.indices) return v.build(dto, k, split)
+            return dto
+        }
+        return v.entryView(dto) ?: dto
+    }
+
     suspend fun resumeItems(limit: Int = 24): List<BaseItemDto> {
-        local?.let { l -> return itemsInOrder(l.resumeIds(limit)) }
-        return http.get(url("/UserItems/Resume")) {
+        val list = local?.let { l -> itemsInOrder(l.resumeIds(limit)) } ?: http.get(url("/UserItems/Resume")) {
             auth()
             parameter("userId", requireUser())
             parameter("limit", limit)
@@ -369,6 +393,27 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
         }.read<QueryResult<BaseItemDto>>().items
+        return withVirtualResume(list, limit)
+    }
+
+    /**
+     * Continue Watching with virtual episodes: a split file's own server resume point is replaced by
+     * the parts this profile has in progress (one request for their files, only when there are any),
+     * in order of when they were last watched.
+     */
+    private suspend fun withVirtualResume(list: List<BaseItemDto>, limit: Int): List<BaseItemDto> {
+        val v = virtual ?: return list
+        if (!v.splits.anySplit) return list
+        val partIds = v.resumeIds(limit)
+        val fileIds = partIds.map { VirtualIds.serverId(it) }.distinct().filter { f -> list.none { it.id == f } }
+        val files = if (fileIds.isEmpty()) emptyList() else itemsInOrder(fileIds)
+        val byId = (list + files).associateBy { it.id }
+        val parts = partIds.mapNotNull { pid -> byId[VirtualIds.serverId(pid)]?.let { f -> v.expand(listOf(f)).firstOrNull { it.id == pid } } }
+            .filter { (it.userData?.playbackPositionTicks ?: 0) > 0 && it.userData?.played != true }
+        // The server's entries for split files (and shared-file entries) are dropped: their progress is the parts'.
+        val rest = list.filter { item -> !v.handles(item.id) && v.splits[item.id]?.isSplit != true }
+        fun whenMs(i: BaseItemDto): Long = v.lastWatched(i.id) ?: com.auroratv.data.AirDates.parse(i.userData?.lastPlayedDate)?.instantMs ?: 0L
+        return (parts + rest).sortedByDescending(::whenMs).take(limit)
     }
 
     /**
@@ -389,7 +434,20 @@ class JellyfinApi(
     }
 
     suspend fun nextUp(limit: Int = 24, seriesId: String? = null): List<BaseItemDto> {
-        local?.let { l -> return localNextUp(l, limit, seriesId) }
+        val list = local?.let { l -> localNextUp(l, limit, seriesId) } ?: serverNextUp(limit, seriesId)
+        val v = virtual ?: return list
+        // A split file in Next Up is its first episode not finished yet (the server only knows the file).
+        // One already started is in Continue Watching, so Home's Next Up leaves it out; a single
+        // series' Next Up (its Play button) keeps it, to resume it.
+        return list.flatMap { item ->
+            val parts = v.expand(listOf(item))
+            if (parts.size == 1) return@flatMap parts
+            val next = parts.firstOrNull { it.userData?.played != true }
+            listOfNotNull(next?.takeIf { seriesId != null || (it.userData?.playbackPositionTicks ?: 0L) == 0L })
+        }
+    }
+
+    private suspend fun serverNextUp(limit: Int, seriesId: String?): List<BaseItemDto> {
         return http.get(url("/Shows/NextUp")) {
             auth()
             parameter("userId", requireUser())
@@ -413,23 +471,47 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
             parameter("groupItems", true)
-        }.read<List<BaseItemDto>>().withLocal()
+        }.read<List<BaseItemDto>>().withLocal().split()
 
     suspend fun seasons(seriesId: String): List<BaseItemDto> =
         http.get(url("/Shows/$seriesId/Seasons")) {
             auth(); parameter("userId", requireUser()); parameter("fields", Fields.CARD)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
-    suspend fun episodes(seriesId: String, seasonId: String? = null, startItemId: String? = null, limit: Int? = null): List<BaseItemDto> =
-        http.get(url("/Shows/$seriesId/Episodes")) {
+    suspend fun episodes(seriesId: String, seasonId: String? = null, startItemId: String? = null, limit: Int? = null): List<BaseItemDto> {
+        val v = virtual
+        // From a virtual episode: ask from its file (and enough more to cover the file's other parts).
+        val serverStart = startItemId?.let(::sid)
+        val extra = startItemId?.takeIf { VirtualIds.isVirtual(it) }?.let { v?.splits?.get(sid(it))?.parts?.size } ?: 0
+        val list = http.get(url("/Shows/$seriesId/Episodes")) {
             auth()
             parameter("userId", requireUser())
             seasonId?.let { parameter("seasonId", it) }
-            startItemId?.let { parameter("startItemId", it) }
-            limit?.let { parameter("limit", it) }
-            parameter("fields", Fields.CARD)
+            serverStart?.let { parameter("startItemId", it) }
+            limit?.let { parameter("limit", it + extra) }
+            // Path: spotting entries that share one file (see VirtualEpisodes.candidates).
+            parameter("fields", if (v != null) "${Fields.CARD},Path" else Fields.CARD)
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
+        if (v == null) return list
+        decideSplits(v, list)
+        val out = v.expand(list)
+        if (startItemId == null || !VirtualIds.isVirtual(startItemId)) return out
+        return out.dropWhile { it.id != startItemId }.let { rest -> limit?.let { rest.take(it) } ?: rest }
+    }
+
+    /**
+     * Files in [list] that may hold several episodes and were never looked at get one look at their
+     * chapters (one small request for all of them); the answer is kept, so it happens once per file.
+     */
+    private suspend fun decideSplits(v: VirtualEpisodes, list: List<BaseItemDto>) {
+        val todo = v.candidates(list)
+        if (todo.isEmpty()) return
+        val ids = todo.flatMap { c -> c.entries.map { it.id } }.distinct()
+        val withChapters = runCatching { serverItems(ItemQuery(ids = ids, limit = ids.size, recursive = true, fields = "Chapters,Path", totalCount = false, userData = false)).items }
+            .onFailure { Log.w("Splits", "Couldn't read chapters to look for episode boundaries: ${it.message}") }.getOrNull() ?: return
+        todo.forEach { v.decide(it, withChapters) }
+    }
 
     /**
      * The server's own list of a series' episodes airing from yesterday on (from its metadata:
@@ -457,19 +539,29 @@ class JellyfinApi(
         }.read<QueryResult<BaseItemDto>>().items
 
     suspend fun similar(itemId: String, limit: Int = 16, fields: String = Fields.CARD): List<BaseItemDto> =
-        http.get(url("/Items/$itemId/Similar")) {
+        http.get(url("/Items/${sid(itemId)}/Similar")) {
             auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", fields)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
     suspend fun setFavorite(itemId: String, favorite: Boolean) {
-        local?.let { it.setFavorite(itemId, favorite); return }
-        val path = url("/UserFavoriteItems/$itemId")
+        local?.let { it.setFavorite(sid(itemId), favorite); return }
+        val path = url("/UserFavoriteItems/${sid(itemId)}")
         val response = if (favorite) http.post(path) { auth(); parameter("userId", requireUser()) }
         else http.delete(path) { auth(); parameter("userId", requireUser()) }
         response.ensureOk()
     }
 
     suspend fun setPlayed(itemId: String, played: Boolean) {
+        // A virtual episode is marked on the device; the server's item follows only when that's true
+        // of it too (a split file once all its episodes are watched; unwatched as soon as one isn't).
+        virtual?.takeIf { it.handles(itemId) }?.let { v ->
+            v.setPlayed(itemId, played)?.let { serverItem -> setServerPlayed(serverItem, played) }
+            return
+        }
+        setServerPlayed(itemId, played)
+    }
+
+    private suspend fun setServerPlayed(itemId: String, played: Boolean) {
         local?.let { it.setPlayed(itemId, played); return }
         val path = url("/UserPlayedItems/$itemId")
         val response = if (played) http.post(path) { auth(); parameter("userId", requireUser()) }
@@ -480,7 +572,7 @@ class JellyfinApi(
     // ---- Playback ------------------------------------------------------------------------------
 
     suspend fun playbackInfo(itemId: String, request: PlaybackInfoRequest): PlaybackInfoResponse =
-        http.post(url("/Items/$itemId/PlaybackInfo")) {
+        http.post(url("/Items/${sid(itemId)}/PlaybackInfo")) {
             auth()
             parameter("userId", requireUser())
             contentType(ContentType.Application.Json)
@@ -488,7 +580,7 @@ class JellyfinApi(
         }.read()
 
     suspend fun mediaSegments(itemId: String): List<MediaSegmentDto> = try {
-        http.get(url("/MediaSegments/$itemId")) {
+        http.get(url("/MediaSegments/${sid(itemId)}")) {
             auth()
             parameter("includeSegmentTypes", "Intro")
             parameter("includeSegmentTypes", "Outro")
@@ -507,7 +599,7 @@ class JellyfinApi(
     suspend fun audioSample(itemId: String, startMs: Long, seconds: Int, sampleRate: Int): ByteArray? {
         val session = "sharkfin-scan-${itemId.take(12)}-$startMs"
         var stoppedEarly = false
-        val bytes = http.prepareGet(url("/Audio/$itemId/stream")) {
+        val bytes = http.prepareGet(url("/Audio/${sid(itemId)}/stream")) {
             auth()
             parameter("static", false)
             parameter("container", "wav")
@@ -546,11 +638,16 @@ class JellyfinApi(
     // would move the account's resume points and watched marks). Only a keep-alive ping goes to the
     // server, so a transcode it's serving isn't treated as abandoned.
     suspend fun reportStart(report: PlaybackReport) {
+        if (virtualProgress(report, stopped = false)) return
         local?.let { it.progress(report.itemId, report.positionTicks, stopped = false); return }
         http.post(url("/Sessions/Playing")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
     }
 
     suspend fun reportProgress(report: PlaybackReport) {
+        if (virtualProgress(report, stopped = false)) {
+            keepAlive(report)
+            return
+        }
         local?.let { l ->
             l.progress(report.itemId, report.positionTicks, stopped = false)
             report.playSessionId?.let { ps -> runCatching { http.post(url("/Sessions/Playing/Ping")) { auth(); parameter("playSessionId", ps) } } }
@@ -560,8 +657,28 @@ class JellyfinApi(
     }
 
     suspend fun reportStopped(report: PlaybackReport) {
+        if (virtualProgress(report, stopped = true)) return
         local?.let { it.progress(report.itemId, report.positionTicks, stopped = true); return }
         http.post(url("/Sessions/Playing/Stopped")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
+    }
+
+    /**
+     * A virtual episode's viewing is kept on the device (the server's position for the file would mix
+     * up its episodes). When this finishes one, the server's item is marked watched if that's now true
+     * of it. Returns false for ordinary items.
+     */
+    private suspend fun virtualProgress(report: PlaybackReport, stopped: Boolean): Boolean {
+        val v = virtual ?: return false
+        if (!v.handles(report.itemId)) return false
+        v.progress(report.itemId, report.positionTicks, stopped)?.let { serverItem ->
+            runCatching { setServerPlayed(serverItem, true) }.onFailure { Log.w("Splits", "Couldn't mark $serverItem watched: ${it.message}") }
+        }
+        return true
+    }
+
+    /** Tells the server a transcode it's serving is still being watched (no position is sent). */
+    private suspend fun keepAlive(report: PlaybackReport) {
+        report.playSessionId?.let { ps -> runCatching { http.post(url("/Sessions/Playing/Ping")) { auth(); parameter("playSessionId", ps) } } }
     }
 
     suspend fun stopTranscoding(playSessionId: String) {
@@ -581,7 +698,7 @@ class JellyfinApi(
 
     fun directStreamUrl(itemId: String, mediaSourceId: String, container: String?, playSessionId: String?): String =
         buildString {
-            append(url("/Videos/$itemId/stream"))
+            append(url("/Videos/${sid(itemId)}/stream"))
             container?.split(',')?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { append('.').append(it) }
             append("?static=true&mediaSourceId=").append(mediaSourceId.encodeURLQueryComponent())
             append("&deviceId=").append(identity.deviceId.encodeURLQueryComponent())

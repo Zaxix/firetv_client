@@ -20,7 +20,8 @@ flowchart LR
   Charlotte case), the audio default (`AudioDefaultTest`), temporary files (`EpisodeTempFilesTest`),
   search, stores, updates, VPN address racing, subtitle choice (`SubtitleSelectionTest`: full vs
   Signs & Songs, SDH, only S&S, ambiguous names, dubs, missing metadata, hand-picked S&S on the next
-  episode), the recommendation cache (`RecommendationCacheTest`), air dates (`AirDatesTest`: time
+  episode), virtual episodes (`VirtualEpisodesTest`), film subtitle fonts (`SubtitleThemesTest`),
+  the recommendation cache (`RecommendationCacheTest`), air dates (`AirDatesTest`: time
   zones, aired/today, placeholders, Trakt merge) and audio edges (`AudioFingerprintTest`). They run on the JVM test host (`:shared:jvmTest`) and
   on Android (`:shared:testDebugUnitTest`).
 - **JVM tests** (`jvmTest`): integration tests against a real Jellyfin in Docker (including intro +

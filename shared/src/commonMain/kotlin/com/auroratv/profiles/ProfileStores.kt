@@ -19,7 +19,7 @@ import kotlinx.serialization.builtins.serializer
  */
 object ProfileFiles {
     /** Every per-profile file kind, so removing a profile can clean them all up. */
-    val ALL = listOf("settings", "track-memory", "ratings", "skip-markers", "search-history", "recommendations", "watch")
+    val ALL = listOf("settings", "track-memory", "ratings", "skip-markers", "search-history", "recommendations", "watch", "split-watch")
 
     fun name(base: String, profile: String) = "$base-$profile.json"
 

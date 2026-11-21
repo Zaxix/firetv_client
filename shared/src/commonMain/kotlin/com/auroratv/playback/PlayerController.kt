@@ -63,6 +63,8 @@ data class PlayerUiState(
     /** Seasons of the current series and their episodes, for the in-player episode browser. */
     val seasons: List<BaseItemDto> = emptyList(),
     val episodesBySeason: Map<String, List<BaseItemDto>> = emptyMap(),
+    /** Where a virtual episode starts in its file (0 for a whole file): for file-timed things like trickplay. */
+    val timelineOffsetMs: Long = 0,
 ) {
     /**
      * Intro/recap/credits ranges: server media segments, else chapter names; then anything the
@@ -152,7 +154,7 @@ data class PlayerUiState(
 class PlayerController(
     private val api: JellyfinApi,
     private val skipDetector: SkipDetector?,
-    private val engine: PlaybackEngine,
+    rawEngine: PlaybackEngine,
     private val capabilities: DeviceCapabilities,
     private val settings: () -> Settings,
     /** Application-lifetime scope so the final "stopped" report survives the screen closing. */
@@ -170,6 +172,8 @@ class PlayerController(
     private val profileKey: String? = null,
 ) {
     private val tag = "Player"
+    /** The engine, seen through a virtual episode's window of its file when there is one (else unchanged). */
+    private val engine = ClippedEngine(rawEngine)
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
     private val negotiator = PlaybackNegotiator(api, capabilities)
 
@@ -200,7 +204,11 @@ class PlayerController(
     private var playMark: kotlin.time.TimeMark? = null
     private var playNote = ""
 
-    fun start(itemId: String, startFromBeginning: Boolean = false) {
+    /** A split check (Route.Player.previewAtMs): the whole file, and nothing reported or remembered. */
+    private var previewing = false
+
+    fun start(itemId: String, startFromBeginning: Boolean = false, previewAtMs: Long? = null) {
+        previewing = previewAtMs != null
         playMark = kotlin.time.TimeSource.Monotonic.markNow()
         playNote = ""
         currentItemId = itemId
@@ -209,12 +217,16 @@ class PlayerController(
         autoSkipped.clear()
         val s = settings()
         val preview = _state.value.item?.takeIf { it.id == itemId } ?: _state.value.nextEpisode?.takeIf { it.id == itemId }
-        _state.value = PlayerUiState(item = preview, loading = true, subtitleDelayMs = s.subtitleDelayMs, subtitleScale = s.subtitleScale)
+        // A virtual episode plays only its stretch of the file (see VirtualEpisodes).
+        val window = if (previewing) null else api.virtual?.window(itemId)
+        engine.setWindow(window)
+        _state.value = PlayerUiState(item = preview, loading = true, subtitleDelayMs = s.subtitleDelayMs, subtitleScale = s.subtitleScale, timelineOffsetMs = window?.startMs ?: 0)
         scope.launch {
             val result = appResult {
                 val t0 = kotlin.time.TimeSource.Monotonic.markNow()
-                val warm = prewarmer?.take(api, capabilities, s, itemId)
+                val warm = if (previewAtMs != null) null else prewarmer?.take(api, capabilities, s, itemId)
                 val prepared = when {
+                    previewAtMs != null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning = true, trackMemory = trackMemory, wholeFileFromMs = previewAtMs)
                     warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning, trackMemory = trackMemory)
                     !startFromBeginning || warm.startMs == 0L -> warm
                     // Direct Play URLs don't depend on the start point; a transcode does, so ask again.
@@ -232,17 +244,23 @@ class PlayerController(
                 Log.i(tag, "Ready to play in ${t0.elapsedNow().inWholeMilliseconds} ms (${if (warm != null) "prepared on the detail page" else "cold"}, ${plan.method.jellyfinName})")
                 // Secondary lookups never block playback.
                 launch {
+                    if (previewing) return@launch // a split check: no markers, nothing remembered
                     val markStart = kotlin.time.TimeSource.Monotonic.markNow()
                     fun markersLog(how: String) = Log.i("Perf", "Skip markers $how in ${markStart.elapsedNow().inWholeMilliseconds} ms")
                     // Markers worked out earlier (this episode resumed, or found while another episode was
                     // compared with it) are shown at once, before even the server is asked; only kinds
                     // never looked for are searched.
-                    val remembered = skipMarkers?.get(itemId)
-                    val tried = skipMarkers?.tried(itemId).orEmpty()
+                    // A virtual episode's markers are its file's, moved onto its own timeline and cut at its
+                    // ends (a marker never reaches into the next episode); detection runs on the whole file.
+                    val markersId = if (window != null) com.auroratv.jellyfin.VirtualIds.serverId(itemId) else itemId
+                    fun inWindow(r: List<SkipRange>) = if (window == null) r else clipRanges(r, window)
+                    val remembered = skipMarkers?.get(markersId)
+                    val tried = skipMarkers?.tried(markersId).orEmpty()
                     remembered?.let { (ranges, source) ->
-                        if (currentItemId == itemId) _state.update { it.copy(detectedSkips = ranges, detectedSource = "$source, remembered") }
+                        if (currentItemId == itemId) _state.update { it.copy(detectedSkips = inWindow(ranges), detectedSource = "$source, remembered") }
                     }
-                    _state.update { it.copy(segments = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())) }
+                    val segs = runCatching { api.mediaSegments(itemId) }.getOrDefault(emptyList())
+                    _state.update { it.copy(segments = if (window == null) segs else clipSegments(segs, window)) }
                     // Then fill whatever the server didn't mark (intro, credits...) from local/online detection.
                     val have = _state.value.serverSkipRanges.map { it.kind }.toSet()
                     val wanted = setOf(SkipRange.Kind.Intro, SkipRange.Kind.Credits)
@@ -250,26 +268,27 @@ class PlayerController(
                     val missing = wanted - have - tried
                     if (missing.isEmpty()) { markersLog("remembered"); return@launch }
                     val detector = skipDetector ?: return@launch
-                    val found = runCatching { detector.detect(item, have + tried) }.getOrNull()
+                    val detectItem = if (window != null) runCatching { api.fileItem(markersId) }.getOrNull() ?: return@launch else item
+                    val found = runCatching { detector.detect(detectItem, have + tried) }.getOrNull()
                     markersLog(if (found != null) "found (${found.source})" else "searched, none found")
                     if (currentItemId != itemId || !item.isEpisode) {
-                        if (currentItemId == itemId && found != null) _state.update { it.copy(detectedSkips = found.ranges, detectedSource = found.source) }
+                        if (currentItemId == itemId && found != null) _state.update { it.copy(detectedSkips = inWindow(found.ranges), detectedSource = found.source) }
                         return@launch
                     }
                     val ranges = remembered?.first.orEmpty().filter { r -> found?.ranges?.none { it.kind == r.kind } != false } + found?.ranges.orEmpty()
                     val source = listOfNotNull(remembered?.second, found?.source).distinct().joinToString(" + ").ifEmpty { "nothing found" }
-                    if (found != null) _state.update { it.copy(detectedSkips = ranges, detectedSource = source) }
+                    if (found != null) _state.update { it.copy(detectedSkips = inWindow(ranges), detectedSource = source) }
                     // Remembered either way, so a search that found nothing isn't run again on resume
                     // (unless listening was switched off: then only what was found counts as searched).
                     val searched = if (detector.searchesEveryShow) missing else found?.ranges?.map { it.kind }?.toSet().orEmpty()
-                    skipMarkers?.put(itemId, ranges, source, tried + searched)
+                    skipMarkers?.put(markersId, ranges, source, tried + searched)
                     // The episode it was compared with gets its markers too (ready when it's played).
                     // (Only what was found counts as looked for there: a miss in this pair may be found in another.)
                     found?.let { f ->
                         f.others.forEach { (id, r) -> if (r.isNotEmpty() && skipMarkers?.tried(id).isNullOrEmpty()) skipMarkers?.put(id, r, f.source) }
                     }
                 }
-                launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }
+                if (!previewing) launch { _state.update { it.copy(nextEpisode = findNextEpisode(item)) } }
             }
             result.onFailure { e ->
                 val err = e.toAppError()
@@ -302,6 +321,17 @@ class PlayerController(
         return loaded
     }
 
+    /** Size factor of the film's subtitle font (SubtitleThemes), applied on top of the viewer's text size. */
+    private var themeScale = 1f
+
+    /** The film's subtitle font, when it has one and Film fonts is on (read from the app once per run). */
+    private suspend fun textFont(): SubtitleTextFont? {
+        if (!settings().filmSubtitleFonts) return null
+        val theme = SubtitleThemes.forItem(_state.value.item) ?: return null
+        return SubtitleThemes.font(theme) { path -> com.auroratv.resources.Res.readBytes(path) }
+            ?.also { Log.i(tag, "Subtitles in ${theme.label}") }
+    }
+
     private suspend fun loadEngine(plan: PlaybackPlan, startMs: Long) {
         val streams = plan.mediaSource.mediaStreams
         val externals = streams.filter { it.isSubtitle && it.deliveryMethod == "External" && it.deliveryUrl != null }
@@ -323,6 +353,7 @@ class PlayerController(
             title = _state.value.item?.name ?: "",
             fonts = subtitleFonts(plan),
             cacheKey = MediaHeader.cacheKey(plan),
+            textFont = textFont().also { themeScale = it?.scale ?: 1f },
         )
         engine.load(source)
         // A saved file start is in use: never deleted while it plays (see EpisodeTempFiles).
@@ -334,7 +365,7 @@ class PlayerController(
         }
         val st = _state.value
         if (capabilities.supportsSubtitleDelay) engine.setSubtitleDelay(st.subtitleDelayMs)
-        engine.setSubtitleScale(st.subtitleScale)
+        engine.setSubtitleScale(st.subtitleScale * themeScale)
         engine.setSubtitleStyle(settings().subtitleStyle, isHdr(plan))
         _state.update { it.copy(loading = false, error = null, ended = false) }
     }
@@ -377,6 +408,7 @@ class PlayerController(
                     playMark = null
                     Log.i("Perf", "Playing after ${mark.elapsedNow().inWholeMilliseconds} ms ($playNote)")
                 }
+                if (previewing) return@collect
                 if (es.isPlaying && !startReported) {
                     startReported = true
                     report(plan, es, start = true)
@@ -394,6 +426,8 @@ class PlayerController(
             // Auto-skip intros when enabled. Checked twice a second; cheap.
             while (isActive) {
                 delay(500)
+                // A virtual episode's end inside its file (the engines stop there; this is the backstop).
+                engine.checkEnd()
                 // From the credits on, get the next episode ready so "Next Episode" starts at once.
                 val st = _state.value
                 val next = st.nextEpisode
@@ -444,6 +478,7 @@ class PlayerController(
     }
 
     private fun reportStopped(ended: Boolean) {
+        if (previewing) { stoppedReported = true; return }
         if (stoppedReported) return
         val plan = _state.value.plan ?: return
         stoppedReported = true
@@ -559,7 +594,7 @@ class PlayerController(
     fun setSubtitleScale(scale: Float) {
         val v = scale.coerceIn(0.5f, 2.5f)
         _state.update { it.copy(subtitleScale = v) }
-        engine.setSubtitleScale(v)
+        engine.setSubtitleScale(v * themeScale)
     }
 
     private fun renegotiate(audioIndex: Int?, subtitleIndex: Int?) {
@@ -572,7 +607,7 @@ class PlayerController(
             appResult {
                 val s = settings()
                 old?.playSessionId?.takeIf { old.method != PlayMethod.DirectPlay }?.let { api.stopTranscoding(it) }
-                val plan = negotiator.negotiate(itemId, old?.mediaSource?.id, position, audioIndex, subtitleIndex, s.maxBitrateMbps, s.enableDirectPlay)
+                val plan = negotiator.negotiate(itemId, old?.mediaSource?.id, engine.absolute(position), audioIndex, subtitleIndex, s.maxBitrateMbps, s.enableDirectPlay)
                 _state.update { it.copy(plan = plan) }
                 loadEngine(plan, position)
             }.onFailure { e -> _state.update { it.copy(loading = false, error = e.toAppError().userMessage) } }
@@ -589,7 +624,7 @@ class PlayerController(
             appResult {
                 val s = settings()
                 // After an engine error, ask the server to transcode: the most likely cause is an unsupported stream.
-                val newPlan = negotiator.negotiate(id, plan.mediaSource.id, pos, _state.value.audioIndex, _state.value.subtitleIndex, s.maxBitrateMbps, s.enableDirectPlay, forceTranscode = true)
+                val newPlan = negotiator.negotiate(id, plan.mediaSource.id, engine.absolute(pos), _state.value.audioIndex, _state.value.subtitleIndex, s.maxBitrateMbps, s.enableDirectPlay, forceTranscode = true)
                 _state.update { it.copy(plan = newPlan) }
                 loadEngine(newPlan, pos)
             }.onFailure { e -> _state.update { it.copy(loading = false, error = e.toAppError().userMessage) } }
@@ -628,4 +663,19 @@ class PlayerController(
 
     @Suppress("unused")
     private fun requireApiUser() = api.userId ?: throw AppError.SessionExpired()
+
+    companion object {
+        /** File-timed ranges moved onto a virtual episode's timeline, cut at its ends; shorter than 3 s left out. */
+        fun clipRanges(ranges: List<SkipRange>, w: com.auroratv.jellyfin.Window): List<SkipRange> = ranges.mapNotNull { r ->
+            val start = (r.startMs - w.startMs).coerceAtLeast(0)
+            val end = (r.endMs - w.startMs).coerceAtMost(w.lengthMs)
+            r.copy(startMs = start, endMs = end).takeIf { end - start >= 3_000 }
+        }
+
+        fun clipSegments(segs: List<MediaSegmentDto>, w: com.auroratv.jellyfin.Window): List<MediaSegmentDto> = segs.mapNotNull { seg ->
+            val start = (seg.startTicks.ticksToMs() - w.startMs).coerceAtLeast(0)
+            val end = (seg.endTicks.ticksToMs() - w.startMs).coerceAtMost(w.lengthMs)
+            seg.copy(startTicks = start.msToTicks(), endTicks = end.msToTicks()).takeIf { end - start >= 3_000 }
+        }
+    }
 }

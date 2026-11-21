@@ -212,6 +212,7 @@ class JellyfinIntegrationTest {
         record("Audio windows: where the server's mid-file audio starts, and credits edges (diagnostic)") { seekCheck() }
         record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
         record("Outro found on screen (live-action credits, different music every episode, post-credits scene)") { screenCheck() }
+        record("Two episodes in one file (Paper Town): split by its chapters, played and tracked separately") { splitCheck() }
         record("Upcoming episodes request answers (no virtual episodes on this server)") {
             val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), limit = 1)).items.first()
             val list = api.upcomingEpisodes(series.id)
@@ -424,6 +425,49 @@ class JellyfinIntegrationTest {
         val ui = com.auroratv.playback.PlayerUiState(item = ep2)
         assertTrue(!ui.creditsRunToEnd(credits), "Skip Outro lands on the post-credits scene")
         return "episode 2: outro ${credits.startMs / 1000.0}–${credits.endMs / 1000.0} s (true 170–215, scene after it) via ${result.source}; took $ms ms [${detector.lastTimings}]"
+    }
+
+    /**
+     * Paper Town (CI sample): "S01E01-E02" holds two 4-minute episodes with chapters naming them;
+     * "S01E04-E05" holds two without saying where the second starts.
+     */
+    private suspend fun splitCheck(): String {
+        val v = assertNotNull(api.virtual, "episode splitting is on for every session")
+        val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Paper Town", limit = 5)).items.firstOrNull()
+            ?: return "skipped: sample series not in this library"
+        val eps = api.episodes(series.id)
+        val first = eps.filter { com.auroratv.jellyfin.VirtualIds.isVirtual(it.id) }
+        assertEquals(2, first.size, "the two-episode file with named chapters is shown as two episodes: ${eps.map { "${it.id}:${it.name}" }}")
+        val (a, b) = first
+        assertEquals(listOf(1, 2), first.map { it.indexNumber })
+        assertTrue(first.all { kotlin.math.abs((it.runtimeMs ?: 0) - 240_000) <= 2_000 }, "4 minutes each: ${first.map { it.runtimeMs }}")
+        val w = assertNotNull(v.window(b.id))
+        assertTrue(kotlin.math.abs(w.startMs - 240_000) <= 1_000, "episode 2 starts at 4:00 in the file: $w")
+        // The file without named chapters stays one playable entry (no guessed halves).
+        val unsplit = eps.firstOrNull { it.indexNumber == 4 }
+        assertTrue(unsplit != null && !com.auroratv.jellyfin.VirtualIds.isVirtual(unsplit.id) && unsplit.indexNumberEnd == 5, "S01E04-E05 isn't split: ${eps.map { it.id to it.indexNumber }}")
+        // The next episode after each part, and playback of part 2 from the file.
+        val afterA = api.episodes(series.id, startItemId = a.id, limit = 2).getOrNull(1)?.id
+        val afterB = api.episodes(series.id, startItemId = b.id, limit = 2).getOrNull(1)
+        assertEquals(b.id, afterA)
+        assertEquals(3, afterB?.indexNumber)
+        val plan = PlaybackNegotiator(api, sdr4k).negotiate(b.id, null, w.startMs, null, null, 0, true)
+        assertEquals(PlayMethod.DirectPlay, plan.method)
+        assertTrue(plan.url.contains(com.auroratv.jellyfin.VirtualIds.serverId(b.id)), "plays the file")
+        // Progress: part 1 finished, part 2 half watched; the server's file untouched until both are done.
+        api.reportStopped(com.auroratv.jellyfin.model.PlaybackReport(a.id, plan.mediaSource.id, null, 240_000L * 10_000))
+        api.reportStopped(com.auroratv.jellyfin.model.PlaybackReport(b.id, plan.mediaSource.id, null, 120_000L * 10_000))
+        val again = api.episodes(series.id).filter { com.auroratv.jellyfin.VirtualIds.isVirtual(it.id) }
+        val file = api.fileItem(a.id)
+        assertTrue(again[0].userData?.played == true && again[1].userData?.played != true, "independent watched states")
+        assertEquals(120_000L * 10_000, again[1].userData?.playbackPositionTicks)
+        assertTrue(file.userData?.played != true && (file.userData?.playbackPositionTicks ?: 0) == 0L, "the server's own progress for the file isn't touched")
+        assertTrue(api.resumeItems().any { it.id == b.id }, "Continue Watching shows episode 2")
+        // Clean up for the other checks: the file back to unwatched with no progress here.
+        api.setPlayed(a.id, false); api.setPlayed(b.id, false)
+        return "S01E01-E02 → ${first.joinToString { "${it.indexNumber} \"${it.name}\" ${it.runtimeMs!! / 1000} s" }}; part 2 starts at ${w.startMs / 1000.0} s; " +
+            "S01E04-E05 left whole (${v.splits[unsplit!!.id]?.reason}); next after part 1: part 2, after part 2: episode ${afterB?.indexNumber}; " +
+            "${plan.method.jellyfinName} of the file; progress kept per part, server's file untouched"
     }
 
     /**

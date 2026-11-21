@@ -6,6 +6,56 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Several episodes in one file, and film fonts for subtitles
+### Virtual Episode Splitting
+Files holding two or more episodes (common with cartoons) are shown and played as separate episodes.
+- Each has its own number, title, length, thumbnail, progress, watched mark, Continue Watching card,
+  Next Up and autoplay.
+- Files the server lists once are split into virtual episodes; several server entries sharing one
+  file each play their own part.
+- Boundaries come only from chapters that name the episodes. A file is never split in half; anything
+  unclear stays one playable entry and can be split by hand (**Split Episodes** on the episode's
+  page, with previews).
+- Progress is kept per profile on the device, so the server's position for the file is never mixed
+  up. The server only learns "watched".
+- The player shows each episode's own 0:00–end timeline. The engines stop exactly at its end, and
+  seeks and skip markers stay inside it. Subtitles and audio are the file's own, so they stay in
+  sync.
+
+See [[Virtual Episode Splitting]].
+
+### Film fonts for subtitles
+The Harry Potter films' normal subtitles now use IM Fell English (OFL, bundled), a storybook-style
+printed face, in both players. Styled ASS and picture subtitles are unchanged, and **Settings →
+Subtitles → Film fonts** turns it off. See [[Subtitles]].
+
+### Verified in CI
+- Unit tests: `VirtualEpisodesTest`, `SubtitleThemesTest`.
+- Real Jellyfin (sample series *Paper Town*):
+  - the file with chapters named "Episode 1/2" is split at 4:00;
+  - the one without stays whole;
+  - next-episode order, Direct Play of the file, independent progress, and the server's file left
+    untouched.
+- Emulator: playing the second virtual episode, and the film font on a sample film in the
+  collection. See the CI notes in [[Testing Guide]] and [[Known Issues]] for what wasn't checked.
+
+### Performance check (CI emulator, previous release vs this update, run at the same time)
+| | Previous release | This update |
+|---|---|---|
+| App's first frame (before any of this code runs: the runner's speed) | 385–433 ms | 479–553 ms |
+| Home cold start, rows shown | 1014–1087 ms (475 once) | 1181–1449 ms (597 once) |
+| Home cold start, API requests | 11–14 | 9–14 |
+| Resume from the detail page (L2) | 1363, 1850 ms | 1631, 1757 ms |
+| Resume from a deep link (L2) | 1989, 2125 ms | 2607, 2742 ms |
+| Prepare paths (item + PlaybackInfo) and engine requests per start | 12 DirectPlay / 2 Transcode; 3–5 requests | identical |
+| Home opened again | 5–14 ms, 0/0/3 requests | 6–17 ms, 0/0/2 requests |
+
+This update's run landed on a slower runner: its first frame, which no new code touches, was about
+25% slower, and its other times were 20–30% slower too. The request counts and preparation paths are
+identical, and the new code on an ordinary title's path is a few in-memory lookups (no split → lists
+returned as they are; no film font → nothing loaded). So no regression is attributable, but this
+couldn't be proven on equal runners.
+
 ## Subtitles, Home recommendations cache, upcoming air dates, faster and more accurate skip markers
 ### Subtitles
 Signs & Songs is no longer chosen when a normal English track exists: dialogue ranking (full →

@@ -111,6 +111,16 @@ ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 30 1920x1080 24)" -f l
   -metadata:s:a:0 language=eng -metadata:s:s:0 language=eng -metadata title="Harbor Lights" "$D/Harbor Lights (2021).mkv"
 cp "$TMP/plain.srt" "$D/Harbor Lights (2021).en.srt"
 
+# ---------- 1b) A film in TMDB's "Harry Potter Collection" (1241): its normal subtitles get the film font ----------
+# A neutral synthetic title; only the collection id (from the NFO) ties it to the films.
+D="$OUT/movies/Owl Post (2001)"; mkdir -p "$D"
+ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 20 1280x720 24)" -f lavfi -i "sine=frequency=520:duration=20" -i "$TMP/plain.srt" \
+  -map 0 -map 1 -map 2 -c:v libx264 -preset veryfast -crf 30 -pix_fmt yuv420p -c:a aac -b:a 96k -c:s srt -disposition:s:0 default \
+  -metadata:s:a:0 language=eng -metadata:s:s:0 language=eng -metadata title="Owl Post" "$D/Owl Post (2001).mkv"
+cat > "$D/Owl Post (2001).nfo" <<'NFO'
+<?xml version="1.0" encoding="utf-8"?><movie><title>Owl Post</title><year>2001</year><genre>Fantasy</genre><plot>Synthetic test film in a film collection with its own subtitle font.</plot><set tmdbcolid="1241"><name>Test Collection</name></set><tmdbcollectionid>1241</tmdbcollectionid></movie>
+NFO
+
 # ---------- 2) HEVC Main10 + AC3 5.1 + embedded styled ASS + font attachment ----------
 D="$OUT/movies/Glass Meridian (2023)"; mkdir -p "$D"
 ffmpeg -nostdin -y -loglevel error -f lavfi -i "$(pattern 30 1920x1080 24)" -f lavfi -i "sine=frequency=330:duration=30" -i "$TMP/styled.ass" \
@@ -271,7 +281,54 @@ for e in 1 2 3; do
     "$W/Season 02/Wavelength Street - S02E0$e.mkv"
 done
 
-# ---------- 6b) A live-action show whose closing credits look alike but sound different ----------
+# ---------- 6c) Two short cartoons per file (Virtual Episode Splitting) ----------
+# "S01E01-E02" holds two 4-minute episodes, with chapters naming them ("Episode 1", "Episode 2") so
+# the split is found on its own; "S01E04-E05" holds two as well but its chapters don't say where the
+# second starts (it must stay one playable entry until split by hand). An English SRT runs across
+# the whole of the first file, for checking that subtitles stay in time inside the second episode.
+P="$OUT/tv/Paper Town"; mkdir -p "$P/Season 01"
+cat > "$P/tvshow.nfo" <<'NFO'
+<?xml version="1.0" encoding="utf-8"?><tvshow><title>Paper Town</title><year>2020</year><genre>Animation</genre><genre>Family</genre><plot>Short cartoons about a town folded from paper. Synthetic test series: two episodes in some files.</plot></tvshow>
+NFO
+paper() { # file seconds chapters-file title
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=$2:size=320x180:rate=15" -f lavfi -i "sine=frequency=440:duration=$2" -f ffmetadata -i "$3" \
+    -map 0 -map 1 -map_chapters 2 -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -c:a aac -b:a 48k -metadata title="$4" "$1"
+}
+cat > "$TMP/pt_named.txt" <<'CH'
+;FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=240000
+title=Episode 1
+[CHAPTER]
+TIMEBASE=1/1000
+START=240000
+END=480000
+title=Episode 2
+CH
+cat > "$TMP/pt_plain.txt" <<'CH'
+;FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=480000
+title=Chapter 1
+CH
+cat > "$TMP/pt_single.txt" <<'CH'
+;FFMETADATA1
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=240000
+title=Chapter 1
+CH
+paper "$P/Season 01/Paper Town - S01E01-E02.mkv" 480 "$TMP/pt_named.txt" "The Lost Kite / Rain Day"
+paper "$P/Season 01/Paper Town - S01E03.mkv" 240 "$TMP/pt_single.txt" "Snow"
+paper "$P/Season 01/Paper Town - S01E04-E05.mkv" 480 "$TMP/pt_plain.txt" "Lanterns / Bridges"
+{ for i in $(seq 0 47); do s=$((i * 10)); printf '%d\n%02d:%02d:%02d,000 --> %02d:%02d:%02d,000\nLine at %d:%02d of the file\n\n' $((i + 1)) 0 $((s / 60)) $((s % 60)) 0 $(((s + 4) / 60)) $(((s + 4) % 60)) $((s / 60)) $((s % 60)); done; } > "$P/Season 01/Paper Town - S01E01-E02.en.srt"
+
+# ---------- 6d) A live-action show whose closing credits look alike but sound different ----------
 # White text rolling up a black screen at the end of every episode, over music that changes every
 # episode (so listening can't find it), and in episode 2 a post-credits scene after them. Exercises
 # the on-screen credits check (trickplay thumbnails) and Skip Outro landing on the post-credits scene.

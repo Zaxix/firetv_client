@@ -141,6 +141,8 @@ data class BaseItemDto(
     @SerialName("MediaStreams") val mediaStreams: List<MediaStream> = emptyList(),
     @SerialName("Chapters") val chapters: List<ChapterInfo> = emptyList(),
     @SerialName("LocationType") val locationType: String? = null,
+    /** The file on the server (asked for only where needed: spotting episodes that share a file). */
+    @SerialName("Path") val path: String? = null,
     /** Trickplay (scrub preview) sheets: media source id -> thumbnail width -> sheet layout. Jellyfin 10.9+. */
     @SerialName("Trickplay") val trickplay: Map<String, Map<String, TrickplayInfo>>? = null,
 ) {

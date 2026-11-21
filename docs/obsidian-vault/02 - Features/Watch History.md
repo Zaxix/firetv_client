@@ -7,6 +7,9 @@ tags: [feature]
 Resume points, watched marks, favourites, Continue Watching and Next Up.
 
 ## How it works
+- **Episodes that share a file** (see [[Virtual Episode Splitting]]) keep their progress per profile
+  on the device (`split-watch-<profile>.json`); the server only gets "watched" for the entry or the
+  whole file.
 - **Account profiles:** Jellyfin keeps everything. The player reports
   `/Sessions/Playing` (start), `/Sessions/Playing/Progress` (every 10 s and on pause) and
   `/Sessions/Playing/Stopped`; "Mark watched" and favourites use `/UserPlayedItems/{id}` and

@@ -38,6 +38,10 @@ data class EngineSource(
     val fonts: List<SubtitleFont> = emptyList(),
     /** Set for files whose big start (fonts) is kept on the device; see MediaHeader. */
     val cacheKey: String? = null,
+    /** Stop here and report the end (a virtual episode's end inside its file); null: the file's end. */
+    val endPositionMs: Long? = null,
+    /** A font that suits the film for plain text subtitles (SubtitleThemes); null: the usual one. */
+    val textFont: SubtitleTextFont? = null,
 )
 
 data class EngineState(

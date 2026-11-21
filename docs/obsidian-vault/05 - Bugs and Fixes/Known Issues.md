@@ -25,6 +25,18 @@ Open issues and limits, stated plainly. (The full list of platform limits is in
 - **Audio default** (English except anime) depends on the metadata saying a show is anime: an anime
   without an anime genre/tag, Japanese title or Japanese origin is treated as non-anime and gets the
   English dub when the file has one ([[Video Player]]).
+- **Virtual Episode Splitting** ([[Virtual Episode Splitting]]):
+  - several server entries sharing one file can't be produced on the CI server, so that case is
+    covered by unit tests only;
+  - a part's progress lives on this device and profile, so other Jellyfin apps see only the file's
+    watched mark, and the server's "Now playing" doesn't show virtual episodes;
+  - later parts have no description, and their thumbnail needs chapter images on the server;
+  - the split editor hasn't been tried with a real remote.
+- **Film subtitle fonts** ([[Subtitles]]):
+  - only the Harry Potter films have one;
+  - they're matched by TMDB collection 1241 or the title, so a film missing both keeps the usual font;
+  - the settings sample doesn't show the film font;
+  - not seen on a real Fire TV screen.
 - **Upcoming air dates** ([[Details Page Layout]]):
   - they appear only when the server's metadata lists future episodes (virtual items) or a Trakt
     key is set. Many servers don't create virtual episodes, and then nothing is shown (never a

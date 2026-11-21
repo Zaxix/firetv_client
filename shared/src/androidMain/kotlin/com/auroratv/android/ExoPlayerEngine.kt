@@ -406,10 +406,14 @@ class ExoPlayerEngine(
             .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .apply { source.cacheKey?.let { setCustomCacheKey(it) } }
             .setSubtitleConfigurations(subs)
+            // A virtual episode ends inside its file: Media3 stops there exactly (end-only clipping
+            // keeps the file's own timeline and seeking).
+            .apply { source.endPositionMs?.let { setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setEndPositionMs(it).build()) } }
             .build()
         // Fonts from MKV attachments (transcoded streams lose them). Added in onMediaItemTransition:
         // ass-media clears its pending fonts there, and our listener runs after its own.
         sourceFonts = source.fonts
+        textFont = source.textFont
         pendingAudio = source.audioOrdinal
         pendingSubtitle = source.subtitle
         pendingApplied = false
@@ -505,8 +509,27 @@ class ExoPlayerEngine(
         view.subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
     }
 
+    /** The film's font for plain text subtitles (see SubtitleThemes), or null for the usual one. */
+    private var textFont: com.auroratv.playback.SubtitleTextFont? = null
+    private val typefaces = HashMap<String, android.graphics.Typeface>()
+
+    /** A typeface for [font] (regular, plus its italic where Android can pair them: 10+), made once per run. */
+    private fun typeface(font: com.auroratv.playback.SubtitleTextFont): android.graphics.Typeface? = typefaces[font.family] ?: runCatching {
+        val dir = java.io.File(view.context.cacheDir, "subtitle-fonts").apply { mkdirs() }
+        val files = font.files.map { f -> java.io.File(dir, f.name).also { if (it.length() != f.data.size.toLong()) it.writeBytes(f.data) } }
+        val regular = files.firstOrNull { !it.name.contains("Italic", ignoreCase = true) } ?: files.first()
+        val italic = files.firstOrNull { it.name.contains("Italic", ignoreCase = true) }
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val family = android.graphics.fonts.FontFamily.Builder(android.graphics.fonts.Font.Builder(regular).build()).apply {
+                italic?.let { addFont(android.graphics.fonts.Font.Builder(it).setSlant(android.graphics.fonts.FontStyle.FONT_SLANT_ITALIC).build()) }
+            }.build()
+            android.graphics.Typeface.CustomFallbackBuilder(family).build()
+        } else android.graphics.Typeface.createFromFile(regular)
+    }.onFailure { Log.w(tag, "Subtitle font ${font.family} unusable: ${it.message}") }.getOrNull()?.also { typefaces[font.family] = it }
+
     override fun setSubtitleStyle(style: com.auroratv.playback.SubtitleStyle, hdr: Boolean) {
         val sv = view.subtitleView ?: return
+        val custom = textFont?.let(::typeface)
         val edge = when (style.edge) {
             com.auroratv.playback.SubtitleEdge.Outline -> androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE
             com.auroratv.playback.SubtitleEdge.Shadow -> androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
@@ -519,7 +542,11 @@ class ExoPlayerEngine(
                 Color.TRANSPARENT,
                 edge,
                 Color.BLACK,
-                if (style.bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT,
+                when {
+                    custom != null -> if (style.bold) android.graphics.Typeface.create(custom, android.graphics.Typeface.BOLD) else custom
+                    style.bold -> android.graphics.Typeface.DEFAULT_BOLD
+                    else -> android.graphics.Typeface.DEFAULT
+                },
             )
         )
         sv.setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION + style.raisePercent / 100f)

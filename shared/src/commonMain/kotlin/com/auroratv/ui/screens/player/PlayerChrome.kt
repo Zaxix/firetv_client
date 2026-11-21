@@ -290,7 +290,7 @@ fun PlayerChrome(
         awaitHealthyBuffer()
         val loader = coil3.SingletonImageLoader.get(platformContext)
         ui.chapters.forEachIndexed { i, ch ->
-            val url = sessionApi.images.chapter(item.id, i, ch.imageTag, chapterPx) ?: return@forEachIndexed
+            val url = sessionApi.images.chapter(item, i, ch.imageTag, chapterPx) ?: return@forEachIndexed
             // Decoded into the memory cache too: these are small and the panel shows them at once.
             loader.execute(coil3.request.ImageRequest.Builder(platformContext).data(url).size(coil3.size.Size.ORIGINAL).build())
         }
@@ -494,7 +494,7 @@ fun PlayerChrome(
                         scrubTarget = scrubTarget,
                         chapters = remember(ui.chapters) { ui.chapters.map { it.startPositionTicks.ticksToMs() } },
                         skipRanges = ui.skipRanges,
-                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
+                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info, ui.timelineOffsetMs) } },
                         focusRequester = scrubFocus,
                         onScrub = { delta -> previewBy(delta) },
                         onBlur = { if (scrubTarget != null && panel == Panel.None) cancelScrub() },
@@ -517,7 +517,7 @@ fun PlayerChrome(
                     val duration by remember { derivedStateOf { esState.value.durationMs } }
                     Track(
                         target, duration, bufferedMs = 0, focused = true, chapters = emptyList(), skipRanges = ui.skipRanges, showBubble = true,
-                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info) } },
+                        preview = ui.item?.id?.let { id -> ui.trickplay?.let { (src, info) -> TrickplayRef(id, src, info, ui.timelineOffsetMs) } },
                     )
                     Text("Select to jump here  ·  Back to cancel", style = AuroraType.caption, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(top = 6.dp))
                 }
@@ -867,7 +867,7 @@ private fun ChaptersPanel(controller: PlayerController, positionMs: Long, focus:
     ) {
         itemsIndexed(chapters, key = { i, _ -> i }) { i, ch ->
             val startMs = ch.startPositionTicks.ticksToMs()
-            val img = remember(item.id, i, ch.imageTag, imagePx) { api.images.chapter(item.id, i, ch.imageTag, imagePx) }
+            val img = remember(item.id, i, ch.imageTag, imagePx) { api.images.chapter(item, i, ch.imageTag, imagePx) }
             FocusSurface(
                 onClick = { controller.seekTo(startMs); onClose() },
                 shape = RoundedCornerShape(10.dp),
@@ -984,7 +984,7 @@ private fun UpNextCard(next: BaseItemDto, controller: PlayerController, countdow
 }
 
 /** Which trickplay sheet set to draw scrub previews from. */
-private data class TrickplayRef(val itemId: String, val mediaSourceId: String, val info: TrickplayInfo)
+private data class TrickplayRef(val itemId: String, val mediaSourceId: String, val info: TrickplayInfo, /** Where a virtual episode starts in its file. */ val offsetMs: Long = 0)
 
 /**
  * tvOS scrubber: thin track that thickens on focus, a time bubble (and a trickplay thumbnail when
@@ -1126,7 +1126,7 @@ private fun TrickplayThumb(ref: TrickplayRef, positionMs: Long, width: Dp, modif
     val frames = LocalTrickplayFrames.current
     val info = ref.info
     val perSheet = info.tileWidth * info.tileHeight
-    val n = (positionMs / info.interval).toInt().coerceIn(0, (info.thumbnailCount - 1).coerceAtLeast(0))
+    val n = ((positionMs + ref.offsetMs) / info.interval).toInt().coerceIn(0, (info.thumbnailCount - 1).coerceAtLeast(0))
     val sheet = n / perSheet
     val cell = n % perSheet
     val col = cell % info.tileWidth

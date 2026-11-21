@@ -13,7 +13,8 @@ class ImageUrls(private val baseUrl: String) {
 
     fun url(itemId: String, type: String, tag: String?, maxWidth: Int? = null, maxHeight: Int? = null, index: Int? = null, quality: Int = 90): String =
         buildString {
-            append(baseUrl.trimEnd('/')).append("/Items/").append(itemId).append("/Images/").append(type)
+            // A virtual episode's pictures are its file's (VirtualIds).
+            append(baseUrl.trimEnd('/')).append("/Items/").append(VirtualIds.serverId(itemId)).append("/Images/").append(type)
             if (index != null) append('/').append(index)
             append("?quality=").append(quality)
             maxWidth?.let { append("&fillWidth=").append(it) }
@@ -35,8 +36,16 @@ class ImageUrls(private val baseUrl: String) {
         return item.imageTags["Primary"]?.let { Artwork(url(item.id, "Primary", it, maxWidth = width), blur(item, "Primary", it)) }
     }
 
+    /** A later virtual episode's own still: the chapter image where it starts (see VirtualEpisodes.build). */
+    private fun virtualStill(item: BaseItemDto, width: Int): Artwork? {
+        val tag = item.imageTags[VirtualIds.CHAPTER_TAG] ?: return null
+        val index = item.imageTags[VirtualIds.CHAPTER_INDEX]?.toIntOrNull() ?: return null
+        return Artwork(url(item.id, "Chapter", tag, maxWidth = width, index = index), null)
+    }
+
     /** 16:9 still: episode primary image, item thumb, backdrop, then parent thumb/backdrop. */
     fun landscape(item: BaseItemDto, width: Int): Artwork? {
+        virtualStill(item, width)?.let { return it }
         if (item.isEpisode) item.imageTags["Primary"]?.let { return Artwork(url(item.id, "Primary", it, maxWidth = width), blur(item, "Primary", it)) }
         item.imageTags["Thumb"]?.let { return Artwork(url(item.id, "Thumb", it, maxWidth = width), blur(item, "Thumb", it)) }
         item.backdropImageTags.firstOrNull()?.let { return Artwork(url(item.id, "Backdrop", it, maxWidth = width, index = 0), blur(item, "Backdrop", it)) }
@@ -70,8 +79,12 @@ class ImageUrls(private val baseUrl: String) {
 
     /** One trickplay sprite sheet. Unlike other images this endpoint needs the access token (sent as a header). */
     fun trickplayTile(itemId: String, mediaSourceId: String, width: Int, sheetIndex: Int): String =
-        "${baseUrl.trimEnd('/')}/Videos/$itemId/Trickplay/$width/$sheetIndex.jpg?mediaSourceId=$mediaSourceId"
+        "${baseUrl.trimEnd('/')}/Videos/${VirtualIds.serverId(itemId)}/Trickplay/$width/$sheetIndex.jpg?mediaSourceId=$mediaSourceId"
 
     fun chapter(itemId: String, index: Int, tag: String?, width: Int): String? =
         tag?.let { url(itemId, "Chapter", it, maxWidth = width, index = index) }
+
+    /** Chapter [index] of [item] as listed on it (a virtual episode's chapters are numbered from its own first). */
+    fun chapter(item: BaseItemDto, index: Int, tag: String?, width: Int): String? =
+        chapter(item.id, index + (item.imageTags[VirtualIds.CHAPTER_BASE]?.toIntOrNull() ?: 0), tag, width)
 }

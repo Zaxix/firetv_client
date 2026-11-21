@@ -331,6 +331,8 @@ class MpvAndroidEngine(
         workHandler.post { writeFonts(source) }
         workHandler.post {
             l.setOptionString("start", String.format(Locale.ROOT, "%.3f", source.startPositionMs / 1000.0))
+            // A virtual episode ends inside its file (with keep-open, mpv stops there: eof-reached).
+            l.setOptionString("end", source.endPositionMs?.let { String.format(Locale.ROOT, "%.3f", it / 1000.0) } ?: "none")
             l.setOptionString("pause", "no")
             // No subtitles until ours is applied (onFileLoaded): mpv would otherwise start with the
             // track flagged default/forced, often Signs & Songs.
@@ -344,6 +346,8 @@ class MpvAndroidEngine(
         runCatching {
             fontsDir.listFiles()?.forEach { it.delete() }
             source.fonts.forEach { f -> File(fontsDir, f.name.replace(Regex("[^A-Za-z0-9._ -]"), "_")).writeBytes(f.data) }
+            // The film's font for plain text subtitles (sub-font names its family; see setSubtitleStyle).
+            source.textFont?.files?.forEach { f -> File(fontsDir, f.name.replace(Regex("[^A-Za-z0-9._ -]"), "_")).writeBytes(f.data) }
         }.onFailure { Log.w(tag, "Couldn't write subtitle fonts: ${it.message}") }
     }
 
@@ -392,7 +396,7 @@ class MpvAndroidEngine(
     override fun setSubtitleScale(scale: Float) = mpv { it.setPropertyDouble("sub-scale", scale.toDouble()) }
 
     override fun setSubtitleStyle(style: com.auroratv.playback.SubtitleStyle, hdr: Boolean) =
-        com.auroratv.playback.MpvSubtitleStyle.options(style, hdr).forEach { (k, v) -> mpv { it.setPropertyString(k, v) } }
+        com.auroratv.playback.MpvSubtitleStyle.options(style, hdr, currentSource?.textFont?.family).forEach { (k, v) -> mpv { it.setPropertyString(k, v) } }
 
     override fun stats(): List<Pair<String, String>> = buildList {
         if (destroyed || released) return@buildList

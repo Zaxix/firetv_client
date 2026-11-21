@@ -58,6 +58,35 @@ Tests: `SubtitleSelectionTest`, covering full + S&S (flagged forced, default, se
 SDH + S&S, only S&S, ambiguous names, dubs, missing metadata, a hand-picked S&S choice on the next
 episode, and subtitles turned off by hand.
 
+## Film fonts (Nov 2026)
+Normal text subtitles (SRT, WebVTT and the like) can use a font that suits the film. For now only
+the Harry Potter films have one (`playback/SubtitleThemes.kt`).
+
+- **Which films:** a film whose TMDB collection is 1241 ("Harry Potter Collection") or whose title
+  starts "Harry Potter and the …". Documentaries, series and every other film are unchanged.
+- **The font:** *IM Fell English* by Igino Marini, under the SIL Open Font License (`LICENSES/IMFellEnglish-OFL.txt`).
+  - It's an old-style printed face with a storybook feel that stays readable at subtitle size.
+  - It's shown 10% larger, because its letters run small for their size.
+  - The regular and the real italic (for `<i>` lines) are bundled in the app
+    (`composeResources/files/subtitle-fonts/`, ~400 KB), so nothing is downloaded and the server isn't
+    involved. They're read once per run.
+  - It isn't the films' own lettering: that's a trademark, and the "Harry Potter" fonts online are
+    fan copies that aren't licensed to ship in an app.
+- **Engines:**
+  - **Media3:** a `Typeface` from the files, made once (regular + italic as one family on Android 10+),
+    set in `CaptionStyleCompat`.
+  - **mpv:** the files go into its fonts folder with the stream, and `sub-font` names the family.
+  - Both keep your colour, edge, box, bold, position and size settings.
+- **Never changed:** styled ASS/SSA subtitles keep their own fonts, and picture subtitles (PGS,
+  VobSub) can't change.
+- **Settings → Subtitles → Film fonts:** On by default; Off uses the usual font everywhere.
+- **Adding films:** add a `SubtitleTheme` (fonts under `files/subtitle-fonts/`, their licence under
+  `LICENSES/`, and a `matches` rule) to `SubtitleThemes.all`.
+- **Tests:** `SubtitleThemesTest` checks which films match, that the font is read once with its
+  italic, and that mpv gets the family for plain subtitles only.
+- **Not seen yet:** the font hasn't been checked on a real Fire TV screen. The settings sample
+  (`SubtitlePreview`) still shows the usual font.
+
 ## Relevant files
 `playback/TrackSelector.kt`, `playback/TrackMemory.kt`, `playback/SubtitleStyle.kt`,
 `playback/PlaybackPreparer.kt`, `ui/components/SubtitlePreview.kt`; Android players:

@@ -47,6 +47,8 @@ object PlaybackPreparer {
         startFromBeginning: Boolean,
         knownItem: BaseItemDto? = null,
         trackMemory: TrackMemory? = null,
+        /** Play the whole file from this file position, ignoring any virtual-episode window (a split check). */
+        wholeFileFromMs: Long? = null,
     ): PreparedPlayback = coroutineScope {
         val t0 = TimeSource.Monotonic.markNow()
         // Ask how to play the file while the item details are still on their way (one round trip
@@ -58,7 +60,8 @@ object PlaybackPreparer {
                 negotiator.negotiate(itemId, null, 0L, null, null, settings.maxBitrateMbps, settings.enableDirectPlay)
             } catch (c: CancellationException) { throw c } catch (t: Throwable) { null }
         } else null
-        val item = knownItem ?: api.item(itemId)
+        // A split check plays the file itself (a virtual episode's id stands for its file there).
+        val item = knownItem ?: if (wholeFileFromMs != null) api.fileItem(itemId) else api.item(itemId)
         val itemMs = t0.elapsedNow().inWholeMilliseconds
         val source = item.mediaSources.firstOrNull()
         val streams = source?.mediaStreams ?: item.mediaStreams
@@ -75,13 +78,15 @@ object PlaybackPreparer {
             is RememberedTracks.Track -> pick.index
             null -> TrackSelector.pickSubtitle(streams, settings.subtitleMode, settings.preferredSubtitleLanguage, audioLang, source?.defaultSubtitleStreamIndex)
         }
-        val startMs = if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
+        val startMs = wholeFileFromMs ?: if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
         val fonts = source?.takeIf { needsFonts(it) }?.let { s -> async { downloadFonts(api, itemId, s) } }
         val earlyPlan = early?.await()?.takeIf { p ->
             (source == null || p.mediaSource.id == source.id) && negotiator.directPlayFits(p, audio, subtitle)
         }
+        // A virtual episode's start is inside its file: the server (a transcode's start point) needs the file position.
+        val fileStartMs = startMs + (if (wholeFileFromMs != null) 0L else api.virtual?.window(itemId)?.startMs ?: 0L)
         val plan = earlyPlan?.copy(audioIndex = audio, subtitleIndex = subtitle)
-            ?: negotiator.negotiate(itemId, source?.id, startMs, audio, subtitle, settings.maxBitrateMbps, settings.enableDirectPlay)
+            ?: negotiator.negotiate(itemId, source?.id, fileStartMs, audio, subtitle, settings.maxBitrateMbps, settings.enableDirectPlay)
         Log.i("Perf", "Prepared in ${t0.elapsedNow().inWholeMilliseconds} ms (item ${if (knownItem != null) "known" else "$itemMs ms"}, " +
             "${if (earlyPlan != null) "PlaybackInfo alongside it" else if (early != null) "PlaybackInfo again for this start/tracks" else "PlaybackInfo after it"}, ${plan.method.jellyfinName})")
         val loadedFonts = when {
@@ -153,7 +158,7 @@ object PlaybackPreparer {
                     async {
                         parallel.withPermit {
                             if (total > MAX_FONT_BYTES) return@withPermit null
-                            val url = a.deliveryUrl ?: "/Videos/$itemId/${source.id}/Attachments/${a.index}"
+                            val url = a.deliveryUrl ?: "/Videos/${com.auroratv.jellyfin.VirtualIds.serverId(itemId)}/${source.id}/Attachments/${a.index}"
                             runCatching { api.downloadBytes(url) }
                                 .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Font attachment ${a.index} failed: ${it.message}") }
                                 .getOrNull()?.let { bytes -> total += bytes.size; SubtitleFont(a.fileName ?: "font-${a.index}.ttf", bytes) }

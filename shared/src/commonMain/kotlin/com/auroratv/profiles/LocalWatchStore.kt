@@ -23,12 +23,14 @@ class LocalWatchStore(
     private val files: FileStore,
     profileKey: String,
     private val now: () -> Long = { com.auroratv.playback.wallClockMs() },
+    /** File kind: "watch" for a device-only profile, "split-watch" for virtual episodes. */
+    base: String = "watch",
 ) : LocalWatchData {
     /** p = position (ticks), w = watched, f = favourite, t = last watched (epoch ms), rt = runtime (ticks), s = series id. */
     @Serializable
     private data class E(val p: Long = 0, val w: Boolean = false, val f: Boolean = false, val t: Long = 0, val rt: Long = 0, val s: String? = null)
 
-    private val file = ProfileFiles.name("watch", profileKey)
+    private val file = ProfileFiles.name(base, profileKey)
     private val serializer = MapSerializer(String.serializer(), E.serializer())
     // Copy-on-write maps: read from any thread, updated with compare-and-set (they're small).
     private val entries = AtomicReference(load())
@@ -78,6 +80,10 @@ class LocalWatchStore(
     }
 
     private fun meta(id: String) = seen.load()[id]
+
+    /** Anything recorded for [id] (progress, watched, favourite). */
+    fun has(id: String): Boolean = entries.load()[id] != null
+    fun isWatched(id: String): Boolean = entries.load()[id]?.w == true
 
     override fun setPlayed(itemId: String, played: Boolean) {
         change(itemId) { e -> (e ?: E(s = meta(itemId)?.second)).copy(w = played, p = 0, t = if (played) now() else (e?.t ?: 0)) }

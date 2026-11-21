@@ -19,7 +19,10 @@ EP3=$(curl -sf "$URL/Items?userId=$UID_&recursive=true&includeItemTypes=Episode&
 SEVEN=$(q "includeItemTypes=Movie&searchTerm=Seven%20Rivers")
 WAVES=$(q "includeItemTypes=Series&searchTerm=Wavelength")
 LANTERN=$(q "includeItemTypes=Movie&searchTerm=Lantern")
+OWL=$(q "includeItemTypes=Movie&searchTerm=Owl%20Post")
 WAVE2=$(curl -sf "$URL/Shows/$WAVES/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[1].Id')
+PAPER=$(q "includeItemTypes=Series&searchTerm=Paper%20Town")
+PAPER12=$(curl -sf "$URL/Shows/$PAPER/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[0].Id')
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 key() { for k in "$@"; do adb shell input keyevent "$k"; sleep 1.2; done; }
@@ -97,6 +100,31 @@ if [ -n "$WAVE2" ] && [ "$WAVE2" != null ]; then
     echo "❌ Intro/credits by listening: nothing detected" | tee -a "$OUT/navigation.txt"; adb logcat -d -s SkipDetector:* JellyfinApi:* | tail -10; NAVFAIL=1
   fi
   key KEYCODE_BACK; sleep 2
+fi
+# A film of the Harry Potter collection (by its TMDB collection id): normal subtitles in the film font.
+if [ -n "$OWL" ] && [ "$OWL" != null ]; then
+  adb logcat -c
+  open "player:$OWL"; sleep 12; shot android-33-film-subtitle-font
+  if adb logcat -d -s Player:I | grep -q "Subtitles in IM Fell English"; then
+    echo "✅ Film subtitle font: $(adb logcat -d -s Player:I | tr -d '\r' | grep -o 'Subtitles in .*' | tail -1)" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Film subtitle font not used for a film in TMDB collection 1241 (provider ids: $(curl -sf "$URL/Items/$OWL?userId=$UID_" -H "$A" | jq -c .ProviderIds))" | tee -a "$OUT/navigation.txt"; NAVFAIL=1
+  fi
+  key KEYCODE_BACK; sleep 2
+fi
+# Two episodes in one file: the second plays from 4:00 of the file, on its own 0:00–4:00 timeline.
+# (The app splits the file the first time it lists the season; the series page does that first.)
+if [ -n "$PAPER12" ] && [ "$PAPER12" != null ]; then
+  open "detail:$PAPER"; sleep 6
+  adb logcat -c
+  open "player:vep~$PAPER12~1"; sleep 14; key KEYCODE_DPAD_CENTER; sleep 2; shot android-34-virtual-episode-2
+  start=$(adb logcat -d -s Player:I | tr -d '\r' | grep -oE "Virtual episode: file [0-9]+.[0-9]+ ms, starting at [0-9]+" | head -1 | grep -oE "[0-9]+$")
+  if [ -n "$start" ] && [ "$start" -ge 239000 ] && [ "$start" -le 250000 ]; then
+    echo "✅ Virtual episode 2 starts inside its file at ${start} ms (its 0:00; true 240000)" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Virtual episode 2: engine started at '${start}' ms, expected about 240000" | tee -a "$OUT/navigation.txt"; adb logcat -d -s Player:* Splits:* ExoEngine:* | tail -15; NAVFAIL=1
+  fi
+  key KEYCODE_BACK; sleep 2; key KEYCODE_BACK; sleep 2
 fi
 # Anime-style release (38 MB of fonts ahead of the video, subtitles almost always on screen):
 # resume at 1:30, then skip back and forward with the bar. Each must end up playing, not stuck.

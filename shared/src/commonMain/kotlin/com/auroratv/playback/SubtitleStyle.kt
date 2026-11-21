@@ -52,7 +52,9 @@ fun <T> List<T>.cycleAfter(current: T): T = this[(indexOf(current) + 1) % size]
 
 /** mpv option values for [style] (mpv colours are "#AARRGGBB"); used by both mpv engines. */
 object MpvSubtitleStyle {
-    fun options(style: SubtitleStyle, hdr: Boolean): List<Pair<String, String>> = buildList {
+    fun options(style: SubtitleStyle, hdr: Boolean, fontFamily: String? = null): List<Pair<String, String>> = buildList {
+        // Plain text subtitles only (mpv leaves ASS/SSA styling alone unless told to override it).
+        add("sub-font" to (fontFamily ?: "sans-serif"))
         add("sub-color" to hex(style.textArgb(hdr)))
         add("sub-bold" to if (style.bold) "yes" else "no")
         when (style.edge) {

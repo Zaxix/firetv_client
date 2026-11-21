@@ -27,6 +27,11 @@ flowchart LR
 Buffering: Media3 buffers up to 2 min / 160 MB ahead and keeps 15 s behind; mpv keeps 150 MiB ahead
 and 50 MiB behind (96/24 MiB on low-RAM devices). Seeks go to the nearest keyframe.
 
+## Episodes inside a file
+A virtual episode plays its stretch of the file through `ClippedEngine`: its own 0:00–end timeline,
+seeks kept inside it, the engines stopping exactly at its end, and skip markers and chapters moved
+onto it ([[Virtual Episode Splitting]]).
+
 ## Audio track choice
 `PlaybackPreparer` picks the audio track, in this order:
 1. A track picked by hand earlier for this series or movie ([[Subtitles]] → TrackMemory).

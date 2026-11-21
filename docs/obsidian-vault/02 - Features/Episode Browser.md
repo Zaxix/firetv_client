@@ -32,6 +32,11 @@ set, Trakt's next episode (exact UTC air time). See [[Details Page Layout]] for 
   upcoming episodes is added after the others; choosing it shows those episodes without a request.
 - The details page's "Next Episode" date and these come from the same list, so they always agree.
 
+## Several episodes in one file
+Files holding two or more episodes show one card per episode (or, when the server already lists
+each, play only their own part). See [[Virtual Episode Splitting]]. An episode's page has
+**Split Episodes** / **Edit Split** to set where they start by hand.
+
 ## Relevant files
 `data/AirDates.kt` (dates, `Upcoming`), `data/AirDateService.kt`, `ui/screens/Detail.kt`
 (`withUpcoming`, `SeasonPicker`, `EpisodeRow`), `ui/components/Common.kt` (`AuroraChip` note).

@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -252,6 +253,8 @@ fun DetailScreen(route: Route.Detail) {
                     onFavorite = ::toggleFavorite,
                     onPlayed = ::togglePlayed,
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
+                    // Several episodes in this file: where each starts (Virtual Episode Splitting).
+                    onSplit = if (item.isEpisode && item.locationType != "Virtual") { { navigator.push(Route.SplitEditor(item.id)) } } else null,
                     episodesFallback = model.episodes?.firstOrNull { it.locationType != "Virtual" },
                     nextAir = if (item.isSeries) com.auroratv.data.Upcoming.next(model.upcoming) else null,
                 )
@@ -328,6 +331,7 @@ private fun DetailHeader(
     onFavorite: () -> Unit,
     onPlayed: () -> Unit,
     onSeries: (() -> Unit)?,
+    onSplit: (() -> Unit)? = null,
     episodesFallback: BaseItemDto?,
     nextAir: com.auroratv.data.UpcomingEpisode? = null,
 ) {
@@ -339,7 +343,8 @@ private fun DetailHeader(
             ArtworkImage(logo, item.name, Modifier.height(140.dp).widthIn(max = 520.dp), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, showPlaceholder = false, colorFilter = com.auroratv.ui.components.logoColorFilter())
         } else {
             if (item.isEpisode) Text(item.seriesName ?: "", style = AuroraType.section, color = colors.onSurfaceMuted)
-            Text(item.name ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // An episode without a title of its own (a later part of a shared file, say) is called by its number.
+            Text(item.name ?: item.indexNumber?.takeIf { item.isEpisode }?.let { "Episode $it" } ?: "", style = AuroraType.hero, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(16.dp))
         val meta = listOfNotNull(
@@ -409,6 +414,10 @@ private fun DetailHeader(
                 AuroraButton(if (played) "Watched" else "Mark Watched", onPlayed, icon = Icons.Filled.Check, focusKey = "detail/played")
             }
             if (onSeries != null && item.isEpisode) AuroraButton("Go to Series", onSeries, icon = Icons.Filled.Tv, focusKey = "detail/series")
+            if (onSplit != null) {
+                val split = com.auroratv.jellyfin.VirtualIds.isVirtual(item.id) || api.virtual?.handles(item.id) == true
+                AuroraButton(if (split) "Edit Split" else "Split Episodes", onSplit, icon = Icons.Filled.ContentCut, focusKey = "detail/split")
+            }
         }
     }
 }
