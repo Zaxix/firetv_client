@@ -204,6 +204,8 @@ fun EpisodeOrderScreen(route: Route.EpisodeOrder) {
                             val custom = if (model.mode == SeriesOrder.CUSTOM) model.seasons.filter { it.items.isNotEmpty() }
                                 .map { s -> CustomSeason(s.number, s.name, s.items.map { it.id }) } else null
                             api.setOrder(route.seriesId, model.mode, custom)
+                            com.auroratv.core.Log.i("EpisodeOrder", "${series.name}: ${model.mode} order saved" +
+                                (custom?.firstOrNull()?.let { s -> "; season ${s.number} begins ${model.seasons.first().items.take(2).joinToString(", ") { "\"${it.name}\"" }}" } ?: ""))
                             container.prewarmer.invalidate()
                             com.auroratv.data.WatchActivity.changed()
                             navigator.pop()
@@ -272,7 +274,10 @@ private fun EpisodeRow(model: OrderEditorModel, seasonIndex: Int, index: Int, ep
         onClick = {
             when (model.moving) {
                 null -> { model.moving = ep.id; model.before = model.seasons.map { it.number to it.items.toList() } }
-                ep.id -> model.moving = null
+                ep.id -> {
+                    model.moving = null
+                    locate(model, ep.id)?.let { (si, i) -> com.auroratv.core.Log.i("EpisodeOrder", "Moved \"${ep.name}\" to ${model.seasons[si].name ?: "season ${model.seasons[si].number}"}, place ${i + 1}") }
+                }
                 else -> {}
             }
         },

@@ -10,6 +10,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -59,7 +61,8 @@ class TmdbEpisodeGroups(private val http: HttpClient, private val key: () -> Str
         val k = key().trim()
         if (k.isEmpty()) return null
         return try {
-            withTimeoutOrNull(TIMEOUT_MS) {
+            // Timed on the real clock (a test's virtual clock would time it out at once).
+            withContext(Dispatchers.Default) { withTimeoutOrNull(TIMEOUT_MS) {
                 val r = http.get("https://api.themoviedb.org/3/$path") {
                     // A v4 read access token is a JWT; a v3 API key is 32 hex characters.
                     if (k.startsWith("eyJ")) header("Authorization", "Bearer $k") else parameter("api_key", k)
@@ -67,7 +70,7 @@ class TmdbEpisodeGroups(private val http: HttpClient, private val key: () -> Str
                 }
                 if (!r.status.isSuccess()) { Log.w(TAG, "TMDB answered ${r.status.value} for an episode-group request"); return@withTimeoutOrNull null }
                 AuroraJson.decodeFromString<T>(r.bodyAsText())
-            }
+            } }
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {

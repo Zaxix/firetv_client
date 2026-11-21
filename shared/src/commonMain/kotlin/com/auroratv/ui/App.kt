@@ -183,6 +183,7 @@ private fun openLink(nav: Navigator, link: String) {
         link.startsWith("section:") -> Section.entries.firstOrNull { it.name.equals(link.substringAfter(':'), true) }?.let(nav::selectSection)
         link.startsWith("detail:") -> nav.push(Route.Detail(link.substringAfter(':')))
         link.startsWith("player:") -> nav.push(Route.Player(link.substringAfter(':')))
+        link.startsWith("order:") -> nav.push(Route.EpisodeOrder(link.substringAfter(':')))
         link.startsWith("brand:") -> com.auroratv.brands.BrandCatalog.all.firstOrNull { it.id == link.substringAfter(':') }?.let { nav.push(Route.Brand(it.id, it.name)) }
     }
 }

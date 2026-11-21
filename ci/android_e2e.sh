@@ -23,6 +23,7 @@ OWL=$(q "includeItemTypes=Movie&searchTerm=Owl%20Post")
 WAVE2=$(curl -sf "$URL/Shows/$WAVES/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[1].Id')
 PAPER=$(q "includeItemTypes=Series&searchTerm=Paper%20Town")
 PAPER12=$(curl -sf "$URL/Shows/$PAPER/Episodes?userId=$UID_" -H "$A" | jq -r '.Items[0].Id')
+BAY=$(q "includeItemTypes=Series&searchTerm=Zephyr%20Bay")
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 key() { for k in "$@"; do adb shell input keyevent "$k"; sleep 1.2; done; }
@@ -124,6 +125,32 @@ if [ -n "$PAPER12" ] && [ "$PAPER12" != null ]; then
   else
     echo "❌ Virtual episode 2: engine started at '${start}' ms, expected about 240000" | tee -a "$OUT/navigation.txt"; adb logcat -d -s Player:* Splits:* ExoEngine:* | tail -15; NAVFAIL=1
   fi
+  key KEYCODE_BACK; sleep 2; key KEYCODE_BACK; sleep 2
+fi
+# Episode order by remote: in the show's Episode Order screen choose Custom, pick up S02E02 "Zero
+# Letter", move it up twice (past S02E01, into season 1), put it down and save; the show then lists
+# season 1 with four episodes.
+if [ -n "$BAY" ] && [ "$BAY" != null ]; then
+  adb logcat -c
+  open "order:$BAY"; sleep 8; shot android-35-episode-order
+  key KEYCODE_DPAD_UP KEYCODE_DPAD_RIGHT KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 2; shot android-36-episode-order-custom
+  key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN
+  key KEYCODE_DPAD_CENTER KEYCODE_DPAD_UP KEYCODE_DPAD_UP; shot android-37-episode-order-moving; key KEYCODE_DPAD_CENTER; sleep 1
+  moved=$(adb logcat -d -s EpisodeOrder:I | tr -d '\r' | grep -o 'Moved .*' | tail -1)
+  if echo "$moved" | grep -q '"Zero Letter" to Season 1, place 4'; then
+    echo "✅ Episode moved across seasons by remote: $moved" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Episode order by remote: expected Zero Letter at Season 1 place 4, got '${moved}'" | tee -a "$OUT/navigation.txt"; adb logcat -d -s EpisodeOrder:* AuroraFocus:* | tail -10; NAVFAIL=1
+  fi
+  key KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_UP; shot android-38-episode-order-save; key KEYCODE_DPAD_CENTER; sleep 3
+  open "detail:$BAY"; sleep 8; shot android-39-episode-order-series
+  if adb logcat -d -s EpisodeOrder:I | tr -d '\r' | grep -q "order saved" && adb logcat -d -s EpisodeOrder:I | tr -d '\r' | grep -q "in Custom order: Season 1 = 4 episodes"; then
+    echo "✅ Custom episode order saved and used by the show's page: $(adb logcat -d -s EpisodeOrder:I | tr -d '\r' | grep -o 'in Custom order: .*' | tail -1)" | tee -a "$OUT/navigation.txt"
+  else
+    echo "❌ Custom episode order not saved or not used: $(adb logcat -d -s EpisodeOrder:I | tr -d '\r' | tail -4 | tr '\n' ' ')" | tee -a "$OUT/navigation.txt"; NAVFAIL=1
+  fi
+  # Leave the sample show in Jellyfin's order for anything after this.
+  open "order:$BAY"; sleep 6; key KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER; sleep 2
   key KEYCODE_BACK; sleep 2; key KEYCODE_BACK; sleep 2
 fi
 # Anime-style release (38 MB of fonts ahead of the video, subtitles almost always on screen):

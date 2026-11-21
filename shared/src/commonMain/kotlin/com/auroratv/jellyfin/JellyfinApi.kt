@@ -199,6 +199,7 @@ class JellyfinApi(
             o.arrange(seriesId, plan, seasons, all).also {
                 arranged = arranged + (seriesId to CachedArrangement(plan, kotlin.time.TimeSource.Monotonic.markNow(), it))
                 o.remember(it)
+                Log.i("EpisodeOrder", "${all.firstOrNull()?.seriesName ?: seriesId} in ${plan.label}: " + it.seasons.joinToString { s -> "${s.name} = ${it.episodesBySeason[s.id]?.size ?: 0} episodes" })
             }
         }
     }
