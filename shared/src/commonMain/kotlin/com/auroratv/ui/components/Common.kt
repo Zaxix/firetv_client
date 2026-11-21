@@ -254,8 +254,10 @@ fun RankedRail(
                     androidx.compose.foundation.Canvas(Modifier.width(numberWidth).height(posterHeight)) {
                         // Baseline on the poster's bottom edge (digits have nothing below it).
                         val top = androidx.compose.ui.geometry.Offset(0f, size.height - layout.firstBaseline)
+                        // Outline first, twice as wide, then the fill over it: only the outer half of the
+                        // outline shows, so the lines where a glyph's own strokes cross (inside a 4) don't.
+                        drawText(layout, color = RankOutline, topLeft = top, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 6.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round))
                         drawText(layout, color = colors.background, topLeft = top)
-                        drawText(layout, color = RankOutline, topLeft = top, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
                     }
                     MediaCard(
                         item = item,
