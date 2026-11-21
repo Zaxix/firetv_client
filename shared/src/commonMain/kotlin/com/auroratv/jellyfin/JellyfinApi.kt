@@ -6,6 +6,7 @@ import com.auroratv.AppInfo
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.withLock
 import com.auroratv.core.AppError
 import com.auroratv.core.AuroraJson
 import com.auroratv.core.Log
@@ -158,6 +159,94 @@ class JellyfinApi(
 
     /** The server's item for [id]: a virtual episode's file, or [id] itself. */
     private fun sid(id: String) = VirtualIds.serverId(id)
+
+    /**
+     * Series shown in another episode order (DVD, intended, hand-made; see EpisodeOrders). Null, or no
+     * order for a series: the server's order, unchanged.
+     */
+    @kotlin.concurrent.Volatile var order: EpisodeOrders? = null
+    /** Where source orders come from (TMDB episode groups); null: hand-made orders only. */
+    @kotlin.concurrent.Volatile var orderSource: TmdbEpisodeGroups? = null
+
+    private class CachedArrangement(val plan: OrderPlan, val mark: kotlin.time.TimeSource.Monotonic.ValueTimeMark, val value: Arrangement)
+    private val arrangeLock = kotlinx.coroutines.sync.Mutex()
+    /** Arranged series (copy-on-write: read and cleared from any thread). */
+    @kotlin.concurrent.Volatile private var arranged: Map<String, CachedArrangement> = emptyMap()
+
+    /** Forgets arranged lists (watched state or an order changed). */
+    fun invalidateArrangements(seriesId: String? = null) { arranged = if (seriesId == null) emptyMap() else arranged - seriesId }
+
+    private fun List<BaseItemDto>.relabel(): List<BaseItemDto> = order?.let { o -> map { o.relabel(it) } } ?: this
+
+    /** [item] with the season and number its series' order shows (for display; ids and files are the same). */
+    fun displayed(item: BaseItemDto): BaseItemDto = order?.relabel(item) ?: item
+
+    /**
+     * [seriesId]'s episodes arranged in its episode order, or null when it's shown in the server's
+     * order. One request for all its episodes (with its seasons alongside), kept for a minute or until
+     * something is watched, so the season list, each season and Next Up share it.
+     */
+    suspend fun arrangement(seriesId: String): Arrangement? {
+        val o = order ?: return null
+        val plan = o.plan(seriesId) ?: return null
+        return arrangeLock.withLock {
+            arranged[seriesId]?.takeIf { it.plan == plan && it.mark.elapsedNow() < ARRANGEMENT_TTL }?.let { return@withLock it.value }
+            val (seasons, all) = coroutineScope {
+                val s = async { serverSeasons(seriesId) }
+                val e = async { serverEpisodes(seriesId) }
+                s.await() to e.await()
+            }
+            o.arrange(seriesId, plan, seasons, all).also {
+                arranged = arranged + (seriesId to CachedArrangement(plan, kotlin.time.TimeSource.Monotonic.markNow(), it))
+                o.remember(it)
+            }
+        }
+    }
+
+    /**
+     * Looks up the alternative orders TMDB lists for [series] (at most once a week; never when there's
+     * no TMDB key or the series has no TMDB id), fetches the ones automatic ordering would use, and
+     * checks each against the library: kept only if its numbers find the library's episodes under the
+     * same titles. Offline or failing: whatever was found before stays in use. True when the order
+     * [series] is shown in changed.
+     */
+    suspend fun lookUpOrders(series: BaseItemDto, force: Boolean = false): Boolean {
+        val o = order ?: return false
+        val src = orderSource?.takeIf { it.available } ?: return false
+        val tmdb = series.providerIds.entries.firstOrNull { it.key.equals("Tmdb", true) }?.value?.takeIf { it.isNotBlank() } ?: return false
+        val now = com.auroratv.playback.wallClockMs()
+        val current = o.store[series.id]
+        if (!force && current?.sources != null && now - current.sourcesAtMs < EpisodeOrders.SOURCES_TTL_MS) return false
+        val before = o.plan(series.id)
+        val list = src.list(tmdb) ?: return false
+        val wanted = o.candidates(list).filter { it.id !in current?.details.orEmpty() }
+        val fetched = wanted.mapNotNull { src.details(it.id) }
+        val library = if (fetched.isEmpty()) emptyList() else serverEpisodes(series.id, expand = false)
+        val rejected = fetched.mapNotNull { g -> EpisodeOrders.verify(g, library)?.let { g.id to it } }.toMap()
+        o.store.update(series.id) { it.copy(sources = list, sourcesAtMs = now, details = it.details + fetched.associateBy { g -> g.id }, rejected = it.rejected + rejected) }
+        Log.i("EpisodeOrder", "${series.name}: TMDB lists ${list.size} order(s)" +
+            fetched.joinToString("") { g -> "; ${g.kind} \"${g.name}\" " + (rejected[g.id]?.let { "doesn't fit the library ($it)" } ?: "fits the library") })
+        val after = o.plan(series.id)
+        if (after != before) invalidateArrangements(series.id)
+        return after != before
+    }
+
+    /** One of [seriesId]'s source orders, fetched (and checked against the library) if it wasn't yet. Null if unavailable. */
+    suspend fun sourceOrder(seriesId: String, groupId: String): Pair<SourceOrder, String?>? {
+        val o = order ?: return null
+        o.store[seriesId]?.details?.get(groupId)?.let { return it to o.store[seriesId]?.rejected?.get(groupId) }
+        val g = orderSource?.details(groupId) ?: return null
+        val why = EpisodeOrders.verify(g, serverEpisodes(seriesId, expand = false))
+        o.store.update(seriesId) { it.copy(details = it.details + (g.id to g), rejected = if (why != null) it.rejected + (g.id to why) else it.rejected - g.id) }
+        return g to why
+    }
+
+    /** Sets how [seriesId]'s episodes are ordered (see SeriesOrder.mode) and, for a hand-made order, its seasons. */
+    fun setOrder(seriesId: String, mode: String, custom: List<CustomSeason>? = null) {
+        val o = order ?: return
+        o.store.update(seriesId) { it.copy(mode = mode, custom = custom ?: it.custom) }
+        invalidateArrangements(seriesId)
+    }
 
     /** [ids] in that order (a device profile's resume/favourite/history lists). */
     private suspend fun itemsInOrder(ids: List<String>, fields: String = Fields.CARD): List<BaseItemDto> {
@@ -393,7 +482,7 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
         }.read<QueryResult<BaseItemDto>>().items
-        return withVirtualResume(list, limit)
+        return withVirtualResume(list, limit).relabel()
     }
 
     /**
@@ -434,18 +523,42 @@ class JellyfinApi(
     }
 
     suspend fun nextUp(limit: Int = 24, seriesId: String? = null): List<BaseItemDto> {
+        val o = order
+        // A series in another episode order: its next episode in that order (the server's Next Up
+        // follows its own numbering).
+        if (seriesId != null && o?.active(seriesId) == true) {
+            arrangement(seriesId)?.let { a -> return listOfNotNull(o.nextUp(a, allowStarted = true)) }
+        }
         val list = local?.let { l -> localNextUp(l, limit, seriesId) } ?: serverNextUp(limit, seriesId)
-        val v = virtual ?: return list
+        val v = virtual
         // A split file in Next Up is its first episode not finished yet (the server only knows the file).
         // One already started is in Continue Watching, so Home's Next Up leaves it out; a single
         // series' Next Up (its Play button) keeps it, to resume it.
-        return list.flatMap { item ->
+        val split = if (v == null) list else list.flatMap { item ->
             val parts = v.expand(listOf(item))
             if (parts.size == 1) return@flatMap parts
             val next = parts.firstOrNull { it.userData?.played != true }
             listOfNotNull(next?.takeIf { seriesId != null || (it.userData?.playbackPositionTicks ?: 0L) == 0L })
         }
+        if (o == null || split.none { o.active(it.seriesId) }) return split
+        return coroutineScope {
+            split.map { item ->
+                async {
+                    val sid = item.seriesId
+                    if (sid == null || !o.active(sid)) item
+                    else runCatching { arrangement(sid)?.let { o.nextUp(it, allowStarted = seriesId != null) } }.getOrNull()
+                }
+            }.awaitAll().filterNotNull().distinctBy { it.id }
+        }
     }
+
+    /**
+     * What a show's Play starts: the series' Next Up (the episode in progress or next, in the show's
+     * episode order), else its first episode. The same choice as the series page's Play button.
+     */
+    suspend fun seriesPlayTarget(seriesId: String): BaseItemDto? =
+        nextUp(limit = 1, seriesId = seriesId).firstOrNull()
+            ?: episodes(seriesId).firstOrNull { it.locationType != "Virtual" && (it.parentIndexNumber ?: 1) > 0 }
 
     private suspend fun serverNextUp(limit: Int, seriesId: String?): List<BaseItemDto> {
         return http.get(url("/Shows/NextUp")) {
@@ -471,15 +584,34 @@ class JellyfinApi(
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
             parameter("imageTypeLimit", 1)
             parameter("groupItems", true)
-        }.read<List<BaseItemDto>>().withLocal().split()
+        }.read<List<BaseItemDto>>().withLocal().split().relabel()
 
-    suspend fun seasons(seriesId: String): List<BaseItemDto> =
+    suspend fun seasons(seriesId: String): List<BaseItemDto> = arrangement(seriesId)?.seasons ?: serverSeasons(seriesId)
+
+    private suspend fun serverSeasons(seriesId: String): List<BaseItemDto> =
         http.get(url("/Shows/$seriesId/Seasons")) {
             auth(); parameter("userId", requireUser()); parameter("fields", Fields.CARD)
         }.read<QueryResult<BaseItemDto>>().items.withLocal()
 
+    /**
+     * A series' episodes (one season's, or all of them), in its episode order when it has one. From
+     * [startItemId] on: that episode and the ones after it in viewing order (across seasons).
+     */
     suspend fun episodes(seriesId: String, seasonId: String? = null, startItemId: String? = null, limit: Int? = null): List<BaseItemDto> {
-        val v = virtual
+        arrangement(seriesId)?.let { a ->
+            val base = if (seasonId != null) a.episodesBySeason[seasonId].orEmpty() else a.all
+            val from = if (startItemId != null) base.dropWhile { it.id != startItemId } else base
+            return limit?.let { from.take(it) } ?: from
+        }
+        return serverEpisodes(seriesId, seasonId, startItemId, limit)
+    }
+
+    /** Every episode of [seriesId] in the server's own order and numbering (no episode order applied). */
+    suspend fun serverEpisodeList(seriesId: String): List<BaseItemDto> = serverEpisodes(seriesId)
+
+    /** The server's own list of episodes (split files shown as their episodes unless [expand] is false). */
+    private suspend fun serverEpisodes(seriesId: String, seasonId: String? = null, startItemId: String? = null, limit: Int? = null, expand: Boolean = true): List<BaseItemDto> {
+        val v = virtual.takeIf { expand }
         // From a virtual episode: ask from its file (and enough more to cover the file's other parts).
         val serverStart = startItemId?.let(::sid)
         val extra = startItemId?.takeIf { VirtualIds.isVirtual(it) }?.let { v?.splits?.get(sid(it))?.parts?.size } ?: 0
@@ -552,6 +684,7 @@ class JellyfinApi(
     }
 
     suspend fun setPlayed(itemId: String, played: Boolean) {
+        invalidateArrangements()
         // A virtual episode is marked on the device; the server's item follows only when that's true
         // of it too (a split file once all its episodes are watched; unwatched as soon as one isn't).
         virtual?.takeIf { it.handles(itemId) }?.let { v ->
@@ -638,6 +771,7 @@ class JellyfinApi(
     // would move the account's resume points and watched marks). Only a keep-alive ping goes to the
     // server, so a transcode it's serving isn't treated as abandoned.
     suspend fun reportStart(report: PlaybackReport) {
+        invalidateArrangements()
         if (virtualProgress(report, stopped = false)) return
         local?.let { it.progress(report.itemId, report.positionTicks, stopped = false); return }
         http.post(url("/Sessions/Playing")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
@@ -657,6 +791,7 @@ class JellyfinApi(
     }
 
     suspend fun reportStopped(report: PlaybackReport) {
+        invalidateArrangements()
         if (virtualProgress(report, stopped = true)) return
         local?.let { it.progress(report.itemId, report.positionTicks, stopped = true); return }
         http.post(url("/Sessions/Playing/Stopped")) { auth(); contentType(ContentType.Application.Json); setBody(report) }.ensureOk()
@@ -725,3 +860,5 @@ private const val MAX_LOCAL_IDS = 100
 private const val NEXT_UP_SERIES = 8
 /** Episodes fetched after the last finished one when looking for the next (skips specials/watched ones). */
 private const val NEXT_UP_LOOKAHEAD = 6
+/** How long an arranged series (episode order) is reused before its episodes are asked for again. */
+private val ARRANGEMENT_TTL = kotlin.time.Duration.parse("60s")

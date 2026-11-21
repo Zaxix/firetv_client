@@ -237,7 +237,7 @@ class PlayerController(
                 val plan = prepared.plan
                 val startMs = prepared.startMs
                 if (prepared.fonts.isNotEmpty()) { fontsKey = "$itemId/${plan.mediaSource.id}"; fonts = prepared.fonts }
-                _state.update { it.copy(item = item, plan = plan, audioIndex = prepared.audioIndex, subtitleIndex = prepared.subtitleIndex, chapters = item.chapters) }
+                _state.update { it.copy(item = api.displayed(item), plan = plan, audioIndex = prepared.audioIndex, subtitleIndex = prepared.subtitleIndex, chapters = item.chapters) }
                 loadEngine(plan, startMs)
                 playNote = "${if (startMs > 0) "resume at ${startMs / 60_000}:${(startMs / 1000 % 60).toString().padStart(2, '0')}" else "from the start"}, " +
                     "${plan.method.jellyfinName}, ${if (warm != null) "prepared ahead" else "cold"}"
@@ -634,7 +634,9 @@ class PlayerController(
     private suspend fun findNextEpisode(item: BaseItemDto): BaseItemDto? {
         if (!item.isEpisode || item.seriesId == null) return null
         return runCatching {
-            api.episodes(item.seriesId, startItemId = item.id, limit = 2).firstOrNull { it.id != item.id }
+            // The next one in the show's order that's in the library (an episode the server only knows
+            // about, not on disk, can't play).
+            api.episodes(item.seriesId, startItemId = item.id, limit = 6).firstOrNull { it.id != item.id && it.locationType != "Virtual" }
         }.getOrNull()
     }
 

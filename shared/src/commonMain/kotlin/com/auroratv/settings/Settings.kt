@@ -45,6 +45,8 @@ data class Settings(
     val playerEngine: PlayerEngineChoice = PlayerEngineChoice.ExoPlayer,
     val preferredAudioLanguage: String = "",
     val autoPlayNext: Boolean = true,
+    /** Shows play in a documented intended or DVD order when TMDB has one that fits the library (see EpisodeOrders). */
+    val autoEpisodeOrder: Boolean = true,
     /** When to ask "Are you still watching?" before auto-playing another episode. */
     val stillWatching: StillWatchingMode = StillWatchingMode.Smart,
     /** Android TV: switch the display to the video's frame rate (removes 24p judder; screen may blank briefly). */

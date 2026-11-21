@@ -123,6 +123,7 @@ class SessionManager(
 ) {
     private val tag = "Session"
     private val splitStores = HashMap<String, com.auroratv.jellyfin.SplitStore>()
+    private val orderStores = HashMap<String, com.auroratv.jellyfin.OrderStore>()
     private val fileName = "servers.json"
     private var store: ServerStoreFile = load()
 
@@ -293,8 +294,20 @@ class SessionManager(
         if (local != null) api.local = LocalWatchStore(files, key)
         // Episodes stored several to a file: the server's splits are shared, each profile's progress is its own.
         api.virtual = com.auroratv.jellyfin.VirtualEpisodes(splitStore(server.id), LocalWatchStore(files, key, base = "split-watch"))
+        // Episode orders (DVD, intended, hand-made) describe the shows, so they're shared on a server too.
+        api.order = com.auroratv.jellyfin.EpisodeOrders(orderStore(server.id), orderAuto)
+        api.orderSource = orderSource
         return UserSession(server, user, api, local)
     }
+
+    /** "Automatic episode order" (set by the app from its settings). */
+    var orderAuto: () -> Boolean = { true }
+    /** Where alternative episode orders come from (TMDB, with the profile's key); set by the app. */
+    var orderSource: com.auroratv.jellyfin.TmdbEpisodeGroups? = null
+
+    /** One OrderStore per server, shared by every session on it. Main thread. */
+    fun orderStore(serverId: String): com.auroratv.jellyfin.OrderStore =
+        orderStores.getOrPut(serverId) { com.auroratv.jellyfin.OrderStore(files, serverId) }
 
     /** One SplitStore per server, shared by every session on it (they describe the server's files). Main thread. */
     fun splitStore(serverId: String): com.auroratv.jellyfin.SplitStore =

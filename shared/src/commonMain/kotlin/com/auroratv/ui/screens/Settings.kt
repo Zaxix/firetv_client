@@ -216,6 +216,11 @@ private fun PlaybackPage(container: AppContainer) {
             if (s.preferredAudioLanguage.isBlank()) "English when a title has it; anime keeps its original audio" else null,
         ) { set { it.copy(preferredAudioLanguage = LANGUAGES.map { l -> l.first }.after(it.preferredAudioLanguage)) } } }
         item { SettingRow("Auto-play next episode", onOff(s.autoPlayNext)) { set { it.copy(autoPlayNext = !it.autoPlayNext) } } }
+        item { SettingRow(
+            "Automatic episode order",
+            onOff(s.autoEpisodeOrder),
+            "Shows that aired out of order play in their intended or DVD order when TMDB documents one that matches your library (needs a TMDB key under Ratings). Each show can be changed or set by hand from its page.",
+        ) { set { it.copy(autoEpisodeOrder = !it.autoEpisodeOrder) } } }
         item {
             SettingRow(
                 "Ask \"Are you still watching?\"",
@@ -338,6 +343,7 @@ private fun RatingsPage(container: AppContainer) {
     val saved by container.ratingsKeys.keys.collectAsState()
     var mdblist by remember(saved) { mutableStateOf(saved.mdblist) }
     var trakt by remember(saved) { mutableStateOf(saved.trakt) }
+    var tmdb by remember(saved) { mutableStateOf(saved.tmdb) }
     var status by remember { mutableStateOf<String?>(null) }
     val colors = Aurora.colors
     androidx.compose.runtime.LaunchedEffect(session) { runCatching { container.ratingsKeys.pull(session.api) } }
@@ -362,14 +368,24 @@ private fun RatingsPage(container: AppContainer) {
         item { AuroraTextField(mdblist, { mdblist = it }, "MDBList API key", Modifier.fillMaxWidth(), password = true) }
         item { AuroraTextField(trakt, { trakt = it }, "Trakt Client ID", Modifier.fillMaxWidth(), password = true) }
         item {
+            Text(
+                "TMDB brings episode orders (a show's DVD order, or an intended order where one is documented), " +
+                    "used to put episodes that aired out of order back where they belong (themoviedb.org → Settings → API; " +
+                    "paste the API Key or the API Read Access Token).",
+                style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            )
+        }
+        item { AuroraTextField(tmdb, { tmdb = it }, "TMDB API key", Modifier.fillMaxWidth(), password = true) }
+        item {
             SettingRow("Save and test", status, "Keys are stored encrypted on this device and in your Jellyfin profile, so your other Aurora devices get them too") {
-                val keys = com.auroratv.ratings.RatingsKeys(mdblist, trakt)
+                val keys = com.auroratv.ratings.RatingsKeys(mdblist, trakt, tmdb)
                 status = "Checking…"
                 scope.launch {
                     container.ratingsKeys.save(keys)
                     val results = buildList {
                         if (keys.mdblist.isNotBlank()) add("MDBList: " + container.ratings.testMdbList(keys.mdblist))
                         if (keys.trakt.isNotBlank()) add("Trakt: " + container.ratings.testTrakt(keys.trakt))
+                        if (keys.tmdb.isNotBlank()) add("TMDB: " + com.auroratv.jellyfin.TmdbEpisodeGroups(container.http) { keys.tmdb }.test())
                         add(runCatching { container.ratingsKeys.push(session.api, keys); "synced to your profile" }.getOrElse { "not synced (${it.toAppError().userMessage})" })
                     }
                     status = results.joinToString(" · ")
@@ -378,7 +394,7 @@ private fun RatingsPage(container: AppContainer) {
         }
         if (saved.hasAny) {
             item {
-                SettingRow("Remove keys", null, "Forgets both keys on this device and in your Jellyfin profile") {
+                SettingRow("Remove keys", null, "Forgets the keys on this device and in your Jellyfin profile") {
                     scope.launch {
                         container.ratingsKeys.save(com.auroratv.ratings.RatingsKeys())
                         runCatching { container.ratingsKeys.push(session.api, com.auroratv.ratings.RatingsKeys()) }

@@ -80,6 +80,9 @@ class AppContainer(val platform: Platform) {
     var launchSettingsOverride: ((com.auroratv.settings.Settings) -> com.auroratv.settings.Settings)? = null
 
     init {
+        // Episode orders: automatic ones follow the setting; TMDB is asked with the open profile's key.
+        sessions.orderAuto = { settings.current.autoEpisodeOrder }
+        sessions.orderSource = com.auroratv.jellyfin.TmdbEpisodeGroups(http) { ratingsKeys.keys.value.tmdb }
         // Opening a profile loads its own settings and local data before any screen reads them.
         sessions.onActivate = { profile ->
             val key = profile.key

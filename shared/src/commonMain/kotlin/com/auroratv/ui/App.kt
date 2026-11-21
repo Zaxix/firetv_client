@@ -378,6 +378,7 @@ private fun RouteContent(container: AppContainer, route: Route) {
         is Route.Detail -> DetailScreen(route)
         is Route.Player -> PlayerScreen(container, route)
         is Route.SplitEditor -> com.auroratv.ui.screens.SplitEditorScreen(route)
+        is Route.EpisodeOrder -> com.auroratv.ui.screens.EpisodeOrderScreen(route)
     }
 }
 

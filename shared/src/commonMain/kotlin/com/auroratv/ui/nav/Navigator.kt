@@ -27,6 +27,8 @@ sealed interface Route {
     data class Player(val itemId: String, val startFromBeginning: Boolean = false, val preview: BaseItemDto? = null, val previewAtMs: Long? = null) : Route
     /** Where the episodes in one file start and end (Virtual Episode Splitting). */
     data class SplitEditor(val itemId: String) : Route
+    /** A show's episode order: automatic, from TMDB, or arranged by hand. */
+    data class EpisodeOrder(val seriesId: String) : Route
 }
 
 /**
