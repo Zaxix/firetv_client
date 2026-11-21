@@ -49,6 +49,8 @@ class AppContainer(val platform: Platform) {
     /** Home's "Because You Watched" / "Recommended For You" rows, per profile (see RecommendationService). */
     val recommendations = com.auroratv.recommend.RecommendationService(appScope, platform.files)
     /** Home's rows as last shown, per profile (this session only; see HomeSnapshot). */
+    /** "Top 10 in Your Home" (most watched by this device's profiles on the server). */
+    val top10 = com.auroratv.recommend.HouseholdTop10()
     val homeMemory = LinkedHashMap<String, com.auroratv.ui.screens.HomeSnapshot>()
     fun rememberHome(profileKey: String, snapshot: com.auroratv.ui.screens.HomeSnapshot) {
         homeMemory.remove(profileKey); homeMemory[profileKey] = snapshot

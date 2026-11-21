@@ -6,6 +6,16 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Top 10 in Your Home
+A Home row of the ten films and shows watched most in the household:
+- **Whose viewing counts:** every profile on this device, on the current server.
+- **Ranking:** time watched in the last 30 days, then all-time.
+- **What each profile sees:** only titles it's allowed to see.
+- **Look:** posters standing in front of tall outlined numerals.
+
+One request per account profile, at most every 30 minutes; no internet needed. See
+[[Top 10 in Your Home]].
+
 ## Episode orders, and the Home banner's Play
 ### Episode orders
 Shows that aired out of order can be shown, browsed and played in another order, across seasons

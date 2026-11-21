@@ -5,9 +5,11 @@ tags: [feature, performance]
 
 ## What it does
 The first screen after "Who's watching?". From top to bottom: the featured banner (hero), optional
-brand tiles, then rows: **Continue Watching**, **Next Up**, the recommendation rows
+brand tiles, then rows: **Continue Watching**, **Next Up**, **Top 10 in Your Home** (most watched by this device's profiles, numerals behind the posters; see [[Top 10 in Your Home]]), the recommendation rows
 ("Because You Watched …", "Recommended For You"), **Recently Added in <library>** for each library,
 and **Favorites**.
+
+The banner features a show by its newest episode, but its **Play** continues the show (the episode in progress or next, in the show's order) and **More Info** opens the show ([[Episode Orders]]).
 
 ## How it works
 `HomeScreen` in `ui/screens/Home.kt` runs one load when it first opens:

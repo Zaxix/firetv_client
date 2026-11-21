@@ -1,6 +1,7 @@
 package com.auroratv.ui.components
 
 import androidx.compose.runtime.remember
+import androidx.compose.ui.text.drawText
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
@@ -204,6 +205,76 @@ fun ContentRail(
         } }
     }
 }
+
+/**
+ * A ranked row ("Top 10 in Your Home"): each poster stands in front of its place, drawn as a tall
+ * outlined numeral as high as the poster, the poster covering the numeral's right edge. Posters
+ * only (no titles under them), so the numbers carry the row.
+ */
+@Composable
+fun RankedRail(
+    title: String,
+    items: List<BaseItemDto>,
+    images: ImageUrls,
+    railKey: String,
+    onItemClick: (BaseItemDto) -> Unit,
+    modifier: Modifier = Modifier,
+    onItemFocused: ((BaseItemDto) -> Unit)? = null,
+) {
+    val colors = Aurora.colors
+    val style = CardStyle.Poster
+    val posterHeight = style.width / style.aspect
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    // Digits stand about 0.72 em tall: sized so a numeral is nine tenths of the poster's height.
+    val base = AuroraType.title
+    val numeral = remember(density, base) {
+        base.copy(
+            fontSize = with(density) { (posterHeight * 0.9f / 0.72f).toSp() },
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+            letterSpacing = with(density) { (-14).dp.toSp() },
+            lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
+        )
+    }
+    Column(modifier.fillMaxWidth().revealOnFocus()) {
+        Text(title, style = AuroraType.section, color = colors.onBackground, modifier = Modifier.padding(start = ScreenStart, bottom = 14.dp))
+        val state = rememberLazyListState()
+        RowScroll { LazyRow(
+            state = state,
+            contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.focusRow().focusRestorer(),
+        ) {
+            itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
+                val layout = remember(index, numeral) { measurer.measure((index + 1).toString(), numeral) }
+                val numberWidth = with(density) { layout.size.width.toDp() }
+                // The poster covers the numeral's right quarter.
+                val posterStart = numberWidth * 0.74f
+                Box(Modifier.width(posterStart + style.width).height(posterHeight)) {
+                    androidx.compose.foundation.Canvas(Modifier.width(numberWidth).height(posterHeight)) {
+                        // Baseline on the poster's bottom edge (digits have nothing below it).
+                        val top = androidx.compose.ui.geometry.Offset(0f, size.height - layout.firstBaseline)
+                        drawText(layout, color = colors.background, topLeft = top)
+                        drawText(layout, color = RankOutline, topLeft = top, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
+                    }
+                    MediaCard(
+                        item = item,
+                        images = images,
+                        style = style,
+                        onClick = { onItemClick(item) },
+                        focusKey = "$railKey/${item.id}",
+                        showTitle = false,
+                        onFocused = { onItemFocused?.invoke(item) },
+                        modifier = Modifier.padding(start = posterStart),
+                    )
+                }
+            }
+        } }
+    }
+}
+
+/** The outline of a rank numeral: light grey, so it reads on any backdrop without competing with posters. */
+private val RankOutline = androidx.compose.ui.graphics.Color(0xFFA3A3AB)
 
 /** Shimmering placeholder blocks shown instead of a blank screen while content loads. */
 @Composable

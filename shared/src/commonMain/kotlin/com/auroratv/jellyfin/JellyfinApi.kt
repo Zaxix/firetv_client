@@ -554,6 +554,23 @@ class JellyfinApi(
     }
 
     /**
+     * This account's viewing history: films and episodes by when they were last played (most recent
+     * first; never-played ones sort last and are dropped). For the household's Top 10.
+     */
+    suspend fun watchHistory(limit: Int = 300): List<BaseItemDto> =
+        http.get(url("/Items")) {
+            auth()
+            parameter("userId", requireUser())
+            parameter("recursive", true)
+            parameter("includeItemTypes", "Movie,Episode")
+            parameter("sortBy", "DatePlayed")
+            parameter("sortOrder", "Descending")
+            parameter("limit", limit)
+            parameter("enableImages", false)
+            parameter("enableTotalRecordCount", false)
+        }.read<QueryResult<BaseItemDto>>().items.filter { it.userData?.lastPlayedDate != null }
+
+    /**
      * What a show's Play starts: the series' Next Up (the episode in progress or next, in the show's
      * episode order), else its first episode. The same choice as the series page's Play button.
      */

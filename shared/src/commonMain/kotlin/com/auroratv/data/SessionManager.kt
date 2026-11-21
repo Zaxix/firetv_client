@@ -300,6 +300,18 @@ class SessionManager(
         return UserSession(server, user, api, local)
     }
 
+    /**
+     * Every profile on [serverId] this device knows, for the household's Top 10: a client per account
+     * profile (its own sign-in, at [baseUrl]: the address that's answering now) and each device-only
+     * profile's watch history. Read only.
+     */
+    fun household(serverId: String, baseUrl: String): Pair<List<JellyfinApi>, List<LocalWatchStore>> {
+        val server = serverById(serverId) ?: return emptyList<JellyfinApi>() to emptyList()
+        val accounts = server.users.mapNotNull { u -> vault.get(tokenKey(server.id, u.id))?.let { JellyfinApi(http, baseUrl, identity, it, u.id) } }
+        val locals = server.users.flatMap { u -> u.localProfiles.map { l -> LocalWatchStore(files, Profile(server, u, l).key) } }
+        return accounts to locals
+    }
+
     /** "Automatic episode order" (set by the app from its settings). */
     var orderAuto: () -> Boolean = { true }
     /** Where alternative episode orders come from (TMDB, with the profile's key); set by the app. */

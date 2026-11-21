@@ -20,7 +20,7 @@ flowchart LR
   Charlotte case), the audio default (`AudioDefaultTest`), temporary files (`EpisodeTempFilesTest`),
   search, stores, updates, VPN address racing, subtitle choice (`SubtitleSelectionTest`: full vs
   Signs & Songs, SDH, only S&S, ambiguous names, dubs, missing metadata, hand-picked S&S on the next
-  episode), virtual episodes (`VirtualEpisodesTest`), episode orders (`EpisodeOrderTest`: a Steven-Universe-like DVD order across seasons, verification against the library, intended-before-DVD, custom orders, split parts inside orders, persistence, TMDB simulated and unreachable, the banner's Play target), film subtitle fonts (`SubtitleThemesTest`),
+  episode), virtual episodes (`VirtualEpisodesTest`), the household Top 10 (`HouseholdTop10Test`: ranking by time watched lately then all-time, server and device histories, titles hidden from the viewer left out, caching), episode orders (`EpisodeOrderTest`: a Steven-Universe-like DVD order across seasons, verification against the library, intended-before-DVD, custom orders, split parts inside orders, persistence, TMDB simulated and unreachable, the banner's Play target), film subtitle fonts (`SubtitleThemesTest`),
   the recommendation cache (`RecommendationCacheTest`), air dates (`AirDatesTest`: time
   zones, aired/today, placeholders, Trakt merge) and audio edges (`AudioFingerprintTest`). They run on the JVM test host (`:shared:jvmTest`) and
   on Android (`:shared:testDebugUnitTest`).
@@ -36,7 +36,7 @@ flowchart LR
   from the side menu three times (`am start --activity-single-top … --es route section:…`, delivered
   through `MainActivity.onNewIntent`), skip-marker timing, and the
   "Layout and UI sounds" block (first-card position, headings, details hero, 3 moves = 3 ticks,
-  OK = 1 chime, no sounds in the player, none when switched off), and an episode moved across seasons with the remote in the Episode Order screen, saved and used by the show's page.
+  OK = 1 chime, no sounds in the player, none when switched off), the Top 10 row worked out and shown on Home, and an episode moved across seasons with the remote in the Episode Order screen, saved and used by the show's page.
 
 Results and screenshots are pushed to the `ci-results` branch; builds to the `latest-build` release.
 

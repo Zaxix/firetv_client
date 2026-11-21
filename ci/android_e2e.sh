@@ -285,6 +285,18 @@ echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
+# Top 10 in Your Home: the titles played above, ranked by time watched, as a row of posters with
+# their places drawn as numerals behind them.
+adb logcat -c
+open "section:Home"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 3; shot android-40-home-top10-a
+key KEYCODE_DPAD_DOWN; sleep 3; shot android-41-home-top10-b
+top=$(adb logcat -d -s Top10:I | tr -d '\r' | grep -o 'Top 10 in Your Home: .*' | tail -1)
+if echo "$top" | grep -qE ': ([3-9]|10) titles shown'; then
+  echo "✅ $top" | tee -a "$OUT/navigation.txt"
+else
+  echo "❌ Top 10 row: ${top:-not worked out} $(adb logcat -d -s Top10:* | tr -d '\r' | tail -3 | tr '\n' ' ')" | tee -a "$OUT/navigation.txt"; NAVFAIL=1
+fi
+
 # ---- MPV player: the same subtitle-heavy titles through libmpv (switched with the `player` extra) ----
 # Start EP1 from the beginning (the ExoPlayer run above left a resume point in it).
 curl -sf -X POST "$URL/UserItems/$EP1/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":0}' >/dev/null || true

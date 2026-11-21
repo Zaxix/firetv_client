@@ -81,6 +81,14 @@ class LocalWatchStore(
 
     private fun meta(id: String) = seen.load()[id]
 
+    /** One thing this profile watched or started (for the household's Top 10). */
+    data class HistoryEntry(val id: String, val seriesId: String?, val watched: Boolean, val positionTicks: Long, val runtimeTicks: Long, val atMs: Long)
+
+    /** Everything this profile watched or started, with when. */
+    fun history(): List<HistoryEntry> = entries.load().mapNotNull { (id, e) ->
+        if (!e.w && e.p == 0L) null else HistoryEntry(id, e.s, e.w, e.p, e.rt, e.t)
+    }
+
     /** Anything recorded for [id] (progress, watched, favourite). */
     fun has(id: String): Boolean = entries.load()[id] != null
     fun isWatched(id: String): Boolean = entries.load()[id]?.w == true

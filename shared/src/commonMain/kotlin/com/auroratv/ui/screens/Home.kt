@@ -63,6 +63,7 @@ import com.auroratv.ui.components.screenArtworkPx
 import com.auroratv.ui.components.AuroraButton
 import com.auroratv.ui.components.CardStyle
 import com.auroratv.ui.components.ContentRail
+import com.auroratv.ui.components.RankedRail
 import com.auroratv.ui.components.ErrorState
 import com.auroratv.ui.components.ScreenPadding
 import com.auroratv.ui.components.ScreenStart
@@ -188,9 +189,11 @@ private fun arrangeRails(
     recommendations: List<RailState>,
     libraries: List<RailState>,
     favorites: RailState?,
+    top10: RailState? = null,
 ): List<RailState> = buildList {
     if (resume.isNotEmpty()) add(RailState("resume", "Continue Watching", CardStyle.Landscape) { resume }.also { it.items = resume })
     if (nextUp.isNotEmpty()) add(RailState("nextup", "Next Up", CardStyle.Landscape) { nextUp }.also { it.items = nextUp })
+    top10?.let(::add)
     recommendations.filter { it.key != "because-1" }.forEach(::add)
     addAll(libraries)
     recommendations.firstOrNull { it.key == "because-1" }?.let(::add)
@@ -342,6 +345,11 @@ fun HomeScreen() {
                     api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                 }
                 val libraryRails = libraryViews.map { view -> latestRails.getValue(view.id) }
+                // Top 10 in Your Home: what this device's profiles watch most on this server.
+                val top10 = RailState(TOP10_KEY, "Top 10 in Your Home", CardStyle.Poster) {
+                    val (accounts, locals) = container.sessions.household(session.server.id, api.baseUrl)
+                    container.top10.top(api, session.server.id, accounts, locals)
+                }
                 // The history is sent alongside the others. If it's back by the time the other rows
                 // are (or within REC_WAIT_MS of Home opening), its rows are placed at once; otherwise
                 // the rows show without it and the recommendation rows are merged in when it arrives.
@@ -350,13 +358,13 @@ fun HomeScreen() {
                 // A plan kept from earlier (even an old one) places the rows at once; a newer one
                 // replaces it in place if the history has changed.
                 val plan = peek?.plan ?: if (recPlan.isCompleted) recPlan.await() else kotlinx.coroutines.withTimeoutOrNull(budget) { recPlan.await() }
-                val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites)
+                val rails = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan), libraryRails, favorites, top10)
                 if (plan == null || peek?.fresh == false) launch {
                     val late = recPlan.await() ?: return@launch
                     if (plan != null && late.signature == plan.signature && late.seeds.map { it.id } == plan.seeds.map { it.id }) return@launch
                     val now = model.rails ?: return@launch
                     model.rails = mergeRails(now, arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, late),
-                        now.filter { it.key.startsWith("latest-") }, now.firstOrNull { it.key == "favorites" }))
+                        now.filter { it.key.startsWith("latest-") }, now.firstOrNull { it.key == "favorites" }, now.firstOrNull { it.key == TOP10_KEY }))
                 }
                 // Rows that haven't loaded yet keep showing last session's items until they do.
                 val shown = model.rails?.associateBy { it.key }.orEmpty()
@@ -407,7 +415,7 @@ fun HomeScreen() {
                     .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }.getOrNull()
                 val current = model.rails ?: return@coroutineScope
                 val fresh = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan),
-                    current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" })
+                    current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" }, current.firstOrNull { it.key == TOP10_KEY })
                 model.rails = mergeRails(current, fresh)
             }
         }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Home", "Refresh after watching failed: ${it.message}") }
@@ -475,6 +483,14 @@ fun HomeScreen() {
                         items == null -> SkeletonRail(rail.style)
                         items.isEmpty() && rail.failed -> RailRetry(rail.title) { scope.launch { rail.ensureLoaded() } }
                         items.isEmpty() -> Unit
+                        rail.key == TOP10_KEY -> RankedRail(
+                            title = rail.title,
+                            items = items,
+                            images = api.images,
+                            railKey = rail.key,
+                            onItemClick = { item -> openItem(navigator, item) },
+                            onItemFocused = { model.focused = it },
+                        )
                         else -> ContentRail(
                             title = rail.title,
                             items = items,
@@ -495,6 +511,7 @@ fun HomeScreen() {
 }
 
 private const val HERO_WAIT_MS = 4_000L
+private const val TOP10_KEY = "top10"
 private const val HOME_COST_AFTER_MS = 10_000L
 private const val REC_WAIT_MS = 600L
 /** Home opened again within this long of its last load shows the same rows without asking the server. */
