@@ -6,6 +6,31 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Episode orders, and the Home banner's Play
+### Episode orders
+Shows that aired out of order can be shown, browsed and played in another order, across seasons
+too, without touching Jellyfin, the files or anyone's progress.
+- **Automatic:** a documented intended order, else the DVD order, from TMDB (with the viewer's free
+  TMDB key, Settings → Ratings). Used only after its numbers and titles are checked against the
+  library. Looked up at most weekly from the TV, and kept on the device for when TMDB or the
+  internet is down.
+- **By hand:** **Episode Order** on a show's page. Choose Automatic, Jellyfin's order, any TMDB
+  order or Custom; move episodes with the remote (Up/Down one place, Left/Right to another season),
+  type a position, add a season, save, or reset to Jellyfin's order.
+- **Used everywhere:** season tabs and rows, Next Episode and autoplay (across seasons), Next Up,
+  the player's episode menu, and the numbers on cards. Episodes keep their ids, so the right video
+  plays and progress stays attached.
+- **Works with split files:** each part of a file holding several episodes takes its own place.
+
+See [[Episode Orders]].
+
+### The Home banner's Play (the Gumball "random episodes" problem)
+- **Before:** the banner featured a show by its newest episode and played that episode. Once it was
+  watched, Jellyfin's Next Up (which follows the highest-numbered episode watched) jumped past
+  everything before it.
+- **Now:** a show on the banner plays what its own page's Play would, and More Info opens the show.
+- **Also:** Next Episode skips episodes the server lists without a file.
+
 ## Several episodes in one file, and film fonts for subtitles
 ### Virtual Episode Splitting
 Files holding two or more episodes (common with cartoons) are shown and played as separate episodes.

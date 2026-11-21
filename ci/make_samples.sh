@@ -328,6 +328,26 @@ paper "$P/Season 01/Paper Town - S01E03.mkv" 240 "$TMP/pt_single.txt" "Snow"
 paper "$P/Season 01/Paper Town - S01E04-E05.mkv" 480 "$TMP/pt_plain.txt" "Lanterns / Bridges"
 { for i in $(seq 0 47); do s=$((i * 10)); printf '%d\n%02d:%02d:%02d,000 --> %02d:%02d:%02d,000\nLine at %d:%02d of the file\n\n' $((i + 1)) 0 $((s / 60)) $((s % 60)) 0 $(((s + 4) / 60)) $(((s + 4) % 60)) $((s / 60)) $((s % 60)); done; } > "$P/Season 01/Paper Town - S01E01-E02.en.srt"
 
+# ---------- 6c2) Two seasons, one episode aired late (episode orders) ----------
+# "Zero Letter" was made for season 1 but aired as S02E02: a hand-made order moves it back into
+# season 1 (cross-season placement, next episode, Next Up, progress kept). Tiny files: 20 s each.
+# (Jellyfin names these episodes after their files; the series name starts with Z so the other
+# checks' "first episodes by name" stay the same.)
+B="$OUT/tv/Zephyr Bay"; mkdir -p "$B/Season 01" "$B/Season 02"
+cat > "$B/tvshow.nfo" <<'NFO'
+<?xml version="1.0" encoding="utf-8"?><tvshow><title>Zephyr Bay</title><year>2018</year><genre>Animation</genre><plot>A lighthouse town. Synthetic test series: one episode aired a season late.</plot></tvshow>
+NFO
+bay() { # file title
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i "testsrc2=duration=20:size=160x90:rate=10" -f lavfi -i "sine=frequency=330:duration=20" \
+    -c:v libx264 -preset ultrafast -crf 45 -pix_fmt yuv420p -c:a aac -b:a 32k -metadata title="$2" "$1"
+}
+bay "$B/Season 01/Zephyr Bay - S01E01.mkv" "Zest of Dawn"
+bay "$B/Season 01/Zephyr Bay - S01E02.mkv" "Zinc Tide"
+bay "$B/Season 01/Zephyr Bay - S01E03.mkv" "Zodiac Keeper"
+bay "$B/Season 02/Zephyr Bay - S02E01.mkv" "Zenith Storm"
+bay "$B/Season 02/Zephyr Bay - S02E02.mkv" "Zero Letter"
+bay "$B/Season 02/Zephyr Bay - S02E03.mkv" "Zigzag Fair"
+
 # ---------- 6d) A live-action show whose closing credits look alike but sound different ----------
 # White text rolling up a black screen at the end of every episode, over music that changes every
 # episode (so listening can't find it), and in episode 2 a post-credits scene after them. Exercises

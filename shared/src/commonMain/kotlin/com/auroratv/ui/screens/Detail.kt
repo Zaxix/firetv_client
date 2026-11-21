@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Tv
@@ -127,7 +128,8 @@ fun DetailScreen(route: Route.Detail) {
                 val similar = async { runCatching { api.similar(route.itemId) }.getOrDefault(emptyList()) }
                 val seasonsEarly = if (knownSeries) async { api.seasons(route.itemId) } else null
                 val nextEarly = if (knownSeries) async { runCatching { api.nextUp(limit = 1, seriesId = route.itemId).firstOrNull() }.getOrNull() } else null
-                val item = api.item(route.itemId)
+                // An episode shows its number in its show's episode order, if the show has one.
+                val item = api.displayed(api.item(route.itemId))
                 model.item = item
                 model.error = null
                 if (item.isSeries) {
@@ -167,6 +169,14 @@ fun DetailScreen(route: Route.Detail) {
             launch { container.ratings.ratings(item)?.let { model.ratings = it } }
             launch { model.reviews = container.ratings.reviews(item) }
         }
+    }
+    // A show's alternative episode orders (TMDB): looked up after the page is up, at most weekly. When
+    // that changes the order the show is in (its DVD or intended order applies now), the page reloads.
+    LaunchedEffect(loadedId) {
+        val item = model.item ?: return@LaunchedEffect
+        if (loadedId == null || !item.isSeries) return@LaunchedEffect
+        container.ratingsKeys.pull(api)
+        if (runCatching { api.lookUpOrders(item) }.getOrDefault(false)) { model.selectedSeason = null; reload++ }
     }
     // Air dates of upcoming episodes: after the page is up, from memory when this series was opened
     // in the last few hours, else one small request (never for a series that has ended).
@@ -255,6 +265,8 @@ fun DetailScreen(route: Route.Detail) {
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
                     // Several episodes in this file: where each starts (Virtual Episode Splitting).
                     onSplit = if (item.isEpisode && item.locationType != "Virtual") { { navigator.push(Route.SplitEditor(item.id)) } } else null,
+                    // Episodes that aired out of order: the show's episode order (automatic or by hand).
+                    onOrder = if (item.isSeries) { { navigator.push(Route.EpisodeOrder(item.id)) } } else null,
                     episodesFallback = model.episodes?.firstOrNull { it.locationType != "Virtual" },
                     nextAir = if (item.isSeries) com.auroratv.data.Upcoming.next(model.upcoming) else null,
                 )
@@ -332,6 +344,7 @@ private fun DetailHeader(
     onPlayed: () -> Unit,
     onSeries: (() -> Unit)?,
     onSplit: (() -> Unit)? = null,
+    onOrder: (() -> Unit)? = null,
     episodesFallback: BaseItemDto?,
     nextAir: com.auroratv.data.UpcomingEpisode? = null,
 ) {
@@ -417,6 +430,11 @@ private fun DetailHeader(
             if (onSplit != null) {
                 val split = com.auroratv.jellyfin.VirtualIds.isVirtual(item.id) || api.virtual?.handles(item.id) == true
                 AuroraButton(if (split) "Edit Split" else "Split Episodes", onSplit, icon = Icons.Filled.ContentCut, focusKey = "detail/split")
+            }
+            if (onOrder != null) {
+                // "DVD Order", "Intended Order", "Custom Order" when one applies.
+                val current = api.order?.plan(item.id)?.label?.split(' ')?.joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+                AuroraButton(current ?: "Episode Order", onOrder, icon = Icons.Filled.FormatListNumbered, focusKey = "detail/order")
             }
         }
     }

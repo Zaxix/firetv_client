@@ -55,8 +55,11 @@ data class Review(
     val date: String?,
 )
 
-/** API keys for the optional rating sources. Both are free; see Settings → Ratings. */
-data class RatingsKeys(val mdblist: String = "", val trakt: String = "") {
+/**
+ * API keys for the optional outside sources, all free; see Settings → Ratings. [tmdb]: TMDB's
+ * episode groups (DVD / intended episode orders), a v3 API key or a v4 read access token.
+ */
+data class RatingsKeys(val mdblist: String = "", val trakt: String = "", val tmdb: String = "") {
     val hasAny get() = mdblist.isNotBlank() || trakt.isNotBlank()
 }
 
@@ -71,7 +74,7 @@ class RatingsKeyStore(private val vault: SecureVault) {
     val keys: StateFlow<RatingsKeys> = _keys.asStateFlow()
     private var pulledFrom: String? = null
 
-    private fun read() = RatingsKeys(vault.get(MDBLIST + suffix).orEmpty(), vault.get(TRAKT + suffix).orEmpty())
+    private fun read() = RatingsKeys(vault.get(MDBLIST + suffix).orEmpty(), vault.get(TRAKT + suffix).orEmpty(), vault.get(TMDB + suffix).orEmpty())
 
     /** Each profile has its own keys; keys saved before profiles existed go to the first profile opened. */
     fun switchProfile(profile: String) {
@@ -79,18 +82,20 @@ class RatingsKeyStore(private val vault: SecureVault) {
         if (next == suffix) return
         vault.get(MDBLIST)?.let { if (vault.get(MDBLIST + next) == null) vault.put(MDBLIST + next, it); vault.remove(MDBLIST) }
         vault.get(TRAKT)?.let { if (vault.get(TRAKT + next) == null) vault.put(TRAKT + next, it); vault.remove(TRAKT) }
+        vault.get(TMDB)?.let { if (vault.get(TMDB + next) == null) vault.put(TMDB + next, it); vault.remove(TMDB) }
         suffix = next
         pulledFrom = null
         _keys.value = read()
     }
 
     /** Forgets a removed profile's keys. */
-    fun forgetProfile(profile: String) { vault.remove("$MDBLIST:$profile"); vault.remove("$TRAKT:$profile") }
+    fun forgetProfile(profile: String) { vault.remove("$MDBLIST:$profile"); vault.remove("$TRAKT:$profile"); vault.remove("$TMDB:$profile") }
 
     fun save(keys: RatingsKeys) {
-        val clean = RatingsKeys(keys.mdblist.trim(), keys.trakt.trim())
+        val clean = RatingsKeys(keys.mdblist.trim(), keys.trakt.trim(), keys.tmdb.trim())
         if (clean.mdblist.isBlank()) vault.remove(MDBLIST + suffix) else vault.put(MDBLIST + suffix, clean.mdblist)
         if (clean.trakt.isBlank()) vault.remove(TRAKT + suffix) else vault.put(TRAKT + suffix, clean.trakt)
+        if (clean.tmdb.isBlank()) vault.remove(TMDB + suffix) else vault.put(TMDB + suffix, clean.tmdb)
         _keys.value = clean
     }
 
@@ -104,19 +109,21 @@ class RatingsKeyStore(private val vault: SecureVault) {
         val merged = RatingsKeys(
             current.mdblist.ifBlank { prefs["mdblistKey"].orEmpty() },
             current.trakt.ifBlank { prefs["traktClientId"].orEmpty() },
+            current.tmdb.ifBlank { prefs["tmdbKey"].orEmpty() },
         )
         if (merged != current) save(merged)
     }
 
     /** Stores the keys in the user's Jellyfin profile so their other Aurora devices pick them up. */
     suspend fun push(api: JellyfinApi, keys: RatingsKeys) {
-        api.saveCustomPrefs(PREFS_ID, PREFS_CLIENT, mapOf("mdblistKey" to keys.mdblist.trim(), "traktClientId" to keys.trakt.trim()))
+        api.saveCustomPrefs(PREFS_ID, PREFS_CLIENT, mapOf("mdblistKey" to keys.mdblist.trim(), "traktClientId" to keys.trakt.trim(), "tmdbKey" to keys.tmdb.trim()))
         pulledFrom = "${api.baseUrl}|${api.userId}"
     }
 
     companion object {
         private const val MDBLIST = "ratings:mdblist"
         private const val TRAKT = "ratings:trakt"
+        private const val TMDB = "ratings:tmdb"
         const val PREFS_ID = "aurora-ratings"
         const val PREFS_CLIENT = "AuroraTV"
     }

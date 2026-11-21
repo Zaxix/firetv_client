@@ -262,6 +262,29 @@ fun HomeScreen() {
     LaunchedEffect(Unit) {
         prewarmRequests.collectLatest { id -> if (id != null) { delay(PREWARM_DELAY_MS); container.prewarmPlayback(api, id) } }
     }
+    // A show on the banner (often its newest episode) plays what its own page's Play would: the
+    // episode in progress or next in its order, never the newest one just because it was added last
+    // (that jumped viewers far ahead, and the server's Next Up then followed the jump).
+    val bannerTargets = remember(session) { HashMap<String, BaseItemDto>() }
+    val bannerFocus = remember { kotlinx.coroutines.flow.MutableStateFlow<BaseItemDto?>(null) }
+    LaunchedEffect(Unit) {
+        bannerFocus.collectLatest { item ->
+            item ?: return@collectLatest
+            val series = bannerSeries(item)
+            if (series == null) { prewarmRequests.value = item.id.takeUnless { item.isSeries }; return@collectLatest }
+            delay(PREWARM_DELAY_MS)
+            val target = runCatching { api.seriesPlayTarget(series) }.getOrNull() ?: return@collectLatest
+            bannerTargets[series] = target
+            prewarmRequests.value = target.id
+        }
+    }
+    fun playBanner(item: BaseItemDto) {
+        val series = bannerSeries(item) ?: return navigator.push(Route.Player(item.id))
+        scope.launch {
+            val target = bannerTargets[series] ?: runCatching { api.seriesPlayTarget(series) }.getOrNull()
+            if (target != null) navigator.push(Route.Player(target.id, false, target)) else navigator.push(Route.Detail(series))
+        }
+    }
 
     LaunchedEffect(reloadKey) {
         if (model.rails != null && reloadKey == 0) {
@@ -432,8 +455,9 @@ fun HomeScreen() {
         ) {
             if (settings.showHeroCarousel) {
                 item(key = "hero") {
-                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = { navigator.push(Route.Player(it.id)) }, onInfo = { navigator.push(Route.Detail(it.id, it)) },
-                        onFocusItem = { if (!it.isSeries) prewarmRequests.value = it.id })
+                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = ::playBanner,
+                        onInfo = { bannerSeries(it)?.let { s -> navigator.push(Route.Detail(s)) } ?: navigator.push(Route.Detail(it.id, it)) },
+                        onFocusItem = { bannerFocus.value = it })
                 }
             }
             if (settings.showBrandTiles && model.brands.isNotEmpty()) {
@@ -558,6 +582,13 @@ private fun RailRetry(title: String, onRetry: () -> Unit) {
             AuroraButton("Try again", onRetry)
         }
     }
+}
+
+/** The show a banner item belongs to (the banner shows shows, not single episodes), or null for a film. */
+private fun bannerSeries(item: BaseItemDto): String? = when {
+    item.isSeries -> item.id
+    item.isEpisode || item.isSeason -> item.seriesId
+    else -> null
 }
 
 /** Movies/episodes open their detail page; folders open as a library. */

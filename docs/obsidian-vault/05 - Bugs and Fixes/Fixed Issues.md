@@ -5,6 +5,12 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Episode orders and the Home banner (Nov 2026)
+| Symptom | Cause | Fix |
+|---|---|---|
+| Playing a show (The Amazing World of Gumball) from Home started a random later episode, and after that its Next Up jumped ahead | The banner featured a show by its newest episode, and its Play started that episode; once watched, Jellyfin's Next Up (which follows the highest-numbered episode watched) moved past everything before it | The banner plays what the show's own Play would (the episode in progress or next, in the show's order, else the first) and More Info opens the show ([[Episode Orders]]) |
+| Autoplay could try to play an episode the server only lists (not on disk) | Next Episode took the very next item | It skips episodes without a file |
+
 ## Subtitles, recommendations cache, air dates, skip markers (Nov 2026)
 | Symptom | Cause | Fix |
 |---|---|---|

@@ -25,6 +25,11 @@ Open issues and limits, stated plainly. (The full list of platform limits is in
 - **Audio default** (English except anime) depends on the metadata saying a show is anime: an anime
   without an anime genre/tag, Japanese title or Japanese origin is treated as non-anime and gets the
   English dub when the file has one ([[Video Player]]).
+- **Episode Orders** ([[Episode Orders]]):
+  - automatic orders need a TMDB key and a library in TMDB's (aired) numbering;
+  - no real TMDB request has been tested (CI simulates TMDB's answers);
+  - for an account profile, Home's Next Up only lists shows the server already has there;
+  - a show's first automatic order reloads its page's list once when found.
 - **Virtual Episode Splitting** ([[Virtual Episode Splitting]]):
   - several server entries sharing one file can't be produced on the CI server, so that case is
     covered by unit tests only;

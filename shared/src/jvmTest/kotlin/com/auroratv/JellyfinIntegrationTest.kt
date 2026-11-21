@@ -213,6 +213,7 @@ class JellyfinIntegrationTest {
         record("Intro + credits found by listening (non-anime show, no chapters, no plugin)") { listeningCheck() }
         record("Outro found on screen (live-action credits, different music every episode, post-credits scene)") { screenCheck() }
         record("Two episodes in one file (Paper Town): split by its chapters, played and tracked separately") { splitCheck() }
+        record("Episode order (Zephyr Bay): an episode moved back a season, browsed, played next and resumed in that order") { orderCheck() }
         record("Upcoming episodes request answers (no virtual episodes on this server)") {
             val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), limit = 1)).items.first()
             val list = api.upcomingEpisodes(series.id)
@@ -468,6 +469,65 @@ class JellyfinIntegrationTest {
         return "S01E01-E02 → ${first.joinToString { "${it.indexNumber} \"${it.name}\" ${it.runtimeMs!! / 1000} s" }}; part 2 starts at ${w.startMs / 1000.0} s; " +
             "S01E04-E05 left whole (${v.splits[unsplit!!.id]?.reason}); next after part 1: part 2, after part 2: episode ${afterB?.indexNumber}; " +
             "${plan.method.jellyfinName} of the file; progress kept per part, server's file untouched"
+    }
+
+    /**
+     * Zephyr Bay (CI sample): S02E02 "Zero Letter" belongs at the end of season 1. A hand-made order
+     * moves it there; the seasons, each season's list, the next episode, Next Up and progress follow
+     * the order, the right file plays, and the server's own numbering is untouched.
+     */
+    private suspend fun orderCheck(): String {
+        val o = assertNotNull(api.order, "episode orders are on for every session")
+        val series = api.items(ItemQuery(includeItemTypes = listOf("Series"), searchTerm = "Zephyr Bay", limit = 5)).items.firstOrNull()
+            ?: return "skipped: sample series not in this library"
+        val t0 = kotlin.time.TimeSource.Monotonic.markNow()
+        val server = api.episodes(series.id)
+        val plainMs = t0.elapsedNow().inWholeMilliseconds
+        assertEquals(6, server.size, "six episodes: ${server.map { it.name }}")
+        fun at(s: Int, e: Int) = server.first { it.parentIndexNumber == s && it.indexNumber == e }
+        val late = at(2, 2)
+        // Half of "Zero Letter" watched before its place changes.
+        val plan = PlaybackNegotiator(api, sdr4k).negotiate(late.id, null, 0, null, null, 0, true)
+        api.reportStopped(com.auroratv.jellyfin.model.PlaybackReport(late.id, plan.mediaSource.id, null, 10_000L * 10_000))
+        api.setPlayed(at(1, 1).id, true); api.setPlayed(at(1, 2).id, true)
+        try {
+            api.setOrder(series.id, com.auroratv.jellyfin.SeriesOrder.CUSTOM, listOf(
+                com.auroratv.jellyfin.CustomSeason(1, null, listOf(at(1, 1).id, at(1, 2).id, at(1, 3).id, late.id)),
+                com.auroratv.jellyfin.CustomSeason(2, null, listOf(at(2, 1).id, at(2, 3).id)),
+            ))
+            val t1 = kotlin.time.TimeSource.Monotonic.markNow()
+            val seasons = api.seasons(series.id)
+            val s1 = api.episodes(series.id, seasonId = seasons[0].id)
+            val orderedMs = t1.elapsedNow().inWholeMilliseconds
+            val s2 = api.episodes(series.id, seasonId = seasons[1].id)
+            assertEquals(listOf(at(1, 1).id, at(1, 2).id, at(1, 3).id, late.id), s1.map { it.id }, "Zero Letter closes season 1: ${s1.map { it.name }}")
+            assertEquals(listOf(at(2, 1).id, at(2, 3).id), s2.map { it.id })
+            val moved = s1.last()
+            assertEquals(1, moved.parentIndexNumber); assertEquals(4, moved.indexNumber)
+            assertEquals(10_000L * 10_000, moved.userData?.playbackPositionTicks, "its progress came with it")
+            // Next Episode: after S01E03 comes Zero Letter, and after it season 2 begins.
+            assertEquals(late.id, api.episodes(series.id, startItemId = at(1, 3).id, limit = 2)[1].id)
+            assertEquals(at(2, 1).id, api.episodes(series.id, startItemId = late.id, limit = 2)[1].id)
+            // Next Up: S01E01–E02 watched → S01E03 (then Zero Letter), never S02E03 after the server's numbering.
+            assertEquals(at(1, 3).id, api.nextUp(seriesId = series.id).firstOrNull()?.id)
+            // The right file plays; the server still numbers it S02E02.
+            val p2 = PlaybackNegotiator(api, sdr4k).negotiate(moved.id, null, 0, null, null, 0, true)
+            assertTrue(p2.url.contains(late.id), "plays Zero Letter's own file")
+            val truth = api.item(late.id)
+            assertEquals(2, truth.parentIndexNumber, "the server's numbering isn't changed")
+            assertEquals(4, api.displayed(truth).indexNumber, "shown as S01E04 in the player")
+            // Back to Jellyfin's order.
+            api.setOrder(series.id, com.auroratv.jellyfin.SeriesOrder.JELLYFIN, emptyList())
+            assertEquals(3, api.episodes(series.id, seasonId = api.seasons(series.id)[0].id).size)
+            assertTrue(o.store[series.id]?.mode == com.auroratv.jellyfin.SeriesOrder.JELLYFIN)
+            return "season 1: ${s1.joinToString { "${it.indexNumber} ${it.name}" }}; season 2: ${s2.joinToString { "${it.indexNumber} ${it.name}" }}; " +
+                "next after S01E03: Zero Letter, after it: ${server.first { it.id == at(2, 1).id }.name}; Next Up S01E03; progress kept (10 s); " +
+                "${p2.method.jellyfinName} of its own file; list ${plainMs} ms in Jellyfin's order, seasons + season 1 ${orderedMs} ms in the custom order"
+        } finally {
+            api.setOrder(series.id, com.auroratv.jellyfin.SeriesOrder.JELLYFIN, emptyList())
+            server.forEach { runCatching { api.setPlayed(it.id, false) } }
+            runCatching { api.reportStopped(com.auroratv.jellyfin.model.PlaybackReport(late.id, plan.mediaSource.id, null, 0)) }
+        }
     }
 
     /**

@@ -34,7 +34,7 @@ set, Trakt's next episode (exact UTC air time). See [[Details Page Layout]] for 
 
 ## Several episodes in one file
 Files holding two or more episodes show one card per episode (or, when the server already lists
-each, play only their own part). See [[Virtual Episode Splitting]]. An episode's page has
+each, play only their own part). See [[Virtual Episode Splitting]]. A show can also be listed in another episode order (its DVD or intended order from TMDB, or one arranged by hand, across seasons too); the season tabs and rows then follow it. See [[Episode Orders]]. An episode's page has
 **Split Episodes** / **Edit Split** to set where they start by hand.
 
 ## Relevant files

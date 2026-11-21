@@ -6,7 +6,7 @@ tags: [feature]
 ## What it does
 Scores and reviews on details pages: the server's critic score, plus (with free keys) Rotten
 Tomatoes critics/audience, IMDb, Metacritic and Letterboxd via **MDBList**, and spoiler-filtered
-reviews via **Trakt**.
+reviews via **Trakt**. A **TMDB** key (same page) is used for episode orders, not ratings ([[Episode Orders]]).
 
 ## How it works
 `RatingsService` fetches after the page is on screen, with an 8 s budget per call; results are cached

@@ -26,6 +26,7 @@ note disagree, the code wins — and the note should be fixed (see [[How to Upda
 | [[Subtitles]] | [[Movies and TV Shows]] | [[Ratings]] | [[Server Connection and VPNs]] |
 | [[Skip Markers]] | [[Episode Browser]] | | [[App Updates]] |
 | [[Virtual Episode Splitting]] | [[Recommendations]] | | |
+| [[Episode Orders]] | | | |
 
 ## Architecture #architecture
 [[System Architecture]] · [[Frontend Architecture]] · [[Backend Architecture]] · [[API Endpoints]] ·

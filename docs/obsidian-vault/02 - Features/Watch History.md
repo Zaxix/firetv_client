@@ -7,6 +7,7 @@ tags: [feature]
 Resume points, watched marks, favourites, Continue Watching and Next Up.
 
 ## How it works
+- **Episode orders** ([[Episode Orders]]): progress, watched marks and resume points belong to the episode's id, so changing a show's order never moves them. For a show in another order, Next Up is Sharkfin's own: the first unwatched episode after the one watched most recently, in that order.
 - **Episodes that share a file** (see [[Virtual Episode Splitting]]) keep their progress per profile
   on the device (`split-watch-<profile>.json`); the server only gets "watched" for the entry or the
   whole file.
