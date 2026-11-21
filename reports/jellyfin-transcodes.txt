@@ -1,0 +1,16 @@
+== /config/log/FFmpeg.Transcode-2026-11-21_01-19-22_a0127dfa1ffbe85c4a499e09ebc9bab8_f4a8a865.log
+  Stream #0:1: Audio: ac3, 44100 Hz, 5.1(side), fltp, 384 kb/s
+[hls @ 0x71ae09cb9280] Opening '/cache/transcodes/c57c44969306d3cf049a59556d586ce813.ts' for writing
+[out#0/hls @ 0x71ae09c77340] video:0KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+[out#0/hls @ 0x71ae09c77340] Output file is empty, nothing was encoded(check -ss / -t / -frames parameters if used)
+frame=    0 fps=0.0 q=0.0 Lsize=N/A time=N/A bitrate=N/A speed=N/A elapsed=0:00:01.13    == /config/log/FFmpeg.Transcode-2026-11-21_01-19-21_a0127dfa1ffbe85c4a499e09ebc9bab8_18475c76.log
+  Stream #0:1: Audio: ac3, 44100 Hz, 5.1(side), fltp, 384 kb/s
+[hls @ 0x746dd22b9280] Opening '/cache/transcodes/c57c44969306d3cf049a59556d586ce812.ts' for writing
+[out#0/hls @ 0x746dd2277340] video:0KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+[out#0/hls @ 0x746dd2277340] Output file is empty, nothing was encoded(check -ss / -t / -frames parameters if used)
+frame=    0 fps=0.0 q=0.0 Lsize=N/A time=N/A bitrate=N/A speed=N/A elapsed=0:00:01.08    == /config/log/FFmpeg.Transcode-2026-11-21_01-19-20_a0127dfa1ffbe85c4a499e09ebc9bab8_63b2421a.log
+  Stream #0:1: Audio: ac3, 44100 Hz, 5.1(side), fltp, 384 kb/s
+[hls @ 0x7e1ed18b9280] Opening '/cache/transcodes/c57c44969306d3cf049a59556d586ce811.ts' for writing
+[out#0/hls @ 0x7e1ed1877340] video:0KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+[out#0/hls @ 0x7e1ed1877340] Output file is empty, nothing was encoded(check -ss / -t / -frames parameters if used)
+frame=    0 fps=0.0 q=0.0 Lsize=N/A time=N/A bitrate=N/A speed=N/A elapsed=0:00:01.14    

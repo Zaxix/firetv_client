@@ -1,0 +1,1428 @@
+11-21 00:59:41.281  8850  8850 I AuroraFocus: region=content
+11-21 00:59:41.310  8850  8850 I AuroraFocus: region=none
+11-21 00:59:41.330  8850  8877 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 00:59:41.352  8850  8877 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 00:59:41.363  8850  8877 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 00:59:41.378  8850  8850 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 00:59:42.183  8850  8850 I AuroraFocus: region=content
+11-21 00:59:42.522  8850  8850 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 00:59:42.585  8850  8850 I ExoEngine: state=buffering pos=240000 buffered=240000
+11-21 00:59:42.588  8850  8850 I Player  : Ready to play in 501 ms (cold, DirectPlay)
+11-21 00:59:42.955  8850  8850 I ExoEngine: Resuming from the keyframe 6667 ms before the saved position
+11-21 00:59:43.302  8850  8850 I ExoEngine: state=ready pos=233337 buffered=236533
+11-21 00:59:54.449  9121  9121 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 00:59:54.450  9121  9121 I AndroidRuntime: Using default boot image
+11-21 00:59:54.450  9121  9121 I AndroidRuntime: Leaving lock profiling enabled
+11-21 00:59:54.505  9121  9121 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 00:59:54.509  8850  8850 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 00:59:54.599  9121  9121 D AndroidRuntime: Shutting down VM
+11-21 00:59:58.688  9142  9142 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 00:59:58.689  9142  9142 I AndroidRuntime: Using default boot image
+11-21 00:59:58.689  9142  9142 I AndroidRuntime: Leaving lock profiling enabled
+11-21 00:59:58.737  9142  9142 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 00:59:58.739  8850  8850 D AuroraKeys: key=KEYCODE_BACK handled=true focus=AndroidComposeView touchMode=false
+11-21 00:59:58.746  9142  9142 D AndroidRuntime: Shutting down VM
+11-21 01:00:02.504  9155  9155 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:02.505  9155  9155 I AndroidRuntime: Using default boot image
+11-21 01:00:02.505  9155  9155 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:02.557  9155  9155 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:02.559  8850  8850 D AuroraKeys: key=KEYCODE_BACK handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:02.563  9155  9155 D AndroidRuntime: Shutting down VM
+11-21 01:00:03.467  8850  8850 I AuroraFocus: region=none
+11-21 01:00:03.996  8850  8850 I AuroraFocus: region=content
+11-21 01:00:04.740  8850  8850 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:00:04.770  8850  8850 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:00:08.274  9183  9183 I AuroraFocus: region=content
+11-21 01:00:08.778  9183  9183 I AuroraFocus: region=none
+11-21 01:00:09.506  9183  9183 I AuroraFocus: region=content
+11-21 01:00:09.795  9183  9209 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:00:09.798  9183  9209 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:00:09.807  9183  9209 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:00:09.807  9183  9183 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:00:09.893  9183  9183 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:00:21.420  9239  9239 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:21.421  9239  9239 I AndroidRuntime: Using default boot image
+11-21 01:00:21.422  9239  9239 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:21.466  9239  9239 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:21.469  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:21.474  9239  9239 D AndroidRuntime: Shutting down VM
+11-21 01:00:21.679  9183  9183 I AuroraFocus: region=none
+11-21 01:00:21.697  9183  9183 I ExoEngine: state=buffering pos=90000 buffered=90000
+11-21 01:00:21.698  9183  9183 I Player  : Ready to play in 11 ms (prepared on the detail page, DirectPlay)
+11-21 01:00:21.806  9183  9262 W SubtitleRenderer: libass API version: 0x1704000
+11-21 01:00:21.806  9183  9262 W SubtitleRenderer: libass source: commit: bbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:00:21.972  9183  9183 I AuroraFocus: region=content
+11-21 01:00:23.703  9183  9183 I ExoEngine: state=ready pos=90083 buffered=94354
+11-21 01:00:43.728  9736  9736 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:43.794  9736  9736 I AndroidRuntime: Using default boot image
+11-21 01:00:43.794  9736  9736 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:44.439  9736  9736 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:44.488  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:44.604  9736  9736 D AndroidRuntime: Shutting down VM
+11-21 01:00:46.753  9824  9824 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:46.768  9824  9824 I AndroidRuntime: Using default boot image
+11-21 01:00:46.768  9824  9824 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:47.547  9824  9824 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:47.550  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:47.551  9824  9824 D AndroidRuntime: Shutting down VM
+11-21 01:00:48.808  9905  9905 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:48.829  9905  9905 I AndroidRuntime: Using default boot image
+11-21 01:00:48.829  9905  9905 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:49.407  9905  9905 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:49.461  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:49.611  9905  9905 D AndroidRuntime: Shutting down VM
+11-21 01:00:51.274  9967  9967 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:51.318  9967  9967 I AndroidRuntime: Using default boot image
+11-21 01:00:51.322  9967  9967 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:51.906  9967  9967 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:52.051  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:52.052  9967  9967 D AndroidRuntime: Shutting down VM
+11-21 01:00:53.479 10039 10039 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:00:53.502 10039 10039 I AndroidRuntime: Using default boot image
+11-21 01:00:53.502 10039 10039 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:00:54.121 10039 10039 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:00:54.167  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:00:54.172  9183  9183 I ExoEngine: state=buffering pos=83697 buffered=83697
+11-21 01:00:54.179 10039 10039 D AndroidRuntime: Shutting down VM
+11-21 01:00:56.073  9183  9183 I ExoEngine: state=ready pos=84010 buffered=97907
+11-21 01:01:10.542 10523 10523 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:01:10.638 10523 10523 I AndroidRuntime: Using default boot image
+11-21 01:01:10.638 10523 10523 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:01:11.502 10523 10523 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:01:11.540  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:01:11.671 10523 10523 D AndroidRuntime: Shutting down VM
+11-21 01:01:13.769 10607 10607 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:01:13.787 10607 10607 I AndroidRuntime: Using default boot image
+11-21 01:01:13.787 10607 10607 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:01:14.524 10607 10607 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:01:14.557  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:01:14.693 10607 10607 D AndroidRuntime: Shutting down VM
+11-21 01:01:15.683 10678 10678 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:01:15.690 10678 10678 I AndroidRuntime: Using default boot image
+11-21 01:01:15.690 10678 10678 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:01:16.787 10678 10678 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:01:16.797  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:01:16.800 10678 10678 D AndroidRuntime: Shutting down VM
+11-21 01:01:16.810 10678 10728 I AndroidRuntime: NOTE: attach of thread 'Binder:10678_2' failed
+11-21 01:01:17.979 10752 10752 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:01:18.020 10752 10752 I AndroidRuntime: Using default boot image
+11-21 01:01:18.020 10752 10752 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:01:18.757 10752 10752 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:01:18.771  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:01:18.773 10752 10752 D AndroidRuntime: Shutting down VM
+11-21 01:01:20.150 10816 10816 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:01:20.186 10816 10816 I AndroidRuntime: Using default boot image
+11-21 01:01:20.187 10816 10816 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:01:20.713 10816 10816 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:01:20.759  9183  9183 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:01:20.762  9183  9183 I ExoEngine: state=buffering pos=132365 buffered=180649
+11-21 01:01:20.763 10816 10816 D AndroidRuntime: Shutting down VM
+11-21 01:01:21.710  9183  9183 I ExoEngine: state=ready pos=132075 buffered=180650
+11-21 01:01:45.987 11476 11476 I AuroraFocus: region=content
+11-21 01:01:46.019 11476 11476 I AuroraFocus: region=none
+11-21 01:01:46.062 11476 11503 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:01:46.101 11476 11503 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:01:46.119 11476 11503 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:01:46.120 11476 11476 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:01:46.853 11476 11476 I AuroraFocus: region=content
+11-21 01:01:47.049 11476 11476 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:01:47.106 11476 11476 I ExoEngine: state=buffering pos=90000 buffered=90000
+11-21 01:01:47.108 11476 11476 I Player  : Ready to play in 725 ms (cold, DirectPlay)
+11-21 01:01:47.332 11476 11537 W SubtitleRenderer: libass API version: 0x1704000
+11-21 01:01:47.332 11476 11537 W SubtitleRenderer: libass source: commit: bbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:01:48.748 11476 11476 I ExoEngine: state=ready pos=90081 buffered=92891
+11-21 01:02:06.681 11968 11968 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:06.817 11968 11968 I AndroidRuntime: Using default boot image
+11-21 01:02:06.817 11968 11968 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:07.168 11968 11968 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:07.213 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:07.214 11968 11968 D AndroidRuntime: Shutting down VM
+11-21 01:02:08.750 12036 12036 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:08.799 12036 12036 I AndroidRuntime: Using default boot image
+11-21 01:02:08.799 12036 12036 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:09.744 12036 12036 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:09.762 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:09.940 12036 12036 D AndroidRuntime: Shutting down VM
+11-21 01:02:11.544 12101 12101 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:11.587 12101 12101 I AndroidRuntime: Using default boot image
+11-21 01:02:11.587 12101 12101 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:12.665 12101 12101 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:12.691 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:12.753 12101 12101 D AndroidRuntime: Shutting down VM
+11-21 01:02:14.104 12200 12200 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:14.119 12200 12200 I AndroidRuntime: Using default boot image
+11-21 01:02:14.119 12200 12200 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:14.792 12200 12200 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:14.810 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:14.877 12200 12200 D AndroidRuntime: Shutting down VM
+11-21 01:02:16.350 12262 12262 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:16.444 12262 12262 I AndroidRuntime: Using default boot image
+11-21 01:02:16.444 12262 12262 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:17.649 12262 12262 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:17.772 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:17.777 11476 11476 I ExoEngine: state=buffering pos=80838 buffered=80838
+11-21 01:02:17.894 12262 12262 D AndroidRuntime: Shutting down VM
+11-21 01:02:18.625 11476 11476 I ExoEngine: state=ready pos=80360 buffered=82965
+11-21 01:02:33.820 12705 12705 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:33.848 12705 12705 I AndroidRuntime: Using default boot image
+11-21 01:02:33.848 12705 12705 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:34.328 12705 12705 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:34.438 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:34.442 12705 12705 D AndroidRuntime: Shutting down VM
+11-21 01:02:34.452 12705 12737 I AndroidRuntime: NOTE: attach of thread 'Binder:12705_1' failed
+11-21 01:02:35.881 12770 12770 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:35.908 12770 12770 I AndroidRuntime: Using default boot image
+11-21 01:02:35.908 12770 12770 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:36.255 12770 12770 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:36.272 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:36.286 12770 12770 D AndroidRuntime: Shutting down VM
+11-21 01:02:38.160 12817 12817 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:38.193 12817 12817 I AndroidRuntime: Using default boot image
+11-21 01:02:38.193 12817 12817 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:39.239 12817 12817 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:39.257 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:39.508 12817 12817 D AndroidRuntime: Shutting down VM
+11-21 01:02:40.662 12909 12909 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:40.723 12909 12909 I AndroidRuntime: Using default boot image
+11-21 01:02:40.723 12909 12909 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:42.028 12909 12909 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:42.040 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:42.043 12909 12909 D AndroidRuntime: Shutting down VM
+11-21 01:02:43.228 12984 12984 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:02:43.279 12984 12984 I AndroidRuntime: Using default boot image
+11-21 01:02:43.280 12984 12984 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:02:43.726 12984 12984 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:02:43.775 11476 11476 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:02:43.777 11476 11476 I ExoEngine: state=buffering pos=127995 buffered=180649
+11-21 01:02:43.782 12984 12984 D AndroidRuntime: Shutting down VM
+11-21 01:02:45.929 11476 11476 I ExoEngine: state=ready pos=128600 buffered=180650
+11-21 01:03:09.948   470  2044 D ConnectivityService: ConnectivityService NetworkRequestInfo binderDied(NetworkRequest [ TRACK_DEFAULT id=12, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ], android.os.BinderProxy@7d281f8)
+11-21 01:03:09.951   470   621 D ConnectivityService: releasing NetworkRequest [ TRACK_DEFAULT id=12, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] (release request)
+11-21 01:03:10.412   470   547 D ConnectivityService: requestNetwork for uid/pid:10053/13832 NetworkRequest [ TRACK_DEFAULT id=32, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ]
+11-21 01:03:10.412   470   651 D Ethernet: got request NetworkRequest [ TRACK_DEFAULT id=32, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.412   470   617 D WifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=32, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.412   470   617 D UntrustedWifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=32, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.709   470  1352 D ConnectivityService: requestNetwork for uid/pid:10053/13832 NetworkRequest [ TRACK_DEFAULT id=33, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ]
+11-21 01:03:10.725   470   651 D Ethernet: got request NetworkRequest [ TRACK_DEFAULT id=33, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.725   470   617 D WifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=33, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.725   470   617 D UntrustedWifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=33, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10053 AdministratorUids: [] RequestorUid: 10053 RequestorPackageName: com.google.android.tvlauncher] ] with score 60 and providerId 2
+11-21 01:03:10.884   470  3490 D ConnectivityService: ConnectivityService NetworkRequestInfo binderDied(NetworkRequest [ TRACK_DEFAULT id=16, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ], android.os.BinderProxy@de0edfe)
+11-21 01:03:10.884   470   621 D ConnectivityService: releasing NetworkRequest [ TRACK_DEFAULT id=16, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ] (release request)
+11-21 01:03:12.612 13956 13956 I AuroraFocus: region=content
+11-21 01:03:12.669 13956 13986 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:03:12.672 13956 13986 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:03:12.683 13956 13956 I AuroraFocus: region=none
+11-21 01:03:12.784 13956 13986 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:03:12.785 13956 13956 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:03:12.921   470  1352 D ConnectivityService: requestNetwork for uid/pid:10054/13988 NetworkRequest [ TRACK_DEFAULT id=34, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ]
+11-21 01:03:12.923   470   651 D Ethernet: got request NetworkRequest [ TRACK_DEFAULT id=34, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ] with score 60 and providerId 2
+11-21 01:03:12.923   470   617 D WifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=34, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ] with score 60 and providerId 2
+11-21 01:03:12.923   470   617 D UntrustedWifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=34, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10054 AdministratorUids: [] RequestorUid: 10054 RequestorPackageName: com.google.android.katniss] ] with score 60 and providerId 2
+11-21 01:03:13.533 13956 13956 I AuroraFocus: region=content
+11-21 01:03:13.898 13956 13956 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:03:13.911 13956 13956 I ExoEngine: state=buffering pos=90000 buffered=90000
+11-21 01:03:13.912 13956 13956 I Player  : Ready to play in 490 ms (cold, DirectPlay)
+11-21 01:03:14.114 13956 14113 W SubtitleRenderer: libass API version: 0x1704000
+11-21 01:03:14.114 13956 14113 W SubtitleRenderer: libass source: commit: bbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:03:16.571 13956 13956 I ExoEngine: state=ready pos=90070 buffered=92056
+11-21 01:03:23.783 13988 14320 W native  : W0000 00:00:1795223003.783254   14320 phenotype_fetcher.cc:171] Failed to get the committed configuration for com.google.libassistant due to lack of registration info.
+11-21 01:03:28.404 13988 14025 I katniss_interactor_ThirdPartyCapabilitiesUpdater: refreshThirdPartyCapabilities
+11-21 01:03:30.464 13988 14020 I katniss_interactor_ThirdPartyCapabilitiesUpdater: Account changed.
+11-21 01:03:34.763 14693 14693 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:03:34.818 14693 14693 I AndroidRuntime: Using default boot image
+11-21 01:03:34.818 14693 14693 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:03:35.427 14693 14693 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:03:35.439 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:03:35.442 14693 14693 D AndroidRuntime: Shutting down VM
+11-21 01:03:37.545 14772 14772 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:03:37.571 14772 14772 I AndroidRuntime: Using default boot image
+11-21 01:03:37.571 14772 14772 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:03:38.822 14772 14772 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:03:38.846 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:03:38.859 14772 14772 D AndroidRuntime: Shutting down VM
+11-21 01:03:38.960 14772 14832 I AndroidRuntime: NOTE: attach of thread 'Binder:14772_2' failed
+11-21 01:03:40.415 14847 14847 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:03:40.422 14847 14847 I AndroidRuntime: Using default boot image
+11-21 01:03:40.422 14847 14847 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:03:40.887 14847 14847 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:03:40.891 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:03:40.892 14847 14847 D AndroidRuntime: Shutting down VM
+11-21 01:03:42.374 14897 14897 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:03:42.464 14897 14897 I AndroidRuntime: Using default boot image
+11-21 01:03:42.464 14897 14897 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:03:42.854 14897 14897 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:03:42.861 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:03:42.862 14897 14897 D AndroidRuntime: Shutting down VM
+11-21 01:03:44.286 14982 14982 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:03:44.303 14982 14982 I AndroidRuntime: Using default boot image
+11-21 01:03:44.303 14982 14982 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:03:45.206 14982 14982 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:03:45.299 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:03:45.301 13956 13956 I ExoEngine: state=buffering pos=82416 buffered=82416
+11-21 01:03:45.313 14982 14982 D AndroidRuntime: Shutting down VM
+11-21 01:03:46.587 13956 13956 I ExoEngine: state=ready pos=82360 buffered=89861
+11-21 01:04:01.809 15450 15450 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:04:01.811 15450 15450 I AndroidRuntime: Using default boot image
+11-21 01:04:01.811 15450 15450 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:04:02.707 15450 15450 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:04:02.778 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:04:02.893 15450 15450 D AndroidRuntime: Shutting down VM
+11-21 01:04:04.641 15537 15537 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:04:04.686 15537 15537 I AndroidRuntime: Using default boot image
+11-21 01:04:04.686 15537 15537 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:04:05.132 15537 15537 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:04:05.184 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:04:05.186 15537 15537 D AndroidRuntime: Shutting down VM
+11-21 01:04:06.111 15598 15598 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:04:06.192 15598 15598 I AndroidRuntime: Using default boot image
+11-21 01:04:06.192 15598 15598 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:04:06.713 15598 15598 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:04:06.755 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:04:06.957 15598 15598 D AndroidRuntime: Shutting down VM
+11-21 01:04:08.442 15653 15653 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:04:08.480 15653 15653 I AndroidRuntime: Using default boot image
+11-21 01:04:08.482 15653 15653 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:04:09.227 15653 15653 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:04:09.322 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:04:09.328 15653 15653 D AndroidRuntime: Shutting down VM
+11-21 01:04:10.505 15724 15724 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:04:10.521 15724 15724 I AndroidRuntime: Using default boot image
+11-21 01:04:10.521 15724 15724 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:04:11.067 15724 15724 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:04:11.092 13956 13956 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:04:11.093 13956 13956 I ExoEngine: state=buffering pos=130895 buffered=180649
+11-21 01:04:11.120 15724 15724 D AndroidRuntime: Shutting down VM
+11-21 01:04:11.146 15724 15758 I AndroidRuntime: NOTE: attach of thread 'Binder:15724_2' failed
+11-21 01:04:11.943 13956 13956 I ExoEngine: state=ready pos=131190 buffered=180650
+11-21 01:04:15.279   470  3490 D ConnectivityService: requestNetwork for uid/pid:10056/15860 NetworkRequest [ TRACK_DEFAULT id=35, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10056 AdministratorUids: [] RequestorUid: 10056 RequestorPackageName: com.android.vending] ]
+11-21 01:04:15.280   470   651 D Ethernet: got request NetworkRequest [ TRACK_DEFAULT id=35, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10056 AdministratorUids: [] RequestorUid: 10056 RequestorPackageName: com.android.vending] ] with score 60 and providerId 2
+11-21 01:04:15.294   470   617 D WifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=35, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10056 AdministratorUids: [] RequestorUid: 10056 RequestorPackageName: com.android.vending] ] with score 60 and providerId 2
+11-21 01:04:15.294   470   617 D UntrustedWifiNetworkFactory: got request NetworkRequest [ TRACK_DEFAULT id=35, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10056 AdministratorUids: [] RequestorUid: 10056 RequestorPackageName: com.android.vending] ] with score 60 and providerId 2
+11-21 01:04:38.534 16547 16547 I AuroraFocus: region=content
+11-21 01:04:39.274 16547 16547 I AuroraFocus: region=none
+11-21 01:04:39.658 16547 16547 I AuroraFocus: region=content
+11-21 01:04:41.041 16547 16574 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:04:41.043 16547 16574 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:04:41.050 16547 16574 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:04:41.050 16547 16547 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:04:49.922 16625 16625 I AuroraFocus: region=content
+11-21 01:04:50.778 16625 16625 I AuroraFocus: region=none
+11-21 01:04:51.710 16625 16625 I AuroraFocus: region=content
+11-21 01:04:52.475 16625 16651 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:04:52.493 16625 16651 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:04:52.504 16625 16651 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:04:52.511 16625 16625 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:04:52.595 16625 16625 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:04:52.656 16625 16625 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:05:00.995 16681 16681 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:00.996 16681 16681 I AndroidRuntime: Using default boot image
+11-21 01:05:00.996 16681 16681 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:01.058 16681 16681 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:01.067 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:01.104 16681 16681 D AndroidRuntime: Shutting down VM
+11-21 01:05:02.780 16697 16697 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:02.781 16697 16697 I AndroidRuntime: Using default boot image
+11-21 01:05:02.781 16697 16697 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:02.832 16697 16697 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:02.855 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:02.911 16697 16697 D AndroidRuntime: Shutting down VM
+11-21 01:05:03.599 16625 16625 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:04.583 16711 16711 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:04.585 16711 16711 I AndroidRuntime: Using default boot image
+11-21 01:05:04.585 16711 16711 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:04.629 16711 16711 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:04.637 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:04.641 16711 16711 D AndroidRuntime: Shutting down VM
+11-21 01:05:05.379 16625 16625 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:06.298 16724 16724 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:06.299 16724 16724 I AndroidRuntime: Using default boot image
+11-21 01:05:06.299 16724 16724 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:06.352 16724 16724 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:06.392 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:06.508 16724 16724 D AndroidRuntime: Shutting down VM
+11-21 01:05:08.205 16737 16737 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:08.206 16737 16737 I AndroidRuntime: Using default boot image
+11-21 01:05:08.206 16737 16737 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:08.256 16737 16737 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:08.262 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:08.306 16737 16737 D AndroidRuntime: Shutting down VM
+11-21 01:05:09.994 16751 16751 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:09.995 16751 16751 I AndroidRuntime: Using default boot image
+11-21 01:05:09.995 16751 16751 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:10.041 16751 16751 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:10.047 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:10.051 16751 16751 D AndroidRuntime: Shutting down VM
+11-21 01:05:11.710 16765 16765 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:11.711 16765 16765 I AndroidRuntime: Using default boot image
+11-21 01:05:11.712 16765 16765 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:11.762 16765 16765 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:11.767 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=false focus=AndroidComposeView touchMode=false
+11-21 01:05:11.768 16765 16765 D AndroidRuntime: Shutting down VM
+11-21 01:05:15.759 16782 16782 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:15.760 16782 16782 I AndroidRuntime: Using default boot image
+11-21 01:05:15.760 16782 16782 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:15.808 16782 16782 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:15.813 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:15.849 16782 16782 D AndroidRuntime: Shutting down VM
+11-21 01:05:17.537 16797 16797 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:17.538 16797 16797 I AndroidRuntime: Using default boot image
+11-21 01:05:17.539 16797 16797 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:17.586 16797 16797 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:17.592 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:17.596 16797 16797 D AndroidRuntime: Shutting down VM
+11-21 01:05:19.268 16813 16813 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:19.269 16813 16813 I AndroidRuntime: Using default boot image
+11-21 01:05:19.269 16813 16813 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:19.316 16813 16813 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:19.321 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:19.326 16813 16813 D AndroidRuntime: Shutting down VM
+11-21 01:05:20.982 16827 16827 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:20.984 16827 16827 I AndroidRuntime: Using default boot image
+11-21 01:05:20.984 16827 16827 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:21.041 16827 16827 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:21.047 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:21.071 16827 16827 D AndroidRuntime: Shutting down VM
+11-21 01:05:21.789 16625 16625 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:22.738 16841 16841 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:22.739 16841 16841 I AndroidRuntime: Using default boot image
+11-21 01:05:22.739 16841 16841 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:22.795 16841 16841 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:22.799 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:22.803 16841 16841 D AndroidRuntime: Shutting down VM
+11-21 01:05:24.469 16856 16856 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:24.470 16856 16856 I AndroidRuntime: Using default boot image
+11-21 01:05:24.470 16856 16856 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:24.533 16856 16856 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:24.539 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:24.543 16856 16856 D AndroidRuntime: Shutting down VM
+11-21 01:05:25.296 16625 16625 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:05:25.326 16625 16625 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:05:26.200 16869 16869 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:26.202 16869 16869 I AndroidRuntime: Using default boot image
+11-21 01:05:26.202 16869 16869 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:26.249 16869 16869 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:26.254 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:26.257 16869 16869 D AndroidRuntime: Shutting down VM
+11-21 01:05:26.270 16625 16625 I AuroraFocus: region=header
+11-21 01:05:27.912 16882 16882 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:27.913 16882 16882 I AndroidRuntime: Using default boot image
+11-21 01:05:27.913 16882 16882 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:27.958 16882 16882 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:27.960 16625 16625 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:27.961 16882 16882 D AndroidRuntime: Shutting down VM
+11-21 01:05:34.083 16909 16909 I AuroraFocus: region=content
+11-21 01:05:34.911 16909 16909 I AuroraFocus: region=none
+11-21 01:05:35.751 16909 16909 I AuroraFocus: region=content
+11-21 01:05:36.618 16909 16938 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:05:36.621 16909 16938 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:05:36.627 16909 16938 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:05:36.628 16909 16909 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:05:36.777 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:05:36.813 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:05:47.078 16964 16964 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:47.080 16964 16964 I AndroidRuntime: Using default boot image
+11-21 01:05:47.080 16964 16964 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:47.131 16964 16964 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:47.141 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:47.145 16964 16964 D AndroidRuntime: Shutting down VM
+11-21 01:05:48.845 16981 16981 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:48.847 16981 16981 I AndroidRuntime: Using default boot image
+11-21 01:05:48.847 16981 16981 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:48.901 16981 16981 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:48.927 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:49.021 16981 16981 D AndroidRuntime: Shutting down VM
+11-21 01:05:49.668 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:52.043 17002 17002 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:52.044 17002 17002 I AndroidRuntime: Using default boot image
+11-21 01:05:52.044 17002 17002 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:52.092 17002 17002 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:52.098 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:52.158 17002 17002 D AndroidRuntime: Shutting down VM
+11-21 01:05:52.835 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:53.832 17016 17016 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:53.833 17016 17016 I AndroidRuntime: Using default boot image
+11-21 01:05:53.833 17016 17016 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:53.878 17016 17016 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:53.882 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:53.885 17016 17016 D AndroidRuntime: Shutting down VM
+11-21 01:05:54.624 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:55.542 17029 17029 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:55.543 17029 17029 I AndroidRuntime: Using default boot image
+11-21 01:05:55.543 17029 17029 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:55.589 17029 17029 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:55.593 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:55.600 17029 17029 D AndroidRuntime: Shutting down VM
+11-21 01:05:56.407 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:57.269 17042 17042 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:57.270 17042 17042 I AndroidRuntime: Using default boot image
+11-21 01:05:57.270 17042 17042 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:57.315 17042 17042 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:57.319 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:57.323 17042 17042 D AndroidRuntime: Shutting down VM
+11-21 01:05:58.053 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:05:58.979 17055 17055 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:05:58.980 17055 17055 I AndroidRuntime: Using default boot image
+11-21 01:05:58.980 17055 17055 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:05:59.025 17055 17055 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:05:59.032 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:05:59.070 16909 16909 I AuroraFocus: region=sidebar
+11-21 01:05:59.096 17055 17055 D AndroidRuntime: Shutting down VM
+11-21 01:06:02.119 17075 17075 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:02.120 17075 17075 I AndroidRuntime: Using default boot image
+11-21 01:06:02.120 17075 17075 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:02.170 17075 17075 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:02.174 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:02.177 17075 17075 D AndroidRuntime: Shutting down VM
+11-21 01:06:02.203 16909 16909 I AuroraFocus: region=content
+11-21 01:06:05.356 17096 17096 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:05.357 17096 17096 I AndroidRuntime: Using default boot image
+11-21 01:06:05.357 17096 17096 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:05.407 17096 17096 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:05.410 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:05.465 17096 17096 D AndroidRuntime: Shutting down VM
+11-21 01:06:07.131 17110 17110 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:07.133 17110 17110 I AndroidRuntime: Using default boot image
+11-21 01:06:07.133 17110 17110 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:07.179 17110 17110 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:07.181 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:07.182 17110 17110 D AndroidRuntime: Shutting down VM
+11-21 01:06:08.005 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:06:08.909 17123 17123 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:08.910 17123 17123 I AndroidRuntime: Using default boot image
+11-21 01:06:08.910 17123 17123 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:08.959 17123 17123 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:08.962 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:08.963 17123 17123 D AndroidRuntime: Shutting down VM
+11-21 01:06:09.708 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:09.754 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:09.769 16909 16909 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:06:10.709 17136 17136 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:10.710 17136 17136 I AndroidRuntime: Using default boot image
+11-21 01:06:10.710 17136 17136 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:10.761 17136 17136 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:10.763 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:10.810 17136 17136 D AndroidRuntime: Shutting down VM
+11-21 01:06:11.541 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:11.571 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:12.509 17149 17149 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:12.510 17149 17149 I AndroidRuntime: Using default boot image
+11-21 01:06:12.510 17149 17149 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:12.556 17149 17149 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:12.558 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:12.560 17149 17149 D AndroidRuntime: Shutting down VM
+11-21 01:06:13.323 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:13.355 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:14.233 17162 17162 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:14.234 17162 17162 I AndroidRuntime: Using default boot image
+11-21 01:06:14.234 17162 17162 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:14.281 17162 17162 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:14.284 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:14.285 17162 17162 D AndroidRuntime: Shutting down VM
+11-21 01:06:15.059 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:15.086 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:15.939 17175 17175 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:15.941 17175 17175 I AndroidRuntime: Using default boot image
+11-21 01:06:15.941 17175 17175 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:15.986 17175 17175 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:15.988 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:15.989 17175 17175 D AndroidRuntime: Shutting down VM
+11-21 01:06:16.740 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:06:17.646 17188 17188 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:17.647 17188 17188 I AndroidRuntime: Using default boot image
+11-21 01:06:17.647 17188 17188 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:17.694 17188 17188 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:17.696 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:17.725 17188 17188 D AndroidRuntime: Shutting down VM
+11-21 01:06:18.438 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:06:19.387 17201 17201 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:19.388 17201 17201 I AndroidRuntime: Using default boot image
+11-21 01:06:19.388 17201 17201 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:19.433 17201 17201 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:19.435 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:19.437 17201 17201 D AndroidRuntime: Shutting down VM
+11-21 01:06:20.199 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:20.237 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:20.266 16909 16909 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:06:21.091 17214 17214 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:21.092 17214 17214 I AndroidRuntime: Using default boot image
+11-21 01:06:21.092 17214 17214 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:21.137 17214 17214 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:21.139 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:21.140 17214 17214 D AndroidRuntime: Shutting down VM
+11-21 01:06:21.892 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:21.914 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:22.795 17227 17227 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:22.796 17227 17227 I AndroidRuntime: Using default boot image
+11-21 01:06:22.796 17227 17227 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:22.841 17227 17227 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:22.843 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:22.844 17227 17227 D AndroidRuntime: Shutting down VM
+11-21 01:06:23.595 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:23.626 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-21 01:06:24.506 17241 17241 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:24.507 17241 17241 I AndroidRuntime: Using default boot image
+11-21 01:06:24.507 17241 17241 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:24.555 17241 17241 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:24.558 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:24.559 17241 17241 D AndroidRuntime: Shutting down VM
+11-21 01:06:25.323 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:25.356 16909 16909 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoResolutionNotSupported, VideoBitDepthNotSupported]
+11-21 01:06:27.527 17261 17261 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:27.529 17261 17261 I AndroidRuntime: Using default boot image
+11-21 01:06:27.529 17261 17261 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:27.577 17261 17261 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:27.583 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:27.592 16909 16909 I AuroraFocus: region=header
+11-21 01:06:27.597 17261 17261 D AndroidRuntime: Shutting down VM
+11-21 01:06:29.270 17276 17276 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:29.271 17276 17276 I AndroidRuntime: Using default boot image
+11-21 01:06:29.271 17276 17276 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:29.316 17276 17276 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:29.318 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:29.319 17276 17276 D AndroidRuntime: Shutting down VM
+11-21 01:06:30.974 17289 17289 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:30.975 17289 17289 I AndroidRuntime: Using default boot image
+11-21 01:06:30.975 17289 17289 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:31.019 17289 17289 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:31.022 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:31.023 17289 17289 D AndroidRuntime: Shutting down VM
+11-21 01:06:32.681 17302 17302 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:32.682 17302 17302 I AndroidRuntime: Using default boot image
+11-21 01:06:32.682 17302 17302 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:32.733 17302 17302 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:32.735 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:32.736 17302 17302 D AndroidRuntime: Shutting down VM
+11-21 01:06:34.391 17315 17315 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:34.393 17315 17315 I AndroidRuntime: Using default boot image
+11-21 01:06:34.393 17315 17315 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:34.437 17315 17315 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:34.439 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:34.440 17315 17315 D AndroidRuntime: Shutting down VM
+11-21 01:06:36.095 17328 17328 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:36.096 17328 17328 I AndroidRuntime: Using default boot image
+11-21 01:06:36.096 17328 17328 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:36.141 17328 17328 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:36.143 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:36.144 17328 17328 D AndroidRuntime: Shutting down VM
+11-21 01:06:39.151 17348 17348 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:39.152 17348 17348 I AndroidRuntime: Using default boot image
+11-21 01:06:39.152 17348 17348 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:39.198 17348 17348 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:39.200 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:39.201 17348 17348 D AndroidRuntime: Shutting down VM
+11-21 01:06:40.855 17361 17361 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:40.856 17361 17361 I AndroidRuntime: Using default boot image
+11-21 01:06:40.856 17361 17361 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:40.900 17361 17361 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:40.903 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:40.904 17361 17361 D AndroidRuntime: Shutting down VM
+11-21 01:06:42.560 17374 17374 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:42.561 17374 17374 I AndroidRuntime: Using default boot image
+11-21 01:06:42.561 17374 17374 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:42.610 17374 17374 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:42.612 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:42.614 17374 17374 D AndroidRuntime: Shutting down VM
+11-21 01:06:45.304 17390 17390 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:45.305 17390 17390 I AndroidRuntime: Using default boot image
+11-21 01:06:45.305 17390 17390 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:45.362 17390 17390 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:45.365 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:45.368 17390 17390 D AndroidRuntime: Shutting down VM
+11-21 01:06:45.392 16909 16909 I AuroraFocus: region=content
+11-21 01:06:46.138 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:06:48.372 17413 17413 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:48.373 17413 17413 I AndroidRuntime: Using default boot image
+11-21 01:06:48.373 17413 17413 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:48.418 17413 17413 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:48.424 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:48.426 17413 17413 D AndroidRuntime: Shutting down VM
+11-21 01:06:48.446 16909 16909 I AuroraFocus: region=header
+11-21 01:06:50.082 17427 17427 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:50.083 17427 17427 I AndroidRuntime: Using default boot image
+11-21 01:06:50.083 17427 17427 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:50.127 17427 17427 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:50.130 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:50.131 17427 17427 D AndroidRuntime: Shutting down VM
+11-21 01:06:51.786 17440 17440 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:51.787 17440 17440 I AndroidRuntime: Using default boot image
+11-21 01:06:51.787 17440 17440 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:51.833 17440 17440 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:51.835 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:51.836 17440 17440 D AndroidRuntime: Shutting down VM
+11-21 01:06:53.496 17453 17453 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:53.504 17453 17453 I AndroidRuntime: Using default boot image
+11-21 01:06:53.504 17453 17453 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:53.555 17453 17453 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:53.558 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:53.560 17453 17453 D AndroidRuntime: Shutting down VM
+11-21 01:06:55.215 17466 17466 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:55.217 17466 17466 I AndroidRuntime: Using default boot image
+11-21 01:06:55.217 17466 17466 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:55.268 17466 17466 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:55.270 16909 16909 D AuroraKeys: key=KEYCODE_BACK handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:55.273 17466 17466 D AndroidRuntime: Shutting down VM
+11-21 01:06:55.286 16909 16909 I AuroraFocus: region=content
+11-21 01:06:57.964 17482 17482 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:57.965 17482 17482 I AndroidRuntime: Using default boot image
+11-21 01:06:57.966 17482 17482 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:58.010 17482 17482 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:58.013 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:58.016 17482 17482 D AndroidRuntime: Shutting down VM
+11-21 01:06:59.745 17497 17497 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:06:59.746 17497 17497 I AndroidRuntime: Using default boot image
+11-21 01:06:59.746 17497 17497 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:06:59.791 17497 17497 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:06:59.803 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:06:59.832 17497 17497 D AndroidRuntime: Shutting down VM
+11-21 01:07:01.490 17510 17510 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:01.491 17510 17510 I AndroidRuntime: Using default boot image
+11-21 01:07:01.491 17510 17510 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:01.543 17510 17510 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:01.548 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:01.573 17510 17510 D AndroidRuntime: Shutting down VM
+11-21 01:07:02.274 16909 16909 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:07:05.505 17527 17527 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:05.506 17527 17527 I AndroidRuntime: Using default boot image
+11-21 01:07:05.506 17527 17527 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:05.552 17527 17527 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:05.557 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:05.558 17527 17527 D AndroidRuntime: Shutting down VM
+11-21 01:07:07.214 17540 17540 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:07.215 17540 17540 I AndroidRuntime: Using default boot image
+11-21 01:07:07.215 17540 17540 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:07.260 17540 17540 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:07.264 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:07.266 17540 17540 D AndroidRuntime: Shutting down VM
+11-21 01:07:08.920 17553 17553 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:08.921 17553 17553 I AndroidRuntime: Using default boot image
+11-21 01:07:08.921 17553 17553 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:08.966 17553 17553 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:08.970 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:08.972 17553 17553 D AndroidRuntime: Shutting down VM
+11-21 01:07:10.626 17566 17566 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:10.627 17566 17566 I AndroidRuntime: Using default boot image
+11-21 01:07:10.627 17566 17566 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:10.672 17566 17566 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:10.676 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:10.677 17566 17566 D AndroidRuntime: Shutting down VM
+11-21 01:07:12.334 17579 17579 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:12.335 17579 17579 I AndroidRuntime: Using default boot image
+11-21 01:07:12.335 17579 17579 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:12.380 17579 17579 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:12.384 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:12.385 17579 17579 D AndroidRuntime: Shutting down VM
+11-21 01:07:14.040 17592 17592 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:14.041 17592 17592 I AndroidRuntime: Using default boot image
+11-21 01:07:14.041 17592 17592 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:14.086 17592 17592 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:14.090 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:14.091 17592 17592 D AndroidRuntime: Shutting down VM
+11-21 01:07:15.745 17605 17605 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:15.746 17605 17605 I AndroidRuntime: Using default boot image
+11-21 01:07:15.746 17605 17605 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:15.791 17605 17605 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:15.795 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:15.796 17605 17605 D AndroidRuntime: Shutting down VM
+11-21 01:07:17.453 17618 17618 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:17.454 17618 17618 I AndroidRuntime: Using default boot image
+11-21 01:07:17.454 17618 17618 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:17.508 17618 17618 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:17.513 16909 16909 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:17.514 17618 17618 D AndroidRuntime: Shutting down VM
+11-21 01:07:22.424 17649 17649 I AuroraFocus: region=content
+11-21 01:07:23.032 17649 17649 I AuroraFocus: region=none
+11-21 01:07:23.060 17649 17649 I AuroraFocus: region=content
+11-21 01:07:24.932 17649 17676 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:07:24.935 17649 17676 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:07:24.942 17649 17676 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:07:24.947 17649 17649 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:07:29.360 17707 17707 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:29.361 17707 17707 I AndroidRuntime: Using default boot image
+11-21 01:07:29.361 17707 17707 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:29.407 17707 17707 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:29.411 17649 17649 D AuroraKeys: key=KEYCODE_T handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.457 17649 17649 D AuroraKeys: key=KEYCODE_H handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.608 17649 17649 D AuroraKeys: key=KEYCODE_R handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.612 17649 17649 D AuroraKeys: key=KEYCODE_I handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.683 17649 17649 D AuroraKeys: key=KEYCODE_L handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.685 17649 17649 D AuroraKeys: key=KEYCODE_L handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.687 17649 17649 D AuroraKeys: key=KEYCODE_E handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.689 17649 17649 D AuroraKeys: key=KEYCODE_R handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:29.690 17707 17707 D AndroidRuntime: Shutting down VM
+11-21 01:07:35.208 17725 17725 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:35.209 17725 17725 I AndroidRuntime: Using default boot image
+11-21 01:07:35.209 17725 17725 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:35.255 17725 17725 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:35.264 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:35.306 17725 17725 D AndroidRuntime: Shutting down VM
+11-21 01:07:36.981 17742 17742 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:36.982 17742 17742 I AndroidRuntime: Using default boot image
+11-21 01:07:36.982 17742 17742 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:37.034 17742 17742 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:37.047 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:37.049 17742 17742 D AndroidRuntime: Shutting down VM
+11-21 01:07:38.706 17755 17755 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:38.707 17755 17755 I AndroidRuntime: Using default boot image
+11-21 01:07:38.707 17755 17755 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:38.754 17755 17755 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:38.762 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:38.764 17755 17755 D AndroidRuntime: Shutting down VM
+11-21 01:07:40.419 17768 17768 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:40.420 17768 17768 I AndroidRuntime: Using default boot image
+11-21 01:07:40.420 17768 17768 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:40.466 17768 17768 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:40.472 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:40.474 17768 17768 D AndroidRuntime: Shutting down VM
+11-21 01:07:42.129 17781 17781 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:42.130 17781 17781 I AndroidRuntime: Using default boot image
+11-21 01:07:42.130 17781 17781 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:42.177 17781 17781 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:42.183 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:42.185 17781 17781 D AndroidRuntime: Shutting down VM
+11-21 01:07:43.841 17794 17794 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:43.842 17794 17794 I AndroidRuntime: Using default boot image
+11-21 01:07:43.842 17794 17794 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:43.893 17794 17794 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:43.898 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:43.899 17794 17794 D AndroidRuntime: Shutting down VM
+11-21 01:07:45.555 17807 17807 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:45.556 17807 17807 I AndroidRuntime: Using default boot image
+11-21 01:07:45.556 17807 17807 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:45.601 17807 17807 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:45.607 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:45.608 17807 17807 D AndroidRuntime: Shutting down VM
+11-21 01:07:47.264 17820 17820 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:47.266 17820 17820 I AndroidRuntime: Using default boot image
+11-21 01:07:47.266 17820 17820 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:47.312 17820 17820 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:47.317 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:47.318 17820 17820 D AndroidRuntime: Shutting down VM
+11-21 01:07:48.973 17833 17833 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:48.975 17833 17833 I AndroidRuntime: Using default boot image
+11-21 01:07:48.975 17833 17833 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:49.020 17833 17833 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:49.025 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:49.026 17833 17833 D AndroidRuntime: Shutting down VM
+11-21 01:07:50.681 17846 17846 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:50.682 17846 17846 I AndroidRuntime: Using default boot image
+11-21 01:07:50.682 17846 17846 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:50.727 17846 17846 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:50.733 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:07:50.735 17846 17846 D AndroidRuntime: Shutting down VM
+11-21 01:07:53.749 17866 17866 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:53.751 17866 17866 I AndroidRuntime: Using default boot image
+11-21 01:07:53.751 17866 17866 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:53.796 17866 17866 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:53.802 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:53.804 17866 17866 D AndroidRuntime: Shutting down VM
+11-21 01:07:55.459 17879 17879 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:55.460 17879 17879 I AndroidRuntime: Using default boot image
+11-21 01:07:55.460 17879 17879 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:55.506 17879 17879 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:55.512 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:55.523 17649 17649 I AuroraFocus: region=header
+11-21 01:07:55.529 17879 17879 D AndroidRuntime: Shutting down VM
+11-21 01:07:57.197 17894 17894 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:57.199 17894 17894 I AndroidRuntime: Using default boot image
+11-21 01:07:57.199 17894 17894 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:57.252 17894 17894 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:57.254 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:57.255 17894 17894 D AndroidRuntime: Shutting down VM
+11-21 01:07:58.912 17907 17907 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:07:58.913 17907 17907 I AndroidRuntime: Using default boot image
+11-21 01:07:58.913 17907 17907 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:07:58.958 17907 17907 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:07:58.960 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:07:58.961 17907 17907 D AndroidRuntime: Shutting down VM
+11-21 01:08:00.616 17920 17920 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:00.617 17920 17920 I AndroidRuntime: Using default boot image
+11-21 01:08:00.617 17920 17920 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:00.663 17920 17920 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:00.666 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:00.667 17920 17920 D AndroidRuntime: Shutting down VM
+11-21 01:08:02.322 17933 17933 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:02.323 17933 17933 I AndroidRuntime: Using default boot image
+11-21 01:08:02.323 17933 17933 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:02.369 17933 17933 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:02.372 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:02.373 17933 17933 D AndroidRuntime: Shutting down VM
+11-21 01:08:05.073 17949 17949 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:05.075 17949 17949 I AndroidRuntime: Using default boot image
+11-21 01:08:05.075 17949 17949 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:05.128 17949 17949 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:05.131 17649 17649 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:05.136 17949 17949 D AndroidRuntime: Shutting down VM
+11-21 01:08:05.154 17649 17649 I AuroraFocus: region=content
+11-21 01:08:10.011 17976 17976 I AuroraFocus: region=content
+11-21 01:08:10.539 17976 17976 I AuroraFocus: region=none
+11-21 01:08:10.576 17976 17976 I AuroraFocus: region=content
+11-21 01:08:12.520 17976 18003 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:08:12.522 17976 18003 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:08:12.528 17976 18003 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:08:12.533 17976 17976 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:08:16.957 18024 18024 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:16.959 18024 18024 I AndroidRuntime: Using default boot image
+11-21 01:08:16.959 18024 18024 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:17.006 18024 18024 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:17.011 17976 17976 D AuroraKeys: key=KEYCODE_Z handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:17.057 17976 17976 D AuroraKeys: key=KEYCODE_Z handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:17.177 17976 17976 D AuroraKeys: key=KEYCODE_Q handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:17.180 17976 17976 D AuroraKeys: key=KEYCODE_X handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:17.241 17976 17976 D AuroraKeys: key=KEYCODE_V handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:17.243 18024 18024 D AndroidRuntime: Shutting down VM
+11-21 01:08:21.757 18039 18039 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:21.759 18039 18039 I AndroidRuntime: Using default boot image
+11-21 01:08:21.759 18039 18039 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:21.811 18039 18039 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:21.818 17976 17976 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:08:21.820 18039 18039 D AndroidRuntime: Shutting down VM
+11-21 01:08:23.482 18053 18053 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:23.484 18053 18053 I AndroidRuntime: Using default boot image
+11-21 01:08:23.484 18053 18053 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:23.531 18053 18053 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:23.540 17976 17976 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:23.543 18053 18053 D AndroidRuntime: Shutting down VM
+11-21 01:08:25.238 18069 18069 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:25.239 18069 18069 I AndroidRuntime: Using default boot image
+11-21 01:08:25.239 18069 18069 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:25.303 18069 18069 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:25.310 17976 17976 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:25.333 18069 18069 D AndroidRuntime: Shutting down VM
+11-21 01:08:30.422 18105 18105 I AuroraFocus: region=content
+11-21 01:08:30.907 18105 18105 I AuroraFocus: region=none
+11-21 01:08:31.581 18105 18105 I AuroraFocus: region=content
+11-21 01:08:32.003 18105 18132 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:08:32.006 18105 18132 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:08:32.034 18105 18132 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:08:32.080 18105 18105 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:08:32.153 18105 18105 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:08:32.207 18105 18105 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:08:32.233 18105 18105 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:08:41.390 18161 18161 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:41.391 18161 18161 I AndroidRuntime: Using default boot image
+11-21 01:08:41.391 18161 18161 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:41.436 18161 18161 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:41.445 18105 18105 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:08:41.527 18161 18161 D AndroidRuntime: Shutting down VM
+11-21 01:08:43.236 18178 18178 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:43.237 18178 18178 I AndroidRuntime: Using default boot image
+11-21 01:08:43.237 18178 18178 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:43.290 18178 18178 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:43.300 18105 18105 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:08:43.302 18178 18178 D AndroidRuntime: Shutting down VM
+11-21 01:08:44.957 18192 18192 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:44.958 18192 18192 I AndroidRuntime: Using default boot image
+11-21 01:08:44.958 18192 18192 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:45.003 18192 18192 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:45.011 18105 18105 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:08:45.013 18192 18192 D AndroidRuntime: Shutting down VM
+11-21 01:08:46.671 18205 18205 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:46.673 18205 18205 I AndroidRuntime: Using default boot image
+11-21 01:08:46.673 18205 18205 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:46.735 18205 18205 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:46.744 18105 18105 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:08:46.746 18205 18205 D AndroidRuntime: Shutting down VM
+11-21 01:08:48.403 18218 18218 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:08:48.404 18218 18218 I AndroidRuntime: Using default boot image
+11-21 01:08:48.404 18218 18218 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:08:48.461 18218 18218 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:08:48.467 18105 18105 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:08:48.469 18218 18218 D AndroidRuntime: Shutting down VM
+11-21 01:08:53.621 18251 18251 I AuroraFocus: region=content
+11-21 01:08:54.669 18251 18251 I AuroraFocus: region=none
+11-21 01:08:55.230 18251 18251 I AuroraFocus: region=content
+11-21 01:08:56.055 18251 18300 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:08:56.058 18251 18300 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:08:56.069 18251 18300 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:08:56.069 18251 18251 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:08:56.130 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:06.578 18307 18307 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:06.579 18307 18307 I AndroidRuntime: Using default boot image
+11-21 01:09:06.579 18307 18307 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:06.625 18307 18307 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:06.634 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:06.638 18307 18307 D AndroidRuntime: Shutting down VM
+11-21 01:09:08.334 18324 18324 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:08.335 18324 18324 I AndroidRuntime: Using default boot image
+11-21 01:09:08.335 18324 18324 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:08.384 18324 18324 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:08.408 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:08.505 18324 18324 D AndroidRuntime: Shutting down VM
+11-21 01:09:10.171 18337 18337 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:10.172 18337 18337 I AndroidRuntime: Using default boot image
+11-21 01:09:10.172 18337 18337 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:10.216 18337 18337 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:10.221 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:10.225 18337 18337 D AndroidRuntime: Shutting down VM
+11-21 01:09:10.958 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:11.880 18350 18350 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:11.882 18350 18350 I AndroidRuntime: Using default boot image
+11-21 01:09:11.882 18350 18350 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:11.927 18350 18350 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:11.932 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:11.950 18350 18350 D AndroidRuntime: Shutting down VM
+11-21 01:09:12.670 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:13.672 18363 18363 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:13.673 18363 18363 I AndroidRuntime: Using default boot image
+11-21 01:09:13.673 18363 18363 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:13.718 18363 18363 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:13.722 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:13.726 18363 18363 D AndroidRuntime: Shutting down VM
+11-21 01:09:14.459 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:14.492 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:14.502 18251 18251 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:09:15.382 18376 18376 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:15.383 18376 18376 I AndroidRuntime: Using default boot image
+11-21 01:09:15.383 18376 18376 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:15.429 18376 18376 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:15.434 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:15.437 18376 18376 D AndroidRuntime: Shutting down VM
+11-21 01:09:16.189 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:17.102 18397 18397 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:17.103 18397 18397 I AndroidRuntime: Using default boot image
+11-21 01:09:17.103 18397 18397 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:17.150 18397 18397 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:17.154 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:17.159 18397 18397 D AndroidRuntime: Shutting down VM
+11-21 01:09:17.894 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:17.936 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:17.955 18251 18251 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:09:18.815 18410 18410 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:18.816 18410 18410 I AndroidRuntime: Using default boot image
+11-21 01:09:18.816 18410 18410 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:18.863 18410 18410 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:18.867 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:18.871 18410 18410 D AndroidRuntime: Shutting down VM
+11-21 01:09:19.594 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:20.526 18423 18423 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:20.527 18423 18423 I AndroidRuntime: Using default boot image
+11-21 01:09:20.527 18423 18423 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:20.579 18423 18423 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:20.584 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:09:20.587 18423 18423 D AndroidRuntime: Shutting down VM
+11-21 01:09:22.242 18437 18437 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:22.244 18437 18437 I AndroidRuntime: Using default boot image
+11-21 01:09:22.244 18437 18437 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:22.297 18437 18437 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:22.303 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:09:22.304 18437 18437 D AndroidRuntime: Shutting down VM
+11-21 01:09:23.961 18451 18451 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:23.962 18451 18451 I AndroidRuntime: Using default boot image
+11-21 01:09:23.962 18451 18451 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:24.011 18451 18451 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:24.015 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:24.088 18451 18451 D AndroidRuntime: Shutting down VM
+11-21 01:09:25.031 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:25.098 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:25.154 18251 18251 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:09:25.762 18465 18465 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:25.763 18465 18465 I AndroidRuntime: Using default boot image
+11-21 01:09:25.763 18465 18465 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:25.810 18465 18465 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:25.814 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:25.825 18465 18465 D AndroidRuntime: Shutting down VM
+11-21 01:09:26.544 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:27.489 18478 18478 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:27.491 18478 18478 I AndroidRuntime: Using default boot image
+11-21 01:09:27.491 18478 18478 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:27.537 18478 18478 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:27.541 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:27.544 18478 18478 D AndroidRuntime: Shutting down VM
+11-21 01:09:28.270 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:28.304 18251 18251 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:09:28.318 18251 18251 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:09:29.199 18491 18491 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:29.200 18491 18491 I AndroidRuntime: Using default boot image
+11-21 01:09:29.200 18491 18491 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:29.245 18491 18491 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:29.249 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:29.252 18491 18491 D AndroidRuntime: Shutting down VM
+11-21 01:09:29.981 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:30.906 18504 18504 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:30.908 18504 18504 I AndroidRuntime: Using default boot image
+11-21 01:09:30.908 18504 18504 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:30.953 18504 18504 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:30.957 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:30.959 18504 18504 D AndroidRuntime: Shutting down VM
+11-21 01:09:31.686 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:32.616 18517 18517 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:32.617 18517 18517 I AndroidRuntime: Using default boot image
+11-21 01:09:32.617 18517 18517 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:32.664 18517 18517 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:32.668 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:32.672 18517 18517 D AndroidRuntime: Shutting down VM
+11-21 01:09:33.400 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:34.326 18530 18530 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:34.328 18530 18530 I AndroidRuntime: Using default boot image
+11-21 01:09:34.328 18530 18530 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:34.372 18530 18530 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:34.378 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:34.403 18251 18251 I AuroraFocus: region=sidebar
+11-21 01:09:34.437 18530 18530 D AndroidRuntime: Shutting down VM
+11-21 01:09:36.096 18543 18543 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:36.097 18543 18543 I AndroidRuntime: Using default boot image
+11-21 01:09:36.097 18543 18543 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:36.152 18543 18543 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:36.155 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:09:36.156 18543 18543 D AndroidRuntime: Shutting down VM
+11-21 01:09:37.853 18559 18559 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:37.854 18559 18559 I AndroidRuntime: Using default boot image
+11-21 01:09:37.854 18559 18559 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:37.899 18559 18559 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:37.902 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:37.905 18559 18559 D AndroidRuntime: Shutting down VM
+11-21 01:09:37.949 18251 18251 I AuroraFocus: region=content
+11-21 01:09:38.714 18251 18251 I Negotiator: Play method Transcode for avi; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoResolutionNotSupported]
+11-21 01:09:38.757 18251 18251 I Negotiator: Play method Transcode for avi; reasons=[VideoCodecNotSupported, VideoResolutionNotSupported]
+11-21 01:09:41.431 18580 18580 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:41.432 18580 18580 I AndroidRuntime: Using default boot image
+11-21 01:09:41.432 18580 18580 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:41.478 18580 18580 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:41.482 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:41.485 18580 18580 D AndroidRuntime: Shutting down VM
+11-21 01:09:43.191 18594 18594 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:43.192 18594 18594 I AndroidRuntime: Using default boot image
+11-21 01:09:43.192 18594 18594 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:43.249 18594 18594 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:43.264 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:43.301 18594 18594 D AndroidRuntime: Shutting down VM
+11-21 01:09:44.007 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:44.965 18607 18607 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:44.966 18607 18607 I AndroidRuntime: Using default boot image
+11-21 01:09:44.966 18607 18607 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:45.015 18607 18607 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:45.022 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:45.028 18607 18607 D AndroidRuntime: Shutting down VM
+11-21 01:09:45.760 18251 18251 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:09:46.683 18620 18620 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:46.684 18620 18620 I AndroidRuntime: Using default boot image
+11-21 01:09:46.684 18620 18620 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:46.729 18620 18620 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:46.755 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:46.823 18620 18620 D AndroidRuntime: Shutting down VM
+11-21 01:09:48.487 18633 18633 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:48.489 18633 18633 I AndroidRuntime: Using default boot image
+11-21 01:09:48.489 18633 18633 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:48.535 18633 18633 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:48.539 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:48.542 18633 18633 D AndroidRuntime: Shutting down VM
+11-21 01:09:50.199 18647 18647 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:50.201 18647 18647 I AndroidRuntime: Using default boot image
+11-21 01:09:50.201 18647 18647 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:50.250 18647 18647 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:50.255 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:50.258 18647 18647 D AndroidRuntime: Shutting down VM
+11-21 01:09:51.931 18661 18661 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:51.932 18661 18661 I AndroidRuntime: Using default boot image
+11-21 01:09:51.932 18661 18661 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:51.979 18661 18661 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:51.983 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:51.986 18661 18661 D AndroidRuntime: Shutting down VM
+11-21 01:09:55.449 18682 18682 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:55.451 18682 18682 I AndroidRuntime: Using default boot image
+11-21 01:09:55.451 18682 18682 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:55.496 18682 18682 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:55.501 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:09:55.503 18682 18682 D AndroidRuntime: Shutting down VM
+11-21 01:09:55.527 18251 18251 I AuroraFocus: region=sidebar
+11-21 01:09:57.158 18696 18696 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:57.159 18696 18696 I AndroidRuntime: Using default boot image
+11-21 01:09:57.159 18696 18696 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:57.205 18696 18696 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:57.207 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:09:57.208 18696 18696 D AndroidRuntime: Shutting down VM
+11-21 01:09:58.866 18709 18709 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:09:58.867 18709 18709 I AndroidRuntime: Using default boot image
+11-21 01:09:58.867 18709 18709 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:09:58.911 18709 18709 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:09:58.914 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:09:58.915 18709 18709 D AndroidRuntime: Shutting down VM
+11-21 01:10:00.569 18722 18722 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:00.570 18722 18722 I AndroidRuntime: Using default boot image
+11-21 01:10:00.570 18722 18722 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:00.616 18722 18722 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:00.619 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:10:00.620 18722 18722 D AndroidRuntime: Shutting down VM
+11-21 01:10:02.277 18735 18735 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:02.278 18735 18735 I AndroidRuntime: Using default boot image
+11-21 01:10:02.278 18735 18735 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:02.329 18735 18735 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:02.331 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:10:02.333 18735 18735 D AndroidRuntime: Shutting down VM
+11-21 01:10:03.990 18748 18748 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:03.992 18748 18748 I AndroidRuntime: Using default boot image
+11-21 01:10:03.992 18748 18748 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:04.041 18748 18748 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:04.043 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:10:04.045 18748 18748 D AndroidRuntime: Shutting down VM
+11-21 01:10:05.700 18761 18761 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:05.701 18761 18761 I AndroidRuntime: Using default boot image
+11-21 01:10:05.701 18761 18761 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:05.746 18761 18761 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:05.748 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:10:05.749 18761 18761 D AndroidRuntime: Shutting down VM
+11-21 01:10:07.403 18774 18774 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:07.405 18774 18774 I AndroidRuntime: Using default boot image
+11-21 01:10:07.405 18774 18774 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:07.450 18774 18774 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:07.452 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=false focus=AndroidComposeView touchMode=false
+11-21 01:10:07.453 18774 18774 D AndroidRuntime: Shutting down VM
+11-21 01:10:10.150 18791 18791 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:10.151 18791 18791 I AndroidRuntime: Using default boot image
+11-21 01:10:10.151 18791 18791 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:10.196 18791 18791 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:10.200 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:10.201 18791 18791 D AndroidRuntime: Shutting down VM
+11-21 01:10:11.858 18806 18806 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:11.859 18806 18806 I AndroidRuntime: Using default boot image
+11-21 01:10:11.859 18806 18806 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:11.911 18806 18806 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:11.913 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:11.915 18806 18806 D AndroidRuntime: Shutting down VM
+11-21 01:10:13.571 18819 18819 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:13.572 18819 18819 I AndroidRuntime: Using default boot image
+11-21 01:10:13.572 18819 18819 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:13.624 18819 18819 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:13.627 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:13.628 18819 18819 D AndroidRuntime: Shutting down VM
+11-21 01:10:16.351 18838 18838 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:16.353 18838 18838 I AndroidRuntime: Using default boot image
+11-21 01:10:16.353 18838 18838 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:16.400 18838 18838 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:16.402 18251 18251 D AuroraKeys: key=KEYCODE_DPAD_CENTER handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:16.407 18838 18838 D AndroidRuntime: Shutting down VM
+11-21 01:10:22.305 18875 18875 I AuroraFocus: region=content
+11-21 01:10:22.820 18875 18875 I AuroraFocus: region=none
+11-21 01:10:23.384 18875 18875 I AuroraFocus: region=content
+11-21 01:10:23.996 18875 18921 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:10:24.135 18875 18921 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:10:24.143 18875 18921 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:10:24.144 18875 18875 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:10:24.439 18875 18875 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:10:24.705 18875 18875 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:10:24.725 18875 18875 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:10:35.287 18935 18935 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:35.288 18935 18935 I AndroidRuntime: Using default boot image
+11-21 01:10:35.288 18935 18935 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:35.333 18935 18935 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:35.342 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:35.346 18935 18935 D AndroidRuntime: Shutting down VM
+11-21 01:10:37.029 18952 18952 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:37.030 18952 18952 I AndroidRuntime: Using default boot image
+11-21 01:10:37.030 18952 18952 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:37.077 18952 18952 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:37.086 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:37.091 18952 18952 D AndroidRuntime: Shutting down VM
+11-21 01:10:41.098 18969 18969 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:41.099 18969 18969 I AndroidRuntime: Using default boot image
+11-21 01:10:41.099 18969 18969 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:41.146 18969 18969 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:41.151 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:41.155 18969 18969 D AndroidRuntime: Shutting down VM
+11-21 01:10:44.668 18987 18987 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:44.669 18987 18987 I AndroidRuntime: Using default boot image
+11-21 01:10:44.669 18987 18987 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:44.716 18987 18987 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:44.723 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:44.727 18987 18987 D AndroidRuntime: Shutting down VM
+11-21 01:10:46.384 19001 19001 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:46.385 19001 19001 I AndroidRuntime: Using default boot image
+11-21 01:10:46.385 19001 19001 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:46.430 19001 19001 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:46.435 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:46.440 19001 19001 D AndroidRuntime: Shutting down VM
+11-21 01:10:48.098 19015 19015 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:48.099 19015 19015 I AndroidRuntime: Using default boot image
+11-21 01:10:48.099 19015 19015 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:48.144 19015 19015 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:48.149 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:48.177 19015 19015 D AndroidRuntime: Shutting down VM
+11-21 01:10:49.856 19028 19028 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:49.858 19028 19028 I AndroidRuntime: Using default boot image
+11-21 01:10:49.858 19028 19028 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:49.908 19028 19028 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:49.912 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:50.007 19028 19028 D AndroidRuntime: Shutting down VM
+11-21 01:10:51.691 19042 19042 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:51.693 19042 19042 I AndroidRuntime: Using default boot image
+11-21 01:10:51.693 19042 19042 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:51.742 19042 19042 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:51.749 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:51.784 19042 19042 D AndroidRuntime: Shutting down VM
+11-21 01:10:53.448 19056 19056 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:10:53.449 19056 19056 I AndroidRuntime: Using default boot image
+11-21 01:10:53.449 19056 19056 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:10:53.502 19056 19056 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:10:53.507 18875 18875 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:10:53.510 19056 19056 D AndroidRuntime: Shutting down VM
+11-21 01:10:59.437 19087 19087 I AuroraFocus: region=content
+11-21 01:10:59.476 19087 19113 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:10:59.493 19087 19087 I AuroraFocus: region=none
+11-21 01:10:59.526 19087 19113 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:10:59.546 19087 19113 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:10:59.551 19087 19087 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:11:00.286 19087 19087 I AuroraFocus: region=content
+11-21 01:11:00.556 19087 19087 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:11:00.563 19087 19087 I ExoEngine: state=buffering pos=8227 buffered=8227
+11-21 01:11:00.564 19087 19087 I Player  : Ready to play in 398 ms (cold, DirectPlay)
+11-21 01:11:00.676 19087 19142 W SubtitleRenderer: libass API version: 0x1704000
+11-21 01:11:00.676 19087 19142 W SubtitleRenderer: libass source: commit: bbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:11:02.121 19087 19087 I ExoEngine: Resuming from the keyframe 2227 ms before the saved position
+11-21 01:11:02.529 19087 19087 I ExoEngine: state=ready pos=6014 buffered=15998
+11-21 01:11:11.174 19323 19323 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:11.241 19323 19323 I AndroidRuntime: Using default boot image
+11-21 01:11:11.241 19323 19323 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:11.487 19323 19323 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:11.492 19087 19087 D AuroraKeys: key=KEYCODE_DPAD_UP handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:11.501 19323 19323 D AndroidRuntime: Shutting down VM
+11-21 01:11:13.816 19395 19395 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:13.828 19395 19395 I AndroidRuntime: Using default boot image
+11-21 01:11:13.828 19395 19395 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:14.455 19395 19395 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:14.550 19087 19087 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:14.678 19395 19395 D AndroidRuntime: Shutting down VM
+11-21 01:11:16.453 19483 19483 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:16.455 19483 19483 I AndroidRuntime: Using default boot image
+11-21 01:11:16.455 19483 19483 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:16.650 19483 19483 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:16.682 19087 19087 D AuroraKeys: key=KEYCODE_DPAD_LEFT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:16.693 19483 19483 D AndroidRuntime: Shutting down VM
+11-21 01:11:18.577 19543 19543 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:18.591 19543 19543 I AndroidRuntime: Using default boot image
+11-21 01:11:18.591 19543 19543 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:19.358 19543 19543 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:19.413 19087 19087 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:19.757 19543 19543 D AndroidRuntime: Shutting down VM
+11-21 01:11:26.007 19707 19707 I AuroraFocus: region=content
+11-21 01:11:26.896 19707 19707 I AuroraFocus: region=none
+11-21 01:11:27.671 19707 19707 I AuroraFocus: region=content
+11-21 01:11:28.609 19707 19756 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:11:28.641 19707 19756 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:11:28.759 19707 19756 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:11:28.760 19707 19707 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:11:28.816 19707 19707 I Negotiator: Play method Transcode for avi; reasons=[VideoCodecNotSupported, AudioCodecNotSupported, VideoResolutionNotSupported]
+11-21 01:11:28.843 19707 19707 I Negotiator: Play method Transcode for avi; reasons=[VideoCodecNotSupported, VideoResolutionNotSupported]
+11-21 01:11:36.849 19769 19769 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:36.850 19769 19769 I AndroidRuntime: Using default boot image
+11-21 01:11:36.850 19769 19769 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:36.895 19769 19769 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:36.901 19707 19707 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:36.904 19769 19769 D AndroidRuntime: Shutting down VM
+11-21 01:11:38.578 19783 19783 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:38.580 19783 19783 I AndroidRuntime: Using default boot image
+11-21 01:11:38.580 19783 19783 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:38.626 19783 19783 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:38.648 19707 19707 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:38.697 19783 19783 D AndroidRuntime: Shutting down VM
+11-21 01:11:39.388 19707 19707 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:11:40.368 19796 19796 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:40.369 19796 19796 I AndroidRuntime: Using default boot image
+11-21 01:11:40.369 19796 19796 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:40.419 19796 19796 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:40.423 19707 19707 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:40.426 19796 19796 D AndroidRuntime: Shutting down VM
+11-21 01:11:41.165 19707 19707 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:11:45.559 19833 19833 I AuroraFocus: region=content
+11-21 01:11:45.617 19833 19833 I AuroraFocus: region=none
+11-21 01:11:46.082 19833 19833 I AuroraFocus: region=content
+11-21 01:11:48.069 19833 19861 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:11:48.072 19833 19861 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:11:48.078 19833 19861 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:11:48.079 19833 19833 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:11:54.706 19881 19881 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:54.708 19881 19881 I AndroidRuntime: Using default boot image
+11-21 01:11:54.708 19881 19881 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:54.753 19881 19881 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:54.761 19833 19833 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:54.877 19881 19881 D AndroidRuntime: Shutting down VM
+11-21 01:11:56.540 19897 19897 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:56.541 19897 19897 I AndroidRuntime: Using default boot image
+11-21 01:11:56.541 19897 19897 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:56.593 19897 19897 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:56.597 19833 19833 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:56.600 19897 19897 D AndroidRuntime: Shutting down VM
+11-21 01:11:58.259 19910 19910 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:58.260 19910 19910 I AndroidRuntime: Using default boot image
+11-21 01:11:58.260 19910 19910 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:11:58.306 19910 19910 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:11:58.310 19833 19833 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:11:58.313 19910 19910 D AndroidRuntime: Shutting down VM
+11-21 01:11:59.985 19923 19923 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:11:59.986 19923 19923 I AndroidRuntime: Using default boot image
+11-21 01:11:59.986 19923 19923 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:12:00.034 19923 19923 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:12:00.039 19833 19833 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:12:00.041 19923 19923 D AndroidRuntime: Shutting down VM
+11-21 01:12:03.955 19942 19942 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:12:03.956 19942 19942 I AndroidRuntime: Using default boot image
+11-21 01:12:03.956 19942 19942 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:12:04.009 19942 19942 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:12:04.014 19833 19833 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:12:04.068 19942 19942 D AndroidRuntime: Shutting down VM
+11-21 01:12:10.026 19971 19971 I AuroraFocus: region=content
+11-21 01:12:10.059 19971 19997 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:12:10.064 19971 19997 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:12:10.076 19971 19971 I AuroraFocus: region=none
+11-21 01:12:10.119 19971 19997 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:12:10.122 19971 19971 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:12:10.300 19971 19971 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-21 01:12:10.304 19971 20028 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-21 01:12:10.388 19971 20028 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-21 01:12:10.388 19971 20028 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:12:10.390 19971 20028 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-21 01:12:10.391 19971 20028 V mpv     : [osd/libass:v] Setting up fonts...
+11-21 01:12:10.726 19971 20028 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-21 01:12:10.726 19971 20028 V mpv     : [osd/libass:v] Done.
+11-21 01:12:11.019 19971 19971 I AuroraFocus: region=content
+11-21 01:12:11.268 19971 19971 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:12:11.284 19971 19971 I Player  : Ready to play in 531 ms (cold, DirectPlay)
+11-21 01:12:41.164 20070 20070 I AuroraFocus: region=content
+11-21 01:12:41.207 20070 20070 I AuroraFocus: region=none
+11-21 01:12:41.275 20070 20097 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:12:41.302 20070 20097 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:12:41.314 20070 20097 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:12:41.315 20070 20070 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:12:41.469 20070 20070 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-21 01:12:41.470 20070 20128 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-21 01:12:41.852 20070 20070 I AuroraFocus: region=content
+11-21 01:12:42.159 20070 20070 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:12:42.307 20070 20070 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-21 01:12:42.312 20070 20128 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-21 01:12:42.312 20070 20128 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:12:42.312 20070 20128 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-21 01:12:42.312 20070 20128 V mpv     : [osd/libass:v] Setting up fonts...
+11-21 01:12:42.409 20070 20070 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-21 01:12:42.559 20070 20128 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-21 01:12:42.559 20070 20128 V mpv     : [osd/libass:v] Done.
+11-21 01:12:42.567 20070 20070 I Player  : Ready to play in 1083 ms (cold, Transcode)
+11-21 01:12:45.965 20070 20128 V mpv     : [sub/ass:v] libass API version: 0x1704000
+11-21 01:12:45.965 20070 20128 V mpv     : [sub/ass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:13:03.246 20070 20119 I MpvEngine: mpv destroyed
+11-21 01:13:03.717 20070 20070 I AuroraFocus: region=none
+11-21 01:13:04.378 20070 20070 I AuroraFocus: region=content
+11-21 01:13:05.226 20070 20070 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:13:07.285 20177 20177 I AuroraFocus: region=content
+11-21 01:13:07.340 20177 20177 I AuroraFocus: region=none
+11-21 01:13:07.360 20177 20202 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-21 01:13:07.362 20177 20202 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-21 01:13:07.372 20177 20202 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-21 01:13:07.377 20177 20177 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-21 01:13:07.520 20177 20177 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-21 01:13:07.523 20177 20231 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-21 01:13:07.971 20177 20177 I AuroraFocus: region=content
+11-21 01:13:08.324 20177 20231 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-21 01:13:08.324 20177 20231 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:13:08.324 20177 20231 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-21 01:13:08.324 20177 20231 V mpv     : [osd/libass:v] Setting up fonts...
+11-21 01:13:08.465 20177 20177 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-21 01:13:08.674 20177 20231 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-21 01:13:08.674 20177 20231 V mpv     : [osd/libass:v] Done.
+11-21 01:13:08.677 20177 20177 I Player  : Ready to play in 1112 ms (cold, DirectPlay)
+11-21 01:13:08.757 20177 20231 V mpv     : [sub/ass:v] libass API version: 0x1704000
+11-21 01:13:08.757 20177 20231 V mpv     : [sub/ass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-21 01:13:23.061 20259 20259 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 01:13:23.086 20259 20259 I AndroidRuntime: Using default boot image
+11-21 01:13:23.086 20259 20259 I AndroidRuntime: Leaving lock profiling enabled
+11-21 01:13:23.184 20259 20259 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 01:13:23.189 20177 20177 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-21 01:13:23.190 20259 20259 D AndroidRuntime: Shutting down VM
