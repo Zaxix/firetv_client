@@ -105,6 +105,16 @@ class DetailModel(preview: BaseItemDto?) {
     var ratingsFor: String? = null
     val reviewsFocus = FocusRequester()
     val listState = LazyListState()
+    /** For the Perf log: when the page was opened, and how many API requests had been made by then. */
+    val openedAt = kotlin.time.TimeSource.Monotonic.markNow()
+    var apiAtOpen: Int? = null
+    var loads = 0
+    /** A load is under way (the item shown may be from before the last playback). */
+    var loading = false
+    /** Episodes of each season already shown on this page (switching back is instant, no request). */
+    val seasonEpisodes = HashMap<String, List<BaseItemDto>>()
+    /** "More Like This" for this item, kept when the page reloads (it doesn't change with watching). */
+    var similarFor: String? = null
 }
 
 @Composable
@@ -113,19 +123,24 @@ fun DetailScreen(route: Route.Detail) {
     val api = LocalSession.current.api
     val navigator = LocalNavigator.current
     val entry = LocalEntry.current!!
-    val model = entry.model("detail") { DetailModel(route.preview) }
+    val model = entry.model("detail") { DetailModel(route.preview).also { it.apiAtOpen = apiRequestsSoFar(container) } }
     val scope = rememberCoroutineScope()
     val playFocus = remember { FocusRequester() }
     var reload by remember { mutableIntStateOf(0) }
 
     // Always refresh on (re)entry so progress/watched state is current after playback.
     LaunchedEffect(reload, entry) {
+        model.loading = true
         try {
             coroutineScope {
                 // Everything that only needs the id starts together with the item itself (the card we
                 // came from already says whether it's a series), instead of one request after another.
                 val knownSeries = route.preview?.isSeries == true
-                val similar = async { runCatching { api.similar(route.itemId) }.getOrDefault(emptyList()) }
+                val perf = com.auroratv.core.PerfTuning.on
+                // "More Like This" is the server's heaviest query here and sits at the bottom of the
+                // page: asked once per page (not again on each return from the player), and after the
+                // page's own data so it never competes with it.
+                val similar: kotlinx.coroutines.Deferred<List<BaseItemDto>>? = if (perf) null else async { runCatching { api.similar(route.itemId) }.getOrDefault(emptyList()) }
                 val seasonsEarly = if (knownSeries) async { api.seasons(route.itemId) } else null
                 val nextEarly = if (knownSeries) async { runCatching { api.nextUp(limit = 1, seriesId = route.itemId).firstOrNull() }.getOrNull() } else null
                 // An episode shows its number in its show's episode order, if the show has one.
@@ -140,12 +155,23 @@ fun DetailScreen(route: Route.Detail) {
                     if (model.selectedSeason == null) {
                         model.selectedSeason = model.nextUp?.seasonId ?: model.seasons.firstOrNull { it.indexNumber != 0 }?.id ?: model.seasons.firstOrNull()?.id
                     }
-                    model.selectedSeason?.let { sid -> model.episodes = api.episodes(item.id, seasonId = sid) }
+                    model.seasonEpisodes.clear() // watched state may have changed since
+                    model.selectedSeason?.let { sid -> model.episodes = api.episodes(item.id, seasonId = sid).also { model.seasonEpisodes[sid] = it } }
                 } else if (item.isSeason && item.seriesId != null) {
                     model.episodes = api.episodes(item.seriesId, seasonId = item.id)
                 }
-                model.similar = similar.await()
+                if (similar != null) model.similar = similar.await()
                 model.loaded = true
+                if (perf && model.similarFor != item.id) launch {
+                    model.similar = runCatching { api.similar(item.id) }.getOrDefault(emptyList())
+                    model.similarFor = item.id
+                }
+                // Perf (CI reads it): how long until the page had everything, and what it cost the server.
+                val kind = item.type ?: "Item"
+                val first = model.loads++ == 0
+                val requests = apiRequestsSoFar(container)?.let { now -> model.apiAtOpen?.let { now - it } }
+                com.auroratv.core.Log.i("Perf", "Detail loaded in ${model.openedAt.elapsedNow().inWholeMilliseconds} ms ($kind, ${if (first) "opened" else "again"}" +
+                    (if (route.preview != null) ", card known" else "") + (requests?.let { ", $it API request(s) so far" } ?: "") + ")")
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
@@ -153,6 +179,8 @@ fun DetailScreen(route: Route.Detail) {
             val err = t.toAppError()
             container.onError(err)
             model.error = err.userMessage
+        } finally {
+            model.loading = false
         }
     }
     // Ratings and reviews come from outside services: fetched once per item after the page is up,
@@ -259,7 +287,12 @@ fun DetailScreen(route: Route.Detail) {
                     nextUp = model.nextUp,
                     playFocus = playFocus,
                     onPlay = { target, fromStart -> navigator.push(Route.Player(target.id, fromStart, target)) },
-                    onPrewarm = { target -> container.prewarmPlayback(api, target.id) },
+                    // The page's own item already has its media details (a film or an episode page): the
+                    // preparation doesn't ask for it again.
+                    onPrewarm = { target ->
+                        val known = model.item?.takeIf { com.auroratv.core.PerfTuning.on && model.loaded && !model.loading && it.id == target.id }
+                        container.prewarmPlayback(api, target.id, known)
+                    },
                     onFavorite = ::toggleFavorite,
                     onPlayed = ::togglePlayed,
                     onSeries = item.seriesId?.let { sid -> { navigator.push(Route.Detail(sid)) } },
@@ -286,7 +319,21 @@ fun DetailScreen(route: Route.Detail) {
                             model.episodes = null
                             // A season the server doesn't list has nothing to fetch: its episodes are the upcoming ones.
                             if (sid.startsWith(UPCOMING_SEASON)) model.episodes = emptyList()
-                            else scope.launch { model.episodes = runCatching { api.episodes(item.id, seasonId = sid) }.getOrDefault(emptyList()) }
+                            else scope.launch {
+                                val t0 = kotlin.time.TimeSource.Monotonic.markNow()
+                                val before = apiRequestsSoFar(container)
+                                val perf = com.auroratv.core.PerfTuning.on
+                                // A season already shown on this page comes back at once (nothing is
+                                // watched while the page is open; the page reloads after playback).
+                                val list = (if (perf) model.seasonEpisodes[sid] else null)
+                                    ?: runCatching { api.episodes(item.id, seasonId = sid) }.getOrDefault(emptyList())
+                                        .also { if (perf && it.isNotEmpty()) model.seasonEpisodes[sid] = it }
+                                // A slower answer for a season switched away from never replaces the one now shown.
+                                if (perf && model.selectedSeason != sid) return@launch
+                                model.episodes = list
+                                com.auroratv.core.Log.i("Perf", "Season shown in ${t0.elapsedNow().inWholeMilliseconds} ms (${list.size} episodes" +
+                                    (before?.let { b -> apiRequestsSoFar(container)?.let { ", ${it - b} API request(s)" } } ?: "") + ")")
+                            }
                         }
                     }
                 }

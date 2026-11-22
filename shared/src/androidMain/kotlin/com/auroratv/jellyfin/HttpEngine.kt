@@ -19,6 +19,10 @@ object SharedOkHttp {
     val imageRequests = java.util.concurrent.atomic.AtomicInteger()
     val mediaRequests = java.util.concurrent.atomic.AtomicInteger()
 
+    /** CI only (`perfTrace`): log every API request's path and query (keys and tokens removed) to spot repeats. */
+    @Volatile var traceRequests = false
+    private val secret = Regex("""(?i)(api_?key|token|X-Emby-Token|X-MediaBrowser-Token)=[^&]*""")
+
     val dispatcher = Dispatcher().also { it.maxRequests = 64 }
     val pool = ConnectionPool(16, 5, TimeUnit.MINUTES)
 
@@ -32,7 +36,14 @@ object SharedOkHttp {
                 when {
                     path.contains("/Images/") -> imageRequests.incrementAndGet()
                     path.startsWith("/Videos/") || path.startsWith("/Audio/") || path.contains("/hls") -> mediaRequests.incrementAndGet()
-                    else -> apiRequests.incrementAndGet()
+                    else -> {
+                        apiRequests.incrementAndGet()
+                        if (traceRequests) {
+                            val url = chain.request().url
+                            val query = url.encodedQuery?.replace(secret, "$1=…")?.let { "?$it" }.orEmpty()
+                            android.util.Log.i("ApiTrace", "${chain.request().method} ${url.encodedPath}$query")
+                        }
+                    }
                 }
                 chain.proceed(chain.request())
             }

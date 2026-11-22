@@ -25,6 +25,11 @@ Open issues and limits, stated plainly. (The full list of platform limits is in
 - **Audio default** (English except anime) depends on the metadata saying a show is anime: an anime
   without an anime genre/tag, Japanese title or Japanese origin is treated as non-anime and gets the
   English dub when the file has one ([[Video Player]]).
+- **Performance** ([[Performance Optimization]]):
+  - every timing so far comes from the CI emulator, which draws with a software GPU; start-up there
+    goes on drawing frames, and nothing has been measured on a Fire TV;
+  - remote input latency, profile switching, search, hours of use and Jellyfin server CPU/RAM
+    haven't been measured.
 - **Episode Orders** ([[Episode Orders]]):
   - automatic orders need a TMDB key and a library in TMDB's (aired) numbering;
   - no real TMDB request has been tested (CI simulates TMDB's answers);

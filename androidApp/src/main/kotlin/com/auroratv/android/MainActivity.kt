@@ -14,6 +14,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var container: AppContainer
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // `--ez perfTrace true` (CI only): where the UI thread is blocked at start-up, and every API request.
+        if (intent?.getBooleanExtra("perfTrace", false) == true) {
+            PerfProbe.start()
+            com.auroratv.jellyfin.SharedOkHttp.traceRequests = true
+        }
         super.onCreate(savedInstanceState)
         container = AppContainer(AndroidPlatform(this))
         // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
@@ -22,6 +27,8 @@ class MainActivity : ComponentActivity() {
         com.auroratv.ui.components.UiTrace.on = intent?.getBooleanExtra("traceUi", false) == true
         // `--ei resumeLevel 0|1|2` (CI only): time the original Play/resume path against the current one.
         com.auroratv.playback.ResumeTuning.level = intent?.getIntExtra("resumeLevel", com.auroratv.playback.ResumeTuning.CURRENT) ?: com.auroratv.playback.ResumeTuning.CURRENT
+        // `--ei perfLevel 0|1` (CI only): time the code before the performance audit against the code now.
+        com.auroratv.core.PerfTuning.level = intent?.getIntExtra("perfLevel", com.auroratv.core.PerfTuning.CURRENT) ?: com.auroratv.core.PerfTuning.CURRENT
         // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.
         intent?.getStringExtra("player")?.let { p ->
             com.auroratv.settings.PlayerEngineChoice.entries.firstOrNull { it.name.equals(p, ignoreCase = true) }

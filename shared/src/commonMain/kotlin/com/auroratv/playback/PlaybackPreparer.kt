@@ -191,17 +191,21 @@ class PlaybackPrewarmer(
         val caps: DeviceCapabilities,
         val job: Deferred<PreparedPlayback?>,
         val created: TimeMark,
+        /** The resume point it was prepared for, when it was prepared from an item the caller had. */
+        val resumeMs: Long? = null,
     )
 
     private var entry: Entry? = null
 
-    fun prewarm(api: JellyfinApi, caps: DeviceCapabilities, settings: Settings, itemId: String) {
+    fun prewarm(api: JellyfinApi, caps: DeviceCapabilities, settings: Settings, itemId: String, knownItem: BaseItemDto? = null) {
         val e = entry
-        if (e != null && e.itemId == itemId && e.api === api && e.settings == settings && e.caps == caps && e.created.elapsedNow() < MAX_AGE / 2) return
+        if (e != null && e.itemId == itemId && e.api === api && e.settings == settings && e.caps == caps && e.created.elapsedNow() < MAX_AGE / 2 &&
+            (knownItem == null || e.resumeMs == knownItem.resumePositionMs)) return
         e?.job?.cancel()
         val job = scope.async {
             try {
-                PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false, trackMemory = trackMemory)
+                PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false,
+                    knownItem = knownItem?.takeIf { it.id == itemId && it.mediaSources.isNotEmpty() }, trackMemory = trackMemory)
                     .also { p -> runCatching { onPrepared(p) } }
             } catch (c: CancellationException) {
                 throw c
@@ -209,7 +213,7 @@ class PlaybackPrewarmer(
                 Log.w("Prewarm", "Couldn't prepare $itemId ahead of time: ${t.message}"); null
             }
         }
-        entry = Entry(itemId, api, settings, caps, job, TimeSource.Monotonic.markNow())
+        entry = Entry(itemId, api, settings, caps, job, TimeSource.Monotonic.markNow(), knownItem?.resumePositionMs)
     }
 
     /**

@@ -111,8 +111,9 @@ class AppContainer(val platform: Platform) {
     }
 
     /** Starts preparing [itemId] for playback in the background (main thread; no-op if already prepared). */
-    fun prewarmPlayback(api: com.auroratv.jellyfin.JellyfinApi, itemId: String) {
-        appScope.launch { prewarmer.prewarm(api, capabilities(), settings.current, itemId) }
+    /** [known]: the item with its media details, when the caller already has it (saves asking for it again). */
+    fun prewarmPlayback(api: com.auroratv.jellyfin.JellyfinApi, itemId: String, known: com.auroratv.jellyfin.model.BaseItemDto? = null) {
+        appScope.launch { prewarmer.prewarm(api, capabilities(), settings.current, itemId, known) }
     }
 
     private var detector: Pair<JellyfinApi, SkipDetector>? = null

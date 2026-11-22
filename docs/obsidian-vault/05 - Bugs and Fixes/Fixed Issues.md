@@ -5,6 +5,12 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Performance audit (Nov 2026)
+| Symptom | Cause | Fix |
+|---|---|---|
+| Switching seasons quickly could show the episodes of a season no longer selected | Each switch fetched its season; a slower earlier answer replaced the newer one | Answers for a season no longer selected are dropped, and seasons already seen come back from the page |
+| The anime resume-and-seek CI check failed now and then ("ready 2x", then ended) | The seek keys sometimes arrived before the seek bar was up, so the first seek was lost and the second ran past the end | The check waits 1.5 s for the bar, and resets the resume point only after stopping the app |
+
 ## Episode orders and the Home banner (Nov 2026)
 | Symptom | Cause | Fix |
 |---|---|---|

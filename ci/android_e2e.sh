@@ -160,8 +160,11 @@ fi
 #   level 3 deeplink: cold start, the file's start already kept on the device
 #   level 2 deeplink: the previous build (fonts downloaded on every start), for comparison
 lantern_round() { # level how
+  # Stop the app first: the previous round's player reports its position every few seconds, and one
+  # report landing just after the reset below made a round resume at 2:35 instead of 1:30.
+  adb shell am force-stop "$PKG"; sleep 1
   curl -sf -X POST "$URL/UserItems/$LANTERN/UserData?userId=$UID_" -H "$A" -H "Content-Type: application/json" -d '{"PlaybackPositionTicks":900000000}' >/dev/null || true
-  adb shell am force-stop "$PKG"; sleep 1; adb shell log -t AuroraCI "lantern-$1-$2"
+  adb shell log -t AuroraCI "lantern-$1-$2"
   if [ "$2" = detail ]; then
     adb shell am start -n "$PKG/$ACT" --ei resumeLevel "$1" --es route "detail:$LANTERN" >/dev/null; sleep 14
     adb shell input keyevent KEYCODE_DPAD_CENTER
@@ -172,10 +175,11 @@ lantern_round() { # level how
   local L; L=$(adb logcat -d | tr -d '\r' | sed -n "/AuroraCI.*lantern-$1-$2\$/,\$p")
   local resumed; resumed=$(echo "$L" | grep -m1 -E "Perf *: Playing after" | sed -E 's/^.*Perf *: //')
   local engine; engine=$(echo "$L" | grep -m1 -E "Perf *: Engine start" | sed -E 's/^.*Perf *: //')
-  # Skip back three steps on the bar and commit; then forward three.
-  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
+  # Skip back three steps on the bar and commit; then forward three. The bar gets 1.5 s to come up
+  # first: with 0.6 s a slow start sometimes lost the first seek, and the second then ran past the end.
+  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 1.5; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.2; input keyevent KEYCODE_DPAD_LEFT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
   sleep 15
-  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 0.6; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
+  adb shell 'input keyevent KEYCODE_DPAD_UP; sleep 1.5; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.2; input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; input keyevent KEYCODE_DPAD_CENTER'
   sleep 15; shot "android-33-anime-resume-seek-L$1-$2"
   L=$(adb logcat -d | tr -d '\r' | sed -n "/AuroraCI.*lantern-$1-$2\$/,\$p")
   local states; states=$(echo "$L" | grep -E "ExoEngine: state=" | sed -E 's/^.*state=([a-z]+) pos=([0-9]+).*/\1@\2/' | tr '\n' ' ')

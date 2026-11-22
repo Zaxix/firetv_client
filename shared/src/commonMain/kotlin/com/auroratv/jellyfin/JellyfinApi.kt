@@ -174,7 +174,10 @@ class JellyfinApi(
     @kotlin.concurrent.Volatile private var arranged: Map<String, CachedArrangement> = emptyMap()
 
     /** Forgets arranged lists (watched state or an order changed). */
-    fun invalidateArrangements(seriesId: String? = null) { arranged = if (seriesId == null) emptyMap() else arranged - seriesId }
+    fun invalidateArrangements(seriesId: String? = null) {
+        arranged = if (seriesId == null) emptyMap() else arranged - seriesId
+        if (seriesId == null) similarCache.clear()
+    }
 
     private fun List<BaseItemDto>.relabel(): List<BaseItemDto> = order?.let { o -> map { o.relabel(it) } } ?: this
 
@@ -688,10 +691,22 @@ class JellyfinApi(
             parameter("enableImages", false)
         }.read<QueryResult<BaseItemDto>>().items
 
-    suspend fun similar(itemId: String, limit: Int = 16, fields: String = Fields.CARD): List<BaseItemDto> =
-        http.get(url("/Items/${sid(itemId)}/Similar")) {
+    suspend fun similar(itemId: String, limit: Int = 16, fields: String = Fields.CARD): List<BaseItemDto> {
+        val key = "${sid(itemId)}|$limit|$fields"
+        if (com.auroratv.core.PerfTuning.on) similarCache.get(key)?.let { return it.withLocal() }
+        val list = http.get(url("/Items/${sid(itemId)}/Similar")) {
             auth(); parameter("userId", requireUser()); parameter("limit", limit); parameter("fields", fields)
-        }.read<QueryResult<BaseItemDto>>().items.withLocal()
+        }.read<QueryResult<BaseItemDto>>().items
+        similarCache.put(key, list)
+        return list.withLocal()
+    }
+
+    /**
+     * "More Like This" answers (the server's heaviest per-page query: it compares the item with the
+     * whole library): kept 10 minutes, at most 24 titles' worth, and dropped when anything is watched
+     * (their cards show watched marks). Reopening a title or coming back to it asks again only then.
+     */
+    private val similarCache = TimedCache<String, List<BaseItemDto>>(capacity = 24, ttl = kotlin.time.Duration.parse("10m"))
 
     suspend fun setFavorite(itemId: String, favorite: Boolean) {
         local?.let { it.setFavorite(sid(itemId), favorite); return }

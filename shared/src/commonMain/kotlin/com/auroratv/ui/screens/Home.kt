@@ -172,7 +172,7 @@ class HomeSnapshot(
 private var homesOpened = 0
 
 /** API requests made so far (from Platform.requestStats), or null where it isn't counted. */
-private fun apiRequestsSoFar(container: com.auroratv.ui.AppContainer): Int? =
+internal fun apiRequestsSoFar(container: com.auroratv.ui.AppContainer): Int? =
     container.platform.requestStats()?.let { Regex("""api=(\d+)""").find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
 /** Continue Watching, Next Up and the recommendation rows: the ones that change as this profile watches. */
@@ -268,7 +268,11 @@ fun HomeScreen() {
     // A show on the banner (often its newest episode) plays what its own page's Play would: the
     // episode in progress or next in its order, never the newest one just because it was added last
     // (that jumped viewers far ahead, and the server's Next Up then followed the jump).
+    // Worked out once per show until something is watched (the banner is focused again every time
+    // Home comes back, and each time cost a Next Up and an episode list, plus preparing playback).
     val bannerTargets = remember(session) { HashMap<String, BaseItemDto>() }
+    val bannerWatch by com.auroratv.data.WatchActivity.version.collectAsState()
+    LaunchedEffect(bannerWatch) { bannerTargets.clear() }
     val bannerFocus = remember { kotlinx.coroutines.flow.MutableStateFlow<BaseItemDto?>(null) }
     LaunchedEffect(Unit) {
         bannerFocus.collectLatest { item ->
@@ -276,7 +280,8 @@ fun HomeScreen() {
             val series = bannerSeries(item)
             if (series == null) { prewarmRequests.value = item.id.takeUnless { item.isSeries }; return@collectLatest }
             delay(PREWARM_DELAY_MS)
-            val target = runCatching { api.seriesPlayTarget(series) }.getOrNull() ?: return@collectLatest
+            val target = (if (com.auroratv.core.PerfTuning.on) bannerTargets[series] else null)
+                ?: runCatching { api.seriesPlayTarget(series) }.getOrNull() ?: return@collectLatest
             bannerTargets[series] = target
             prewarmRequests.value = target.id
         }

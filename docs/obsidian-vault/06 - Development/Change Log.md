@@ -6,6 +6,32 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Performance audit
+Measured first, then changed only what the measurements pointed at. The old and new code ran in
+alternating rounds of one build on the emulator. See [[Performance Optimization]] for the method and
+the full table.
+
+**Changes:**
+- **"More Like This":** asked for once per page, after the page's own data; kept 10 minutes, and
+  dropped when anything is watched.
+- **Seasons:** a season seen on a page comes back instantly. Fixed: switching seasons quickly could
+  show the wrong season's episodes.
+- **Playing from a film or episode page:** reuses the page's item (one request instead of two or
+  three).
+- **Home banner:** its Play target is reused until something is watched.
+
+**Results:**
+- film pages load in 55 ms instead of 77 ms (median), with 1 request instead of 2;
+- show pages use 4 requests instead of 5;
+- a season seen before shows in 0 ms with no request;
+- 11% fewer requests in a browsing round, and 24% fewer repeats.
+
+Start-up, memory and playback start didn't change measurably. Start-up time on the emulator goes on
+drawing frames (software GPU), not app code.
+
+**CI:** the anime resume-and-seek check gives the seek bar 1.5 s to come up before the seek keys
+(0.6 s sometimes lost the first seek), and resets the resume point after stopping the app.
+
 ## Top 10 in Your Home
 A Home row of the ten films and shows watched most in the household:
 - **Whose viewing counts:** every profile on this device, on the current server.
