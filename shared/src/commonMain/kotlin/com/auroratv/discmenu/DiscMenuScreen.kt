@@ -156,23 +156,36 @@ fun DiscMenuScreen(container: AppContainer, route: Route.DiscMenu) {
 
     when (val l = load) {
         MenuLoad.Busy -> Box(Modifier.fillMaxSize().background(Color.Black))
-        is MenuLoad.Failed -> MenuNotice(l.message) { leaveMenu(container); navigator.pop() }
+        is MenuLoad.Failed -> MenuNotice(
+            l.message,
+            onPlay = {
+                // The menu can't open (source unreachable, no pack): the film itself must still be one press away.
+                leaveMenu(container)
+                navigator.pop()
+                navigator.push(Route.Player(route.itemId, startFromBeginning = true, preview = route.preview))
+            },
+            onBack = { leaveMenu(container); navigator.pop() },
+        )
         is MenuLoad.Ready -> DiscMenuStage(container, route, l, visit)
     }
 }
 
 @Composable
-private fun MenuNotice(message: String, onBack: () -> Unit) {
+private fun MenuNotice(message: String, onPlay: () -> Unit, onBack: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Box(
         Modifier.fillMaxSize().background(Color.Black).focusRequester(focus).focusable().onPreviewKeyEvent { ev ->
-            if (ev.type == KeyEventType.KeyUp) onBack()
-            true
+            when (mapKey(ev.key, ev.type)) {
+                MenuKey.Select -> onPlay()
+                MenuKey.Back -> onBack()
+                else -> Unit
+            }
+            ev.type == KeyEventType.KeyUp || ev.key in HANDLED_KEYS
         },
         contentAlignment = Alignment.Center,
     ) {
-        Text(message + "\n\nPress Back to return.", color = Color.White, fontSize = 22.sp, modifier = Modifier.padding(64.dp))
+        Text(message + "\n\nPress OK to play the film anyway, or Back to return.", color = Color.White, fontSize = 22.sp, modifier = Modifier.padding(64.dp))
     }
 }
 

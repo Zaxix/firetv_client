@@ -38,7 +38,9 @@ back into the player.
   (the intro holds its last picture until then, and shows "Downloading menu… NN%"), a submenu
   opens when stage 2 is, Play Movie when stage 3 is; before that the button says it is still
   downloading. The loop and music players are only created once their files are there. If a file
-  keeps failing (three tries), OK plays the film anyway and Back leaves. An interrupted download
+  keeps failing (three tries), OK plays the film anyway and Back leaves. If the menu can't open at
+  all (source unreachable and no saved file list, no pack), the message screen offers the same:
+  OK plays the film, Back returns. An interrupted download
   carries on from the last finished file. The token is sent only to the source's own host.
   `tools/disc-menu/make_manifest.py` writes the manifest and catalog for a pack folder.
 - **Leaving.** A pack the app downloaded is deleted when the menu is left (Back from the main
