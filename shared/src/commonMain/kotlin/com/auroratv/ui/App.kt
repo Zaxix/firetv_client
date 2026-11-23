@@ -252,7 +252,7 @@ private fun MainShell(container: AppContainer) {
     // screen changed under it), the D-pad would do nothing. Put it back on the screen's content.
     var shellFocused by remember { mutableStateOf(true) }
     LaunchedEffect(shellFocused, entry, updatePrompt) {
-        if (shellFocused || entry.route is Route.Player || updatePrompt != null) return@LaunchedEffect
+        if (shellFocused || entry.route.isFullScreen() || updatePrompt != null) return@LaunchedEffect
         kotlinx.coroutines.delay(250)
         if (!shellFocused) runCatching { contentFocus.requestFocus() }
     }
@@ -270,7 +270,7 @@ private fun MainShell(container: AppContainer) {
         Box(
             Modifier.fillMaxSize().onFocusChanged { shellFocused = it.hasFocus }.onPreviewKeyEvent { ev ->
                 // The update card, when shown, gets every key first (it's modal).
-                if (updatePrompt != null && entry.route !is Route.Player) return@onPreviewKeyEvent promptKeys.onKey(ev)
+                if (updatePrompt != null && !entry.route.isFullScreen()) return@onPreviewKeyEvent promptKeys.onKey(ev)
                 // Holding Left lets focus move into the sidebar (see SideBarState.allowEntry).
                 if (ev.key == Key.DirectionLeft) sideBar.allowEntry = ev.type == KeyEventType.KeyDown
                 else if (ev.type == KeyEventType.KeyDown) sideBar.allowEntry = false
@@ -282,7 +282,7 @@ private fun MainShell(container: AppContainer) {
                     true
                 } else if ((ev.key == Key.Back || ev.key == Key.Escape) && ev.type == KeyEventType.KeyDown) {
                     true
-                } else if (ev.key == Key.DirectionUp && ev.type == KeyEventType.KeyDown && entry.route !is Route.Player &&
+                } else if (ev.key == Key.DirectionUp && ev.type == KeyEventType.KeyDown && !entry.route.isFullScreen() &&
                     !regions.headerHasFocus && !sideBar.hasFocus) {
                     // Up that nothing on screen used: move up if there's somewhere to go, otherwise this is
                     // the top of the screen, and Up from there (only) reaches the profile button.
@@ -291,7 +291,7 @@ private fun MainShell(container: AppContainer) {
                 } else false
             }
         ) {
-            val isPlayer = entry.route is Route.Player
+            val isPlayer = entry.route.isFullScreen()
             // No UI sounds over a playing video.
             LaunchedEffect(isPlayer) { com.auroratv.ui.sound.UiSounds.suppressed = isPlayer }
             val motion = Aurora.motion
@@ -378,10 +378,14 @@ private fun RouteContent(container: AppContainer, route: Route) {
         is Route.Brand -> com.auroratv.ui.screens.BrandHubScreen(route)
         is Route.Detail -> DetailScreen(route)
         is Route.Player -> PlayerScreen(container, route)
+        is Route.DiscMenu -> com.auroratv.discmenu.DiscMenuScreen(container, route)
         is Route.SplitEditor -> com.auroratv.ui.screens.SplitEditorScreen(route)
         is Route.EpisodeOrder -> com.auroratv.ui.screens.EpisodeOrderScreen(route)
     }
 }
+
+/** Screens that take the whole display: no sidebar, no UI sounds, no shell key handling. */
+private fun Route.isFullScreen(): Boolean = this is Route.Player || this is Route.DiscMenu
 
 private fun Section.icon(): ImageVector = when (this) {
     Section.Home -> Icons.Filled.Home

@@ -286,7 +286,11 @@ fun DetailScreen(route: Route.Detail) {
                     ratings = model.ratings,
                     nextUp = model.nextUp,
                     playFocus = playFocus,
-                    onPlay = { target, fromStart -> navigator.push(Route.Player(target.id, fromStart, target)) },
+                    onPlay = { target, fromStart ->
+                        // A film with a disc menu pack opens it on Play; resuming and "From Beginning" go straight to the player.
+                        val menu = if (!fromStart && target.resumePositionMs == 0L && target.type == "Movie" && container.settings.current.discMenus) container.discMenus.packFor(target) else null
+                        navigator.push(if (menu != null) Route.DiscMenu(target.id, target) else Route.Player(target.id, fromStart, target))
+                    },
                     // The page's own item already has its media details (a film or an episode page): the
                     // preparation doesn't ask for it again.
                     onPrewarm = { target ->

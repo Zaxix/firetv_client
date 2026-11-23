@@ -32,6 +32,8 @@ data class Settings(
     val showHeroCarousel: Boolean = true,
     /** Studio/network tiles (Disney, Netflix, Apple TV...) under the featured carousel. */
     val showBrandTiles: Boolean = true,
+    /** Films with a disc menu pack on this device open it when Play is pressed (see com.auroratv.discmenu). */
+    val discMenus: Boolean = true,
     /** Reuse audio/subtitle tracks picked by hand for the rest of a series (and for a movie). */
     val rememberTracks: Boolean = true,
     /** Look for a newer build once a day (Settings → About → Updates). */

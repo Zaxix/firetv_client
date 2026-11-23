@@ -207,7 +207,7 @@ class PlayerController(
     /** A split check (Route.Player.previewAtMs): the whole file, and nothing reported or remembered. */
     private var previewing = false
 
-    fun start(itemId: String, startFromBeginning: Boolean = false, previewAtMs: Long? = null) {
+    fun start(itemId: String, startFromBeginning: Boolean = false, previewAtMs: Long? = null, startAtMs: Long? = null, subtitleOverride: ((List<com.auroratv.jellyfin.model.MediaStream>) -> SubtitleOverride?)? = null) {
         previewing = previewAtMs != null
         playMark = kotlin.time.TimeSource.Monotonic.markNow()
         playNote = ""
@@ -224,10 +224,10 @@ class PlayerController(
         scope.launch {
             val result = appResult {
                 val t0 = kotlin.time.TimeSource.Monotonic.markNow()
-                val warm = if (previewAtMs != null) null else prewarmer?.take(api, capabilities, s, itemId)
+                val warm = if (previewAtMs != null || startAtMs != null || subtitleOverride != null) null else prewarmer?.take(api, capabilities, s, itemId)
                 val prepared = when {
                     previewAtMs != null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning = true, trackMemory = trackMemory, wholeFileFromMs = previewAtMs)
-                    warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning, trackMemory = trackMemory)
+                    warm == null -> PlaybackPreparer.prepare(api, negotiator, s, itemId, startFromBeginning, trackMemory = trackMemory, startAtMs = startAtMs, subtitleOverride = subtitleOverride)
                     !startFromBeginning || warm.startMs == 0L -> warm
                     // Direct Play URLs don't depend on the start point; a transcode does, so ask again.
                     warm.plan.method == PlayMethod.DirectPlay -> PreparedPlayback(warm.item, warm.plan, 0L, warm.audioIndex, warm.subtitleIndex, warm.fonts)

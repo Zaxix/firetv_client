@@ -44,6 +44,8 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     override fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput = AndroidUiSounds(activity)
 
+    override val discMenus: com.auroratv.discmenu.DiscMenuPlatform = AndroidDiscMenuPlatform(activity)
+
     override fun requestStats(): String = com.auroratv.jellyfin.SharedOkHttp.let {
         "api=${it.apiRequests.get()} images=${it.imageRequests.get()} media=${it.mediaRequests.get()}"
     }

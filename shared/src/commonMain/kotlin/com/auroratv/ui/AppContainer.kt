@@ -29,6 +29,8 @@ class AppContainer(val platform: Platform) {
         if (how == "from the server" && !homeFreshLogged) { homeFreshLogged = true; Log.i("Perf", "Home rows from the server in $ms ms") }
     }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    /** Disc-style film menus found on this device (none unless a pack has been copied there). */
+    val discMenus = com.auroratv.discmenu.DiscMenuRepository(platform.discMenus)
     val http = createJellyfinHttpClient()
     val settings = SettingsRepository(platform.files)
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
