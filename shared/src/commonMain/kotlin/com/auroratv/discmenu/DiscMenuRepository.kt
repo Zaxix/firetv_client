@@ -36,7 +36,7 @@ class DiscMenuRepository(private val platform: DiscMenuPlatform?) {
             // The title pattern is only a fallback for items that carry no provider ids at all.
             val pattern = m.titleRegex
             if (pattern != null && ids["tmdb"] == null && ids["imdb"] == null) {
-                return runCatching { Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(item.name) }.getOrDefault(false)
+                return runCatching { Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(item.name.orEmpty()) }.getOrDefault(false)
             }
             return false
         }
