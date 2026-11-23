@@ -33,7 +33,7 @@ private const val MINI_PACK = """
      {"id": "main_menu", "rect": [500, 800, 700, 850], "action": "goto:main"}]},
   "cast1": {"title": "Cast", "plate": "c.webp", "default": "special_features", "backTo": "sf", "hotspots": [
      {"id": "special_features", "rect": [500, 800, 700, 850], "action": "goto:sf"}]},
-  "ss1": {"title": "S1", "plate": "s1.webp", "default": "link_2", "entryDefaultFrom": {"ss2": "link_1"}, "hotspots": [
+  "ss1": {"title": "S1", "plate": "s1.webp", "default": "link_2", "entryDefaultFrom": {"ss2": "link_2"}, "hotspots": [
      {"id": "tag_1", "rect": [600, 100, 700, 160], "action": "chapter:1"},
      {"id": "tag_2", "rect": [800, 100, 900, 160], "action": "chapter:2"},
      {"id": "tag_3", "rect": [600, 300, 700, 360], "action": "chapter:3"},
@@ -198,7 +198,7 @@ class MenuLogicTest {
         assertEquals("tag_3", (m.state as MenuState.Page).selected)
         m.at(t + 2, MenuKey.Select); m.update(t + 2 + 250)
         assertEquals(listOf(MenuEffect.PlayChapter(3)), m.drainEffects())
-        m.at(t + 3, MenuKey.Down); m.at(t + 4, MenuKey.Right)
+        m.at(t + 3, MenuKey.Down)
         assertEquals("start", (m.state as MenuState.Page).selected)
         m.at(t + 5, MenuKey.Select); m.update(t + 5 + 250)
         assertEquals(listOf(MenuEffect.PlayMovie), m.drainEffects())
@@ -210,9 +210,9 @@ class MenuLogicTest {
         val t = m.openMainButton(downs = 2)
         m.drainEffects()
         m.at(t + 1, MenuKey.Up)
-        assertEquals("link_2", (m.state as MenuState.Page).selected) // tag_3 skipped, nothing else above
+        assertEquals("tag_1", (m.state as MenuState.Page).selected) // tag_3 is skipped; the next chapter tag up the page is taken instead
         m.click(650f, 330f, t + 2) // where tag_3 is
-        assertEquals("link_2", (m.state as MenuState.Page).selected)
+        assertEquals("tag_1", (m.state as MenuState.Page).selected)
         assertEquals(null, (m.state as MenuState.Page).activation)
     }
 
@@ -224,6 +224,7 @@ class MenuLogicTest {
         m.at(t + 1, MenuKey.NextPage)
         assertEquals("ss2", (m.state as MenuState.Page).id)
         assertEquals("link_1", (m.state as MenuState.Page).selected)
+        m.drainEffects()
         m.at(t + 2, MenuKey.Right)
         m.at(t + 3, MenuKey.Select); m.update(t + 3 + 250)
         assertEquals(listOf(MenuEffect.PlayLastChapter), m.drainEffects())

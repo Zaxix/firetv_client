@@ -147,9 +147,10 @@ class MenuLogic(
 
     private fun enterPage(id: String, now: Long, from: String) {
         val p = page(id)
-        val sel = p.entryDefaultFrom[from]?.takeIf { enabled(id, it) } ?: firstEnabled(id, p.default)
+        val sel = p.entryDefaultFrom[from]?.takeIf { wanted -> p.hotspots.any { it.id == wanted } && enabled(id, wanted) } ?: firstEnabled(id, p.default)
+        val wasOnAPage = state is MenuState.Page
         state = MenuState.Page(id, now, sel, now)
-        emit(MenuEffect.StopMainVideo)
+        if (!wasOnAPage) emit(MenuEffect.StopMainVideo)
         note("page $id (from $from) sel=$sel @$now")
     }
 
