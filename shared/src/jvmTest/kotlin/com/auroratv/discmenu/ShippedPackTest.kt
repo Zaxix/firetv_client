@@ -53,6 +53,14 @@ class ShippedPackTest {
     }
 
     @Test
+    fun noTwoHotspotsOnAPageShareTheSameRectangle() {
+        val clashes = pack.pages.flatMap { (pid, p) ->
+            p.hotspots.groupBy { it.rect }.filterValues { it.size > 1 }.map { (rect, hs) -> "$pid: ${hs.map { it.id }} at $rect" }
+        }
+        assertEquals(emptyList(), clashes)
+    }
+
+    @Test
     fun theMainMenuWalksInOrderAndBack() {
         val items = pack.main.buttons.map { NavItem(it.id, it.rect.toRect().padded(pack.main.hotspotPadPx)) }
         var cur = "play_movie"

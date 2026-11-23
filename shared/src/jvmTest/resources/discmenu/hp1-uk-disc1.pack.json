@@ -659,7 +659,7 @@
      "action": "stay"
     },
     {
-     "id": "tag_1",
+     "id": "tag_7",
      "rect": [
       592,
       106,
@@ -674,10 +674,10 @@
      ],
      "selected": "page_sprites/ss2/tag_1_sel.webp",
      "activated": null,
-     "action": "chapter:1"
+     "action": "chapter:7"
     },
     {
-     "id": "tag_3",
+     "id": "tag_9",
      "rect": [
       560,
       545,
@@ -692,10 +692,10 @@
      ],
      "selected": "page_sprites/ss2/tag_3_sel.webp",
      "activated": null,
-     "action": "chapter:3"
+     "action": "chapter:9"
     },
     {
-     "id": "tag_2",
+     "id": "tag_8",
      "rect": [
       1088,
       117,
@@ -710,10 +710,10 @@
      ],
      "selected": "page_sprites/ss2/tag_2_sel.webp",
      "activated": null,
-     "action": "chapter:2"
+     "action": "chapter:8"
     },
     {
-     "id": "tag_6",
+     "id": "tag_12",
      "rect": [
       1066,
       751,
@@ -728,7 +728,7 @@
      ],
      "selected": "page_sprites/ss2/tag_6_sel.webp",
      "activated": null,
-     "action": "chapter:6"
+     "action": "chapter:12"
     },
     {
      "id": "link_13_18",
@@ -747,45 +747,6 @@
      "selected": "page_sprites/ss2/link_13_18_sel.webp",
      "activated": "page_sprites/ss2/link_13_18_act.webp",
      "action": "goto:ss3"
-    },
-    {
-     "id": "tag_7",
-     "rect": [
-      592,
-      106,
-      681,
-      164
-     ],
-     "spriteRect": null,
-     "selected": null,
-     "activated": null,
-     "action": "chapter:7"
-    },
-    {
-     "id": "tag_8",
-     "rect": [
-      1088,
-      117,
-      1177,
-      175
-     ],
-     "spriteRect": null,
-     "selected": null,
-     "activated": null,
-     "action": "chapter:8"
-    },
-    {
-     "id": "tag_9",
-     "rect": [
-      560,
-      545,
-      646,
-      603
-     ],
-     "spriteRect": null,
-     "selected": null,
-     "activated": null,
-     "action": "chapter:9"
     },
     {
      "id": "tag_10",
@@ -812,19 +773,6 @@
      "selected": null,
      "activated": null,
      "action": "chapter:11"
-    },
-    {
-     "id": "tag_12",
-     "rect": [
-      1066,
-      751,
-      1152,
-      809
-     ],
-     "spriteRect": null,
-     "selected": null,
-     "activated": null,
-     "action": "chapter:12"
     },
     {
      "id": "link_1_6",
