@@ -103,6 +103,7 @@ fun AuroraTextField(
     var heldWhileFocused by remember { mutableStateOf(false) }
     val fieldFocus = remember { FocusRequester() }
     val boxFocus = remember { FocusRequester() }
+    val boxClicks = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // Keys can arrive faster than the screen recomposes (hardware keyboards, pasted text), so typing
     // into the highlighted box builds on what we last sent, not on a possibly stale [value].
     val typed = remember { TypedText(value) }
@@ -110,7 +111,10 @@ fun AuroraTextField(
     fun emit(text: String) { typed.text = text; typed.sent = text; onValueChange(text) }
 
     fun closeKeyboard() { keyboard?.hide(); platform.hideKeyboard() }
+    // CI only (--ez traceUi true): what the field does with focus and the keyboard.
+    fun trace(what: String) { if (com.auroratv.ui.components.UiTrace.on) com.auroratv.core.Log.i("AuroraTextField", "\"$label\": $what") }
     fun startEditing(handOverNow: Boolean = true) {
+        trace("start typing")
         editing = true
         // The highlighted box holds focus and is about to leave the screen. Hand focus to the real field in the same moment:
         // if focus is dropped first it falls to the first thing on screen, which on the Settings page is the list of sections
@@ -124,17 +128,23 @@ fun AuroraTextField(
     }
     var fieldFocused by remember { mutableStateOf(false) }
     fun stopEditing(refocus: Boolean = true) {
+        trace("stop typing (refocus=$refocus)")
         closeKeyboard()
-        editing = false
         holdAutoEdit = true
-        if (refocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; runCatching { boxFocus.requestFocus() } }
+        // Focus goes straight from the field to the highlighted box, which never leaves the screen, and
+        // only then does the field stop being focusable. It used to be the other way round (the box was
+        // added back a frame later): the field dropped focus first, focus was nowhere, and the app put it
+        // on the first thing on screen, which on the Settings page is the "Appearance" section, so the
+        // page switched and what was typed was gone.
+        if (refocus) runCatching { boxFocus.requestFocus() }
+        editing = false
     }
     fun isBack(ev: androidx.compose.ui.input.key.KeyEvent) = ev.key == Key.Back || ev.key == Key.Escape
 
     Box(modifier) {
         OutlinedTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { if (it.length != value.length) trace("${it.length} character(s)"); onValueChange(it) },
             label = { Text(label) },
             singleLine = true,
             visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
@@ -152,7 +162,10 @@ fun AuroraTextField(
             modifier = Modifier.fillMaxWidth()
                 .focusRequester(fieldFocus)
                 .focusProperties { canFocus = editing }
-                .onFocusChanged { fieldFocused = it.isFocused; if (!it.isFocused && editing) { editing = false; closeKeyboard() } }
+                .onFocusChanged {
+                    if (it.isFocused != fieldFocused) trace("field focused=${it.isFocused} editing=$editing")
+                    fieldFocused = it.isFocused; if (!it.isFocused && editing) { editing = false; closeKeyboard() }
+                }
                 // Back reaches us before the keyboard does, so one press closes it and stops typing.
                 .onInterceptKeyBeforeSoftKeyboard { ev ->
                     if (editing && isBack(ev)) { if (ev.type == KeyEventType.KeyUp) stopEditing(); true } else false
@@ -167,12 +180,14 @@ fun AuroraTextField(
                     }
                 },
         )
-        if (!editing) {
-            // The D-pad stop: highlights the box; Select (or a click) starts typing.
-            Box(
+        // The D-pad stop: highlights the box; Select (or a click) starts typing. It stays on screen and
+        // focusable while typing too, so focus always has somewhere to come back to:
+        // the field hands focus over to it, and it hands focus to the field (see stopEditing).
+        Box(
                 Modifier.matchParentSize()
                     .focusRequester(boxFocus)
                     .onFocusChanged {
+                        if (it.isFocused != boxFocused) trace("box focused=${it.isFocused}")
                         boxFocused = it.isFocused
                         // With a computer keyboard there's no on-screen keyboard to get stuck in: type straight away.
                         when {
@@ -195,13 +210,13 @@ fun AuroraTextField(
                             else -> false
                         }
                     }
+                    // Its click handler is also what makes it focusable, so it stays on while typing (and does nothing then).
                     .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        interactionSource = boxClicks,
                         indication = null,
-                        onClick = { startEditing() },
+                        onClick = { if (!editing) startEditing() },
                     )
             )
-        }
     }
 }
 

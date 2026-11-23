@@ -32,6 +32,19 @@ Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
   tried against a real host. See "Known limitations" in
   [[Disc Menus]] (sparkle blending over video, looping, three decoders, assumed actions).
 
+## Settings text fields
+**Typing in a Settings field threw you back to Appearance.** Finishing typing (Back, or the
+keyboard's Next/Done) dropped focus for a moment. The app then put focus on the first section,
+which switched the page and lost the text. Now focus goes straight back to the field's highlighted
+box, which stays on screen.
+
+**Checks:**
+- Emulator, before and after the fix: the MDBList key, the TMDB key and the Disc menus source
+  address.
+- A new permanent emulator check covers Settings typing.
+
+**Not checked:** the Fire TV's own keyboard.
+
 ## Home navigation, Top 10 and Recommended
 **Up from the lower rows of Home went to the profile button.** Cause: rows still loading and rows
 that had loaded empty stayed in Home's list. When enough of them sat between two real rows,

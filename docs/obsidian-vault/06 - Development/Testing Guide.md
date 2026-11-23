@@ -51,7 +51,7 @@ flowchart LR
   from the side menu three times (`am start --activity-single-top … --es route section:…`, delivered
   through `MainActivity.onNewIntent`), skip-marker timing, and the
   "Layout and UI sounds" block (first-card position, headings, details hero, 3 moves = 3 ticks,
-  OK = 1 chime, no sounds in the player, none when switched off), the Top 10 row worked out and shown on Home, the performance audit's alternating before/after rounds on the release APK (`ci/android_perf.sh` → `perf-audit.txt`: Home start with a UI-thread probe, details pages, seasons, playing a film, every API request, memory), an episode moved across seasons with the remote in the Episode Order screen, saved and used by the show's page, and Home walked down every row and back up (`HomeFocus: row=…` trace): Up must retrace Down exactly and reach the profile button only after the banner.
+  OK = 1 chime, no sounds in the player, none when switched off), the Top 10 row worked out and shown on Home, the performance audit's alternating before/after rounds on the release APK (`ci/android_perf.sh` → `perf-audit.txt`: Home start with a UI-thread probe, details pages, seasons, playing a film, every API request, memory), an episode moved across seasons with the remote in the Episode Order screen, saved and used by the show's page, Settings text fields typed into with the remote (MDBList key ended with Back, TMDB key with the keyboard's Next: the text stays, focus returns to the field, the page doesn't switch), and Home walked down every row and back up (`HomeFocus: row=…` trace): Up must retrace Down exactly and reach the profile button only after the banner.
 
 Results and screenshots are pushed to the `ci-results` branch; builds to the `latest-build` release.
 

@@ -5,6 +5,11 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Settings text fields (Nov 2026)
+| Symptom | Cause | Fix |
+|---|---|---|
+| Selecting a text field in Settings (TMDB key, MDBList, Trakt, the disc menu source…) and typing didn't stick: the page closed and Settings went back to Appearance | Reproduced on the Android TV emulator. Starting to type worked (the field took focus and the keyboard opened). Finishing (Back, or the keyboard's Next/Done) didn't: the field stopped being focusable before the highlighted box it returns to was back on screen. Focus was then nowhere, and the app's safety net put it on the first thing on screen, the "Appearance" section, which switches the page and throws away what was typed. The earlier fix (#3, handing focus over at the start) covered only the start | The highlighted box stays on screen and focusable while you type (clicks do nothing then); typing ends by moving focus back to it first, and only then does the field stop being focusable, so focus never goes nowhere. Checked on the emulator for the MDBList key (Back), TMDB key (Next) and the Disc menus source address; a permanent emulator check was added |
+
 ## Home navigation, Top 10 and Recommended (Nov 2026)
 | Symptom | Cause | Fix |
 |---|---|---|

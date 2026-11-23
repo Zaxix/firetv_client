@@ -88,6 +88,11 @@ fun SettingsScreen(container: AppContainer) {
     val first = remember { FocusRequester() }
     val colors = Aurora.colors
     ScreenFocus(entry, navigator, first)
+    androidx.compose.runtime.LaunchedEffect(page) { if (com.auroratv.ui.components.UiTrace.on) com.auroratv.core.Log.i("Settings", "page=${page.name}") }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        if (com.auroratv.ui.components.UiTrace.on) com.auroratv.core.Log.i("Settings", "screen shown")
+        onDispose { if (com.auroratv.ui.components.UiTrace.on) com.auroratv.core.Log.i("Settings", "screen gone") }
+    }
 
     Row(Modifier.fillMaxSize().padding(start = ScreenStart, top = com.auroratv.ui.ScreenTop, end = ScreenPadding)) {
         Column(Modifier.width(260.dp).focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp)) {

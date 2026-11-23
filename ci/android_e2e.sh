@@ -301,6 +301,23 @@ echo '{"theme":"Dark","subtitleMode":"Always","preferredSubtitleLanguage":"eng"}
 open "section:Settings"; sleep 10; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot android-15a-settings-ratings
 key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 
+# Settings text fields with the remote: Select on a field, type, then Back or the keyboard's Next.
+# What was typed must stay, focus must return to the field, and the page must not switch (it used to
+# jump to Appearance and lose the text). Nothing is saved: Save isn't pressed.
+tflog() { adb logcat -d -s AuroraTextField:I Settings:I | tr -d '\r' | grep -v "^---"; }
+tfield() {
+  local label="$1" end="$2"; adb logcat -c
+  key KEYCODE_DPAD_CENTER; sleep 2; adb shell input text "abc123"; sleep 2; key "$end"; sleep 2
+  local log; log=$(tflog); local ok=0
+  echo "$log" | grep -q "\"$label\": start typing" && echo "$log" | grep -q "\"$label\": 6 character(s)" \
+    && echo "$log" | grep -q "\"$label\": box focused=true" && ! echo "$log" | grep -q "page=" && ok=1
+  check "Settings → Ratings: $label typed with the remote ($end), text kept, focus back on the field, page unchanged" $ok "$(echo "$log" | grep -E "page=|box focused|stop typing" | tr '\n' ' ')"
+}
+opentrace "section:Settings"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT; sleep 1
+tfield "MDBList API key" KEYCODE_BACK; shot android-15b-settings-typed
+key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 1
+tfield "TMDB API key" KEYCODE_ENTER
+
 # Top 10 in Your Home: the titles played above, ranked by time watched, as a row of posters with
 # their places drawn as numerals behind them.
 adb logcat -c

@@ -71,10 +71,19 @@ flowchart TD
 Tests: `jvmTest/HomeNavigationTest.kt` (the shell's real focus rules with Home's own rows) and the
 emulator check "Home: down every row and back up the same way" (`ci/android_e2e.sh`).
 
+## Text fields (`AuroraTextField`)
+A text field is two layers: the real field (focusable only while typing) and the highlighted box over
+it (the D-pad stop). Select on the box starts typing: focus goes to the field and the keyboard opens.
+Back, or the keyboard's Next/Done, ends it: focus goes **straight back to the box first**, then the
+field stops being focusable. The box never leaves the screen and stays focusable throughout. Focus
+must never pass through "nowhere": the app would put it on the first thing on screen (on Settings,
+the section list, which switches the page). See [[Fixed Issues]] → Settings text fields.
+
 ## Tracing
 Launch with `--ez traceUi true` (CI) to log `AuroraLayout` positions (first card x vs row start,
-"revealed top=", details hero item/offset), `UiSound` events and the Home rows focus passes
-through (`HomeFocus: row=…`).
+"revealed top=", details hero item/offset), `UiSound` events, the Home rows focus passes
+through (`HomeFocus: row=…`), text fields starting/stopping typing and how many characters they hold
+(`AuroraTextField`, never the text itself) and the Settings page shown (`Settings: page=…`).
 
 ## Related notes
 [[Navigation System]] · [[Navigation Bugs]] · [[UI Layout Issues]]
