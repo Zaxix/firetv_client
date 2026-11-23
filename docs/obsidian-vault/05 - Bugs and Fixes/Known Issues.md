@@ -13,7 +13,8 @@ Open issues and limits, stated plainly. (The full list of platform limits is in
   library's rows (which rows load slowly or empty) were not tried on the device. CI covered the
   logic on the JVM test host and a walk down and back up Home on the emulator.
 - **Disc menus have not run on a Fire TV.** Sparkle blending over video, gapless loops, three
-  decoders at once and several assumed actions are unverified ([[Disc Menus]]).
+  decoders at once and several assumed actions are unverified, and downloading the pack has not
+  been tried against a real host ([[Disc Menus]]).
 - Subtitle delay isn't available with ExoPlayer (it is with the optional mpv player).
 - Dolby Vision / HDR output unverified on real displays.
 - Device-only profiles: kept on one device; server dashboards show the account's name; no

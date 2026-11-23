@@ -22,7 +22,14 @@ Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
   machine and the real pack's data. They found two real mistakes: scene buttons on page 2 were
   labelled with page-1 chapter numbers, and a bad "entry default" in a pack would have thrown
   instead of falling back. Both fixed.
-- **Not done / not verified:** nothing here has run on a Fire TV. See "Known limitations" in
+- **Download as it plays:** the pack can be fetched from a source address (Settings → Disc menus)
+  while the intro plays, and is deleted from the device when the menu is left (unless kept). New:
+  `PackManifest` / `PackCatalog` (file list with size, SHA-256 and stage), `PackInstall`
+  (resumable, retried, in stage order), `AndroidPackStore`, a catalog cache refreshed in the
+  background from the film page, a Disc menus settings page, and `tools/disc-menu/make_manifest.py`.
+  The menu's loop and music players are now created only once their files exist.
+- **Not done / not verified:** nothing here has run on a Fire TV, and downloading has not been
+  tried against a real host. See "Known limitations" in
   [[Disc Menus]] (sparkle blending over video, looping, three decoders, assumed actions).
 
 ## Home navigation, Top 10 and Recommended

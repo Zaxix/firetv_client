@@ -24,8 +24,28 @@ back into the player.
 ## How it works
 - **Pack, not code.** A menu is a folder (`pack.json` schema 2 plus media) read from
   `Android/data/<appId>/files/discmenus/<pack>/` on the device. It is not part of the public
-  repository or the APK. Install with `adb push` (debug builds use the `.debug` application id).
-  Removing the folder removes the menu.
+  repository or the APK, because it is the disc's own video, music and artwork. It gets onto the
+  device in one of two ways: copied there by hand (`adb push`; debug builds use the `.debug`
+  application id), or downloaded by the app as described next.
+- **Downloading** (Settings → Disc menus → source address, plus an optional read-only token for a
+  private host). The source is a folder of static files: `catalog.json` (which films have a pack,
+  matched by TMDB / IMDb id), then `<id>/manifest.json` and the pack's files. Pressing Play on a
+  matching film opens the menu at once. The app fetches `pack.json` and the intro first (about
+  2 MB for the first pack), and the intro plays while the rest arrives, file by file, each one
+  checked by size and SHA-256 and only given its final name when it matches. Files carry a
+  stage: 0 = `pack.json` + intro, 1 = loop, music, sparkle frames (13 MB), 2 = transition, page art
+  and highlights (5 MB), 3 = the Play Movie letter. The menu opens when stage 1 is on the device
+  (the intro holds its last picture until then, and shows "Downloading menu… NN%"), a submenu
+  opens when stage 2 is, Play Movie when stage 3 is; before that the button says it is still
+  downloading. The loop and music players are only created once their files are there. If a file
+  keeps failing (three tries), OK plays the film anyway and Back leaves. An interrupted download
+  carries on from the last finished file. The token is sent only to the source's own host.
+  `tools/disc-menu/make_manifest.py` writes the manifest and catalog for a pack folder.
+- **Leaving.** A pack the app downloaded is deleted when the menu is left (Back from the main
+  menu, or Back from a failure message), so the next Play downloads it again. Opening the film
+  from the menu does not delete it, so Back from the player returns to the menu; if the app was
+  closed in between, the next start removes it. Settings → Disc menus → "Keep downloaded menus"
+  turns the deleting off. Packs copied by hand never carry the app's marker and are never deleted.
 - **Matching.** By TMDB / IMDb id first. A title pattern is used only for items that carry no
   provider ids at all, so a different film with a similar name is never matched by accident.
 - **State machine** (`MenuLogic`): pure Kotlin, time in milliseconds, effects out (start the intro,
@@ -45,9 +65,9 @@ back into the player.
 - **Hand-off to playback.** Chapters, "Play Movie", "End credits" and the subtitle choice become a
   normal playback request (`Route.Player` with a start position and optional subtitle override),
   so progress reporting, audio / subtitle preferences and the existing player are unchanged.
-- **"Off the device".** Leaving the menu stops and releases all three players and drops the
-  decoded images (`release()` from a `DisposableEffect`). The menu keeps no media in memory once
-  it is closed. The pack folder itself stays on disk until you delete it.
+- **"Off the device".** Leaving the menu stops and releases the players and drops the decoded
+  images (`release()` from a `DisposableEffect`), and a downloaded pack is then deleted (see
+  Leaving). The menu keeps no media in memory once it is closed.
 
 ## Relevant files
 `shared/src/commonMain/kotlin/com/auroratv/discmenu/` — `PackModel.kt`, `MenuLogic.kt`,
@@ -90,6 +110,14 @@ level. Next / previous page keys walk the scene pages (1–6) and the cast / cre
 
 ## Known limitations
 Unverified — listed so they get checked, not assumed:
+- **Downloading has never been run against a real host or on a device.** Unit tests cover the
+  manifest rules, stage order, resume, retry and failure, and the menu's waiting; the network and
+  file code (`AndroidPackStore`) is only compiled. Whether 13 MB (stage 1) arrives within the
+  42-second intro depends on the connection; if not, the intro holds its last picture.
+- GitHub raw files of a private repository with `Authorization: token <t>` is the intended
+  private host; that exact request has not been tried.
+- The pack's host is not in this repository and I did not upload it: the repository is public and
+  the pack is the disc's own material.
 - Additive drawing of the sparkles **over a video surface** (TextureView): never seen on a device.
 - Gapless looping of the background and music playlists on Fire TV.
 - Three decoders at once on a low-end Fire TV; the intro is only 640×360, so it is soft.
