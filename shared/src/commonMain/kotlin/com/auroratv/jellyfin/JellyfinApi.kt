@@ -560,18 +560,28 @@ class JellyfinApi(
      * This account's viewing history: films and episodes by when they were last played (most recent
      * first; never-played ones sort last and are dropped). For the household's Top 10.
      */
-    suspend fun watchHistory(limit: Int = 300): List<BaseItemDto> =
-        http.get(url("/Items")) {
+    suspend fun watchHistory(limit: Int = 300, forUser: String? = null): List<BaseItemDto> = kotlinx.coroutines.coroutineScope {
+        // Finished titles and ones in progress, asked for separately: one unfiltered list sorted by
+        // date played came back full of titles nobody had played (a new profile got 300 of them).
+        suspend fun part(filter: String, n: Int) = http.get(url("/Items")) {
             auth()
-            parameter("userId", requireUser())
+            parameter("userId", forUser ?: requireUser())
             parameter("recursive", true)
             parameter("includeItemTypes", "Movie,Episode")
+            parameter("filters", filter)
             parameter("sortBy", "DatePlayed")
             parameter("sortOrder", "Descending")
-            parameter("limit", limit)
+            parameter("limit", n)
             parameter("enableImages", false)
             parameter("enableTotalRecordCount", false)
-        }.read<QueryResult<BaseItemDto>>().items.filter { it.userData?.lastPlayedDate != null }
+        }.read<QueryResult<BaseItemDto>>().items
+        val finished = async { part("IsPlayed", limit) }
+        val started = async { part("IsResumable", RESUMABLE_HISTORY) }
+        (finished.await() + started.await()).distinctBy { it.id }.filter { it.userData?.lastPlayedDate != null }
+    }
+
+    /** Every user on the server, for an administrator (the server refuses anyone else). */
+    suspend fun serverUsers(): List<UserDto> = http.get(url("/Users")) { auth() }.read()
 
     /**
      * What a show's Play starts: the series' Next Up (the episode in progress or next, in the show's
@@ -895,3 +905,6 @@ private const val NEXT_UP_SERIES = 8
 private const val NEXT_UP_LOOKAHEAD = 6
 /** How long an arranged series (episode order) is reused before its episodes are asked for again. */
 private val ARRANGEMENT_TTL = kotlin.time.Duration.parse("60s")
+
+/** Titles in progress counted per profile by [JellyfinApi.watchHistory]. */
+private const val RESUMABLE_HISTORY = 50

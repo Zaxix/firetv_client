@@ -36,8 +36,12 @@ sequenceDiagram
   last session's rows (≤ 12 items per row, slimmed to what cards need). It's read *alongside* the
   server requests and shown only if it wins the race, so an offline start still shows Home.
 - **Rows don't wait for each other.** Each row is a `RailState` that loads itself
-  (`ensureLoaded()`, up to 3 attempts) when composed; rows not loaded yet keep last session's items
-  (marked stale) instead of a skeleton.
+  (`ensureLoaded()`, up to 3 attempts of at most 30 s each) when it first comes on screen; rows not
+  loaded yet keep last session's items (marked stale) instead of a skeleton. The load runs in Home's
+  own scope, so scrolling a row off screen mid-load no longer cancels it (and starts it again later).
+- **Every row ends in one of three states:** cards; *Couldn't load this row · Try again* (a
+  focusable button) after three failed attempts; or, when it loaded empty, **not laid out at all**
+  (no zero-height item in the list). A placeholder only shows while a row is actually loading.
 - **Banner is separate.** It reuses the same "Recently Added" responses (one request per library,
   not two), so it costs no extra requests, and it never holds the rows up.
 - **Opened again in the same session** (side menu → Home): the rows, banner and brand tiles Home
@@ -54,13 +58,17 @@ sequenceDiagram
   budget counts from the start, so it never adds to a slow server's wait). Otherwise the rows show
   without it and the recommendation rows are merged in when it arrives.
 - **Refresh after watching.** `WatchActivity.version` changes when playback stops or something is
-  marked watched/favourite; Home then refreshes only Continue Watching, Next Up and recommendations,
-  keeping every other row and the focused card (`mergeRails`).
+  marked watched/favourite; Home then refreshes only Continue Watching, Next Up, Top 10 and the
+  recommendations, keeping every other row and the focused card (`mergeRails`). A refreshed row
+  shows what it showed before until its new items arrive (an empty one stays hidden).
+- **Failures are logged.** Continue Watching and Next Up failing leaves their row out and logs
+  `Home: Next Up couldn't load: …`; the rest of Home still loads.
 - **Play gets ready early.** Resting on the banner or a Continue Watching / Next Up card for 700 ms
   asks the `PlaybackPrewarmer` to prepare that title (see [[Playback Resume]]).
 
 ## Relevant files
-`ui/screens/Home.kt` (HomeScreen, RailState, HomeCache, arrangeRails/mergeRails),
+`ui/screens/Home.kt` (HomeScreen, RailState, HomeCache, arrangeRails/mergeRails, homeRails),
+`ui/screens/HomeFocus.kt` (HomeRowFocus, homeRowNavigation, shownRails, homeStops),
 `ui/components/Common.kt` (ContentRail, SkeletonRail), `ui/components/Cards.kt`,
 `recommend/Recommendations.kt`, `brands/Brands.kt`, `data/WatchActivity.kt`.
 
@@ -87,7 +95,20 @@ D-pad/arrow keys move between cards and rows; Up from the top row reaches the ba
 banner opens the profile button ([[Navigation System]]). OK opens a title; Play on the banner
 starts it.
 
+### Moving between rows (Nov 2026 fix)
+- **Down** goes to the next row with cards, **Up** to the previous one, all the way to the banner.
+  Rows still loading and rows that came back empty are skipped.
+- **Only Up from the banner** reaches the profile button (Down from it returns).
+- A row keeps the card you last had in it (`focusRestorer`); a row you haven't been in starts at the
+  card nearest the one you came from.
+- **If the focused card disappears** (its row reloaded without it, or emptied after you finished
+  the last title in Continue Watching), focus goes back to the same row, else the row now in its
+  place, else the one above, instead of being lost.
+- How it works: [[Focus Management]] → "Home rows". The bug it fixes: [[Fixed Issues]].
+
 ## Known limitations
+- Rows are only fetched when they first come on screen, so pressing Down quickly past a row that
+  hasn't loaded skips it; it joins the path (Up reaches it) once loaded.
 - The very first launch on a device has no saved copy, so rows show skeletons until the server answers.
 - Recommendation rows can appear a moment after the others on a slow server (by design).
 

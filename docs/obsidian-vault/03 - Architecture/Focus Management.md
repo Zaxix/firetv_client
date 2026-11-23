@@ -33,9 +33,48 @@ flowchart LR
     FS --> SND[UiSounds.focusMoved]
 ```
 
+## Home rows: a path that can't break (Nov 2026)
+Compose moves focus by geometry among what's composed. A `LazyColumn` composes the rows on screen
+and, when the search finds nothing, lays out extra items one at a time, but only up to about two
+screens' worth of **items** (`BeyondBoundsViewportFactor` × items per viewport). Home used to keep
+loading placeholders and zero-height empty rows in its list, so a few of them between two real rows
+used up that allowance: the search found nothing, and the shell's rule "Up that finds nothing = top
+of the screen → profile button" fired from the middle of Home (Down just stopped).
+
+`ui/screens/HomeFocus.kt`:
+- **`shownRails`**: rows that loaded empty aren't list items at all.
+- **`HomeRowFocus`**: one `FocusRequester` per stop (banner Play, brand tiles, each row's
+  `LazyRow`, a row's Try Again button), and which stop has focus (set by `onFocusChanged` on each).
+- **`homeRowNavigation`** (on Home's `LazyColumn`, an `onKeyEvent` that sees Up/Down before the
+  shell): first the normal geometric move; if that finds nothing, `HomeRowFocus.next` picks the next
+  stop with cards in that direction (`homeStops`, in list order, placeholders skipped), scrolls it
+  into the list if it isn't composed, and requests focus on it (its `focusRestorer` returns to its
+  last card). Only when there's no stop above (the banner) does Up fall through to the shell, which
+  opens the profile button. Presses while such a move finishes are consumed, so held or rapid
+  presses can't skip past it or leak to the profile button.
+- **Recovery:** when Home loses focus and, two frames later, nothing on Home has it and it didn't go
+  to the sidebar, the profile button, another screen or the update card (`mayRecover`),
+  `HomeRowFocus.nearest` puts it on the same row, else the closest row (the one now in its place
+  first). The shell's own safety net (focus nowhere for 250 ms → the content) still exists for
+  other screens.
+
+```mermaid
+flowchart TD
+    K[Up/Down on Home] --> G{Geometric move found a target?}
+    G -->|yes| Done[focus moves]
+    G -->|no| N{Another row with cards that way?}
+    N -->|yes| S[scroll it into the list if needed] --> R[request focus on that row] --> Done
+    N -->|no, Up at the banner| H[shell: profile button]
+    N -->|no, Down at the last row| Stay[stays]
+```
+
+Tests: `jvmTest/HomeNavigationTest.kt` (the shell's real focus rules with Home's own rows) and the
+emulator check "Home: down every row and back up the same way" (`ci/android_e2e.sh`).
+
 ## Tracing
 Launch with `--ez traceUi true` (CI) to log `AuroraLayout` positions (first card x vs row start,
-"revealed top=", details hero item/offset) and `UiSound` events.
+"revealed top=", details hero item/offset), `UiSound` events and the Home rows focus passes
+through (`HomeFocus: row=…`).
 
 ## Related notes
 [[Navigation System]] · [[Navigation Bugs]] · [[UI Layout Issues]]

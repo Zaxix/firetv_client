@@ -89,4 +89,86 @@ class HouseholdTop10Test {
         val empty = HouseholdTop10 { today }
         assertTrue(empty.top(viewer, "srv", emptyList(), emptyList()).isEmpty())
     }
+
+    private fun items(vararg e: String) = """{"Items":[${e.joinToString(",")}]}"""
+
+    /** A server where [histories] are each account's viewing and /Users answers [users] (null: refused, not an administrator). */
+    private fun server(histories: Map<String, List<String>>, users: String?) = FakeServer { req ->
+        val ids = req.url.parameters["ids"]
+        when {
+            req.url.encodedPath == "/Users" -> if (users == null) json("{}", io.ktor.http.HttpStatusCode.Forbidden) else json(users)
+            ids != null -> json(items(*ids.split(',').map { """{"Id":"$it","Name":"$it","Type":"${if (it.startsWith("show")) "Series" else "Movie"}"}""" }.toTypedArray()))
+            req.url.encodedPath == "/Items" -> json(items(*histories[req.url.parameters["userId"]].orEmpty().toTypedArray()))
+            else -> json("{}")
+        }
+    }
+
+    @Test
+    fun anAdministratorCountsEveryAccountOnTheServer() = runTest {
+        val recent = "2026-11-20T10:00:00Z"
+        val histories = mapOf(
+            "dad" to listOf(entry("film-a", "Movie", date = recent)),
+            // Watches on another device with her own account: not a profile on this TV.
+            "gran" to listOf(entry("e1", "Episode", "show-b", date = recent), entry("e2", "Episode", "show-b", date = recent), entry("film-g", "Movie", date = recent)),
+            // A disabled account is left out.
+            "old" to listOf(entry("film-x", "Movie", date = recent)),
+        )
+        val users = """[{"Id":"dad","Name":"Dad","Policy":{"IsAdministrator":true}},{"Id":"gran","Name":"Gran"},{"Id":"old","Name":"Old","Policy":{"IsDisabled":true}}]"""
+        val fake = server(histories, users)
+        val viewer = api(fake, userId = "dad")
+        val got = HouseholdTop10 { HouseholdTop10.parseIsoMs("2026-11-21T00:00:00Z")!! }.top(viewer, "srv", listOf(viewer), emptyList())
+        assertEquals(listOf("show-b", "film-a", "film-g"), got.map { it.id })
+        // Gran's history was read with the viewer's own sign-in, and nobody's twice.
+        val asked = fake.requests.filter { it.url.encodedPath == "/Items" && it.url.parameters["sortBy"] == "DatePlayed" }.map { it.url.parameters["userId"] }
+        assertEquals(setOf("dad", "gran"), asked.toSet())
+    }
+
+    @Test
+    fun withoutAdministratorRightsOnlyThisDevicesProfilesCount() = runTest {
+        val recent = "2026-11-20T10:00:00Z"
+        val histories = mapOf("dad" to listOf(entry("film-a", "Movie", date = recent), entry("film-b", "Movie", date = recent), entry("film-c", "Movie", date = recent)))
+        val fake = server(histories, users = null)
+        val viewer = api(fake, userId = "dad")
+        val got = HouseholdTop10 { HouseholdTop10.parseIsoMs("2026-11-21T00:00:00Z")!! }.top(viewer, "srv", listOf(viewer), emptyList())
+        assertEquals(3, got.size, "the refusal only means fewer histories, not no row")
+    }
+
+    @Test
+    fun nothingWatchedYetMeansNoRowAndNothingMadeUp() = runTest {
+        val fake = server(mapOf("dad" to emptyList()), users = null)
+        val viewer = api(fake, userId = "dad")
+        val got = HouseholdTop10 { now }.top(viewer, "srv", listOf(viewer), emptyList())
+        assertTrue(got.isEmpty())
+        // No ranking means no titles fetched to dress one up.
+        assertTrue(fake.requests.none { it.url.parameters["ids"] != null })
+        // Two small history requests (finished, in progress), not a page of unwatched titles.
+        assertEquals(setOf("IsPlayed", "IsResumable"), fake.requests.mapNotNull { it.url.parameters["filters"] }.toSet())
+    }
+
+    @Test
+    fun watchingSomethingRefreshesTheRankingButNotMoreThanOnceAMinute() = runTest {
+        val recent = "2026-11-20T10:00:00Z"
+        val histories = mutableMapOf("dad" to listOf(entry("film-a", "Movie", date = recent), entry("film-b", "Movie", date = recent)))
+        val fake = server(histories, users = null)
+        val viewer = api(fake, userId = "dad")
+        var clock = HouseholdTop10.parseIsoMs("2026-11-21T00:00:00Z")!!
+        val top = HouseholdTop10 { clock }
+        fun historyRequests() = fake.requests.count { it.url.parameters["sortBy"] == "DatePlayed" }
+        assertTrue(top.top(viewer, "srv", listOf(viewer), emptyList()).isEmpty(), "two titles: not a top ten yet")
+        val first = historyRequests()
+        // A third title is watched.
+        histories["dad"] = histories["dad"]!! + entry("film-c", "Movie", date = recent)
+        top.invalidate()
+        clock += 10_000
+        top.top(viewer, "srv", listOf(viewer), emptyList())
+        assertEquals(first, historyRequests(), "within a minute of the last ranking: not worked out again yet")
+        clock += HouseholdTop10.REFRESH_MS
+        val now3 = top.top(viewer, "srv", listOf(viewer), emptyList())
+        assertTrue(historyRequests() > first, "a minute on: worked out again")
+        assertEquals(3, now3.size, "the row appears once three titles are watched")
+        // Nothing new watched: reused, no requests at all.
+        val before = fake.requests.size
+        top.top(viewer, "srv", listOf(viewer), emptyList())
+        assertEquals(before, fake.requests.size)
+    }
 }

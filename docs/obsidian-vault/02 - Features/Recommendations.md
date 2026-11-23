@@ -63,6 +63,51 @@ flowchart LR
 | Adventure Time (Western cartoon) | ×0.35 | 0.12 | ❌ |
 | The Inbetweeners (live-action sitcom) | ×0.2 | 0.08 | ❌ |
 
+## New profiles, failures and "not loading" (Nov 2026, second pass)
+**What was wrong** (investigated from the code; the user's report was "Recommended doesn't load"):
+- **A new profile got no recommendation rows at all.** The rows were only offered when the history
+  had a title to base them on ("Because You Watched") and "Recommended For You" needed two watched
+  titles. With nothing watched, nothing was even attempted.
+- **A failed request was saved as the answer.** Each request inside the computation swallowed its
+  own error and returned nothing, so a busy or unreachable server produced fewer or no rows, which
+  were then saved under the history's signature and reused on every launch until something new was
+  watched ("History unchanged: 0 saved row(s), no requests").
+- **Placeholders that didn't resolve broke navigation.** The three recommendation rows are placed
+  from the history straight away and show a placeholder until worked out; rows that came back empty
+  stayed in Home's list at zero height. Together with Top 10 these formed a gap that Up couldn't
+  cross (see [[Fixed Issues]] → Home navigation).
+- **Slow:** the requests ran one after another (per seed: Similar, then the pool; then the
+  For You candidates).
+
+**Now:**
+- **"Recommended For You" is offered to every profile.** A profile that has watched one title or
+  none (`COLD`):
+  1. **Favourites first.** Its favourites (one small request, made only for such a profile) give a
+     taste profile like a history would; titles in those genres are ranked the same way
+     (`rankForTaste`). A favourite is never suggested back, and children's titles are left out when
+     its taste has none.
+  2. **Otherwise the library's best.** The best-rated unwatched films and shows (one request, up to
+     60), taking turns across genres so the row isn't all one genre (`RecommendationEngine.highlights`).
+     With a favourite or watched title, only the kinds of content those are (anime, animation, live action).
+  - A profile with a real history only gets titles that fit it: no padding with popular titles.
+- **Failures aren't saved.** Each request reports whether it worked. If any failed, the rows that
+  did work out are shown but not saved, and they're worked out again after a minute (`RETRY_MS`)
+  the next time Home asks. If the whole computation fails, "Recommended For You" shows
+  *Couldn't load this row · Try again* after three attempts instead of a placeholder; the
+  "Because You Watched" rows just stay out of the way.
+- **No endless placeholder.** Every Home row's attempt gives up after 30 s
+  (`RAIL_ATTEMPT_TIMEOUT_MS`), three attempts in all, then shows Try again.
+- **All requests at once.** Similar lists, pools and the For You candidates are sent together;
+  the ranking afterwards is still in order (a title appears in one row only).
+- `ALGORITHM` is now `v3`, so rows saved by the old code (including empty ones) are worked out once more.
+
+**Requests:** unchanged for a profile with a history (per seed: Similar + one pool; one for For
+You), now concurrent. A new profile: history, favourites, and one or two item lists.
+
+**Tests:** `RecommendationColdStartTest` (new profile → library's best across genres; favourites
+steer it; a failed request is not saved). The real-server integration test still checks that each
+profile gets its own taste and never another's.
+
 ## Kept in memory per profile (Nov 2026)
 **The bug:** "Recommended For You" reloaded every time Home was opened again. Choosing Home in the
 side menu builds a new Home screen (`Navigator.selectSection` starts a new back-stack entry), so each
@@ -127,7 +172,9 @@ runs on the server beyond ordinary item queries. No model, no catalogue download
 - Quality depends on the library's metadata: with no descriptions or tags, only genres and kind are
   compared, and rows may simply not appear.
 - Descriptions are compared word by word (English stop words); other languages work less well.
-- In a small library, rows are often shorter or missing — intended.
+- In a small library, rows are often shorter or missing — intended for profiles with a history.
+- A new profile's "Recommended For You" is the library's best-rated titles until it favourites or
+  watches something: good titles, not personal ones.
 
 ## Related notes
 [[Home Page]] · [[User Profiles]] · [[Caching Strategy]] · [[Change Log]]

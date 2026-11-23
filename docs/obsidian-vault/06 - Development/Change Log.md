@@ -6,6 +6,46 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Home navigation, Top 10 and Recommended
+**Up from the lower rows of Home went to the profile button.** Cause: rows still loading and rows
+that had loaded empty stayed in Home's list. When enough of them sat between two real rows,
+Compose's search for the next row (which only looks about two screens' worth of list items ahead)
+found nothing, and the shell treats "Up found nothing" as the top of the screen. Reproduced in a
+JVM test before the fix: with three rows loading, Down stopped and Up went straight to the profile
+button.
+
+**Changes:**
+- **Navigation:** empty rows aren't laid out. When the normal move finds nothing, Home moves to the
+  next row with cards itself, scrolling it into view first if needed. Only Up from the banner
+  reaches the profile button.
+- **Focus recovery:** when the focused card disappears, focus goes back to its row, or else to the
+  nearest one.
+- **Loading rows:** a row's load is no longer cancelled by scrolling past it. Each attempt gives up
+  after 30 s, and after three attempts the row shows Try Again instead of a placeholder that never
+  goes away.
+- **Top 10:**
+  - With administrator rights, it counts every account on the server.
+  - Watching something refreshes it, at most once a minute (that refresh was never wired up).
+  - It never invents a ranking; with fewer than three titles watched, the row isn't shown.
+  - A profile with no history no longer gets 300 unwatched titles back.
+- **Recommended For You:**
+  - Offered to new profiles, based on their favourites or else the library's best-rated titles
+    across genres.
+  - A failed request is no longer saved as "no recommendations".
+  - Its requests run together. On the CI emulator the rows took 154 ms, against 380 ms in the
+    previous run (one sample each).
+
+**Tests:**
+- `HomeNavigationTest`: 9 remote scenarios.
+- `HouseholdTop10Test`: +4 tests.
+- `RecommendationColdStartTest`: 3 tests.
+- Emulator: Home walked down every row and back up. The rows went `brands → resume → nextup → top10 →
+  foryou → 2 × Recently Added` and back the same way, and the profile button only came after the
+  banner.
+
+**Not checked on a Fire TV.** Holding the remote's buttons and your own library's rows still need
+trying on the TV.
+
 ## Performance audit
 Measured first, then changed only what the measurements pointed at. The old and new code ran in
 alternating rounds of one build on the emulator. See [[Performance Optimization]] for the method and

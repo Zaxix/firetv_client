@@ -264,6 +264,18 @@ m0=$(sounds Move); key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sl
 s0=$(sounds Select); key KEYCODE_DPAD_CENTER; sleep 2; s1=$(sounds Select)
 ok=0; [ "$((m1 - m0))" = 3 ] && [ "$((s1 - s0))" = 1 ] && ok=1
 check "One move sound per key press, one chime on OK" $ok "moves +$((m1 - m0)) for 3 presses, chimes +$((s1 - s0)) for 1 press (sidebar: $(region))"
+# 3b. Home all the way down and all the way back up, row by row: Up retraces Down exactly, and the
+# profile button is reached only by Up from the banner (it used to come up from the lower rows).
+homerows() { adb logcat -d -s HomeFocus:I | tr -d '\r' | grep -o 'row=[^ ]*' | cut -d= -f2 | tr '\n' ' ' | sed 's/ $//'; }
+opentrace "section:Home"; sleep 20; adb logcat -c
+for _ in $(seq 14); do key KEYCODE_DPAD_DOWN; done; sleep 1; shot layout-06-home-last-row
+down=$(homerows); adb logcat -c
+ups=0; hdr=""
+while [ $ups -lt 24 ]; do key KEYCODE_DPAD_UP; ups=$((ups + 1)); [ "$(region)" = header ] && { hdr=yes; break; }; done
+up=$(homerows); shot layout-07-home-back-up
+want="$(echo "$down" | tr ' ' '\n' | sed '$d' | tac | tr '\n' ' ')hero"
+ok=0; [ -n "$down" ] && [ "$hdr" = yes ] && [ "$up" = "$want" ] && ok=1
+check "Home: down every row and back up the same way, profile button only after the banner" $ok "down: ${down:-none} | up: ${up:-none} | profile after $ups Up press(es)"
 # 4. Details page: down through the rows and back up: the whole hero returns; episode descriptions show.
 opentrace "detail:$SERIES"; sleep 14
 key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; sleep 2; shot layout-03-episode-description

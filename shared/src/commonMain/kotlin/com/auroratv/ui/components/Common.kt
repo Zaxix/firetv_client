@@ -163,6 +163,8 @@ fun ContentRail(
     modifier: Modifier = Modifier,
     onItemFocused: ((BaseItemDto) -> Unit)? = null,
     subtitleFor: ((BaseItemDto) -> String?)? = null,
+    /** Requesting it puts focus back on this row (its last card, else the first one on screen). */
+    rowFocus: FocusRequester? = null,
 ) {
     val colors = Aurora.colors
     // The whole row (heading included) scrolls into view when focus enters it, so the heading is
@@ -178,7 +180,7 @@ fun ContentRail(
             state = state,
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp),
-            modifier = Modifier.focusRow().focusRestorer(),
+            modifier = (if (rowFocus != null) Modifier.focusRequester(rowFocus) else Modifier).focusRow().focusRestorer(),
         ) {
             itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
                 // CI trace: where the first card sits once focus is back on it (must be the row's start, clear of the sidebar).
@@ -220,6 +222,7 @@ fun RankedRail(
     onItemClick: (BaseItemDto) -> Unit,
     modifier: Modifier = Modifier,
     onItemFocused: ((BaseItemDto) -> Unit)? = null,
+    rowFocus: FocusRequester? = null,
 ) {
     val colors = Aurora.colors
     val style = CardStyle.Poster
@@ -243,7 +246,7 @@ fun RankedRail(
             state = state,
             contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.focusRow().focusRestorer(),
+            modifier = (if (rowFocus != null) Modifier.focusRequester(rowFocus) else Modifier).focusRow().focusRestorer(),
         ) {
             itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
                 val layout = remember(index, numeral) { measurer.measure((index + 1).toString(), numeral) }

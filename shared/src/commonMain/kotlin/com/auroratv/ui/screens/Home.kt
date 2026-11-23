@@ -91,7 +91,14 @@ import kotlinx.coroutines.delay
  * hero and the rail both want "Recently Added"), failures are retried twice with a short pause, and
  * a rail that still failed tries again the next time Home shows it.
  */
-class RailState(val key: String, val title: String, val style: CardStyle, val loader: suspend () -> List<BaseItemDto>) {
+class RailState(
+    val key: String,
+    val title: String,
+    val style: CardStyle,
+    /** How long one attempt may take before it counts as failed (a hung request never leaves a placeholder up for good). */
+    private val attemptTimeoutMs: Long = RAIL_ATTEMPT_TIMEOUT_MS,
+    val loader: suspend () -> List<BaseItemDto>,
+) {
     var items by mutableStateOf<List<BaseItemDto>?>(null)
     var failed by mutableStateOf(false)
     /** [items] came from the last session (Instant Home): shown at once, replaced when fresh ones arrive. */
@@ -99,11 +106,13 @@ class RailState(val key: String, val title: String, val style: CardStyle, val lo
     private val lock = kotlinx.coroutines.sync.Mutex()
     suspend fun ensureLoaded(): List<BaseItemDto> = lock.withLock {
         items?.takeIf { !failed && !stale }?.let { return@withLock it }
-        failed = false
-        if (items?.isEmpty() == true) items = null // show the skeleton again while retrying
+        // Retrying a failed row shows its placeholder again; a row refreshed in the background keeps
+        // what it shows (an empty one stays out of the way) until the new items arrive.
+        if (failed) { failed = false; items = null }
         repeat(RAIL_ATTEMPTS) { attempt ->
             try {
-                val loaded = loader()
+                val loaded = kotlinx.coroutines.withTimeoutOrNull(attemptTimeoutMs) { loader() }
+                    ?: throw IllegalStateException("no answer in ${attemptTimeoutMs / 1000} s")
                 items = loaded
                 stale = false
                 return@withLock loaded
@@ -122,6 +131,7 @@ class RailState(val key: String, val title: String, val style: CardStyle, val lo
 }
 
 private const val RAIL_ATTEMPTS = 3
+private const val RAIL_ATTEMPT_TIMEOUT_MS = 30_000L
 
 class HomeModel {
     var hero by mutableStateOf<List<BaseItemDto>>(emptyList())
@@ -131,6 +141,8 @@ class HomeModel {
     var focused by mutableStateOf<BaseItemDto?>(null)
     var heroIndex by mutableIntStateOf(0)
     val listState = LazyListState()
+    /** Up/Down between rows, and where focus was (kept while a detail page or the player is open). */
+    internal val rowFocus = HomeRowFocus()
     /** The WatchActivity version these rows reflect; a newer one refreshes the personal rows. */
     var seenWatch = com.auroratv.data.WatchActivity.version.value
     /** Perf log: when this Home was opened, and whether an earlier Home was opened in this session. */
@@ -175,8 +187,13 @@ private var homesOpened = 0
 internal fun apiRequestsSoFar(container: com.auroratv.ui.AppContainer): Int? =
     container.platform.requestStats()?.let { Regex("""api=(\d+)""").find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
+private fun logRowFailure(row: String, t: Throwable) {
+    if (t is kotlin.coroutines.cancellation.CancellationException) throw t
+    com.auroratv.core.Log.w("Home", "$row couldn't load: ${t.message}")
+}
+
 /** Continue Watching, Next Up and the recommendation rows: the ones that change as this profile watches. */
-private fun isPersonalRail(key: String) = key == "resume" || key == "nextup" || key == "foryou" || key.startsWith("because-")
+private fun isPersonalRail(key: String) = key == "resume" || key == "nextup" || key == "foryou" || key.startsWith("because-") || key == TOP10_KEY
 
 /**
  * Home's rows in order: what you're in the middle of, what's picked for you, the libraries, a second
@@ -204,6 +221,8 @@ private fun arrangeRails(
  * The recommendation rails for this profile. Titles are known from the history right away; the
  * rows themselves are worked out once (shared by all three rails) when the first of them comes on
  * screen, and reused until the history changes. A row with too little to show stays hidden.
+ * "Recommended For You" is offered to every profile: a new one gets suggestions from its favourites
+ * or the library's best-rated titles (see RecommendationService).
  */
 private fun recommendationRails(
     container: com.auroratv.ui.AppContainer,
@@ -211,13 +230,19 @@ private fun recommendationRails(
     profileKey: String,
     plan: com.auroratv.recommend.RecommendationService.Plan?,
 ): List<RailState> {
-    if (plan == null || plan.seeds.isEmpty()) return emptyList()
+    if (plan == null) return emptyList()
+    suspend fun rows() = container.recommendations.rows(api, profileKey, plan).await()
     fun rail(key: String, title: String) = RailState(key, title, CardStyle.Poster) {
-        container.recommendations.rows(api, profileKey, plan).await()?.firstOrNull { it.key == key }?.items.orEmpty()
+        rows()?.firstOrNull { it.key == key }?.items.orEmpty()
     }
     return buildList {
         plan.seeds.getOrNull(0)?.let { add(rail("because-0", "Because You Watched ${it.name}")) }
-        if (plan.titles.size >= 2) add(rail("foryou", "Recommended For You"))
+        // The one recommendation row that says so when it couldn't be worked out (Try Again), rather
+        // than vanishing; the "Because You Watched" rows just stay out of the way.
+        add(RailState("foryou", "Recommended For You", CardStyle.Poster) {
+            val rows = rows() ?: error("recommendations couldn't be worked out")
+            rows.firstOrNull { it.key == "foryou" }?.items.orEmpty()
+        })
         plan.seeds.getOrNull(1)?.let { add(rail("because-1", "Because You Watched ${it.name}")) }
     }
 }
@@ -230,7 +255,8 @@ private fun mergeRails(old: List<RailState>, fresh: List<RailState>): List<RailS
         when {
             !isPersonalRail(f.key) -> o
             o.title == f.title && f.items != null && o.items == f.items -> o
-            else -> f.also { if (it.items == null) o.items?.takeIf { prev -> prev.isNotEmpty() }?.let { prev -> it.items = prev; it.stale = true } }
+            // The new row shows what the old one did until it has loaded (an empty one stays hidden).
+            else -> f.also { if (it.items == null && !o.failed) o.items?.let { prev -> it.items = prev; it.stale = true } }
         }
     }
 }
@@ -294,6 +320,12 @@ fun HomeScreen() {
         }
     }
 
+    // Top 10 in Your Home: what the household watches most on this server (see HouseholdTop10).
+    fun top10Rail() = RailState(TOP10_KEY, "Top 10 in Your Home", CardStyle.Poster) {
+        val (accounts, locals) = container.sessions.household(session.server.id, api.baseUrl)
+        container.top10.top(api, session.server.id, accounts, locals)
+    }
+
     LaunchedEffect(reloadKey) {
         if (model.rails != null && reloadKey == 0) {
             // Back on this screen (from a detail page or the player): nothing to load. Opened again
@@ -324,8 +356,9 @@ fun HomeScreen() {
                 // Brand tiles load on their own; Home never waits for them.
                 if (settings.showBrandTiles) launch { model.brands = runCatching { container.brands.brands(api) }.getOrDefault(emptyList()) }
                 val views = async { api.userViews() }
-                val resume = async { runCatching { api.resumeItems() }.getOrDefault(emptyList()) }
-                val nextUp = async { runCatching { api.nextUp() }.getOrDefault(emptyList()) }
+                // Either failing leaves its row out (the rest of Home still loads); it's back after the next refresh.
+                val resume = async { runCatching { api.resumeItems() }.onFailure { logRowFailure("Continue Watching", it) }.getOrDefault(emptyList()) }
+                val nextUp = async { runCatching { api.nextUp() }.onFailure { logRowFailure("Next Up", it) }.getOrDefault(emptyList()) }
                 // This profile's recent history, for the recommendation rows: from memory while nothing
                 // has been watched since (no request), else one small request shared by every caller.
                 val watchNow = com.auroratv.data.WatchActivity.version.value
@@ -350,11 +383,7 @@ fun HomeScreen() {
                     api.items(com.auroratv.jellyfin.ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), sortBy = "DatePlayed,SortName", sortDescending = true, limit = 24)).items
                 }
                 val libraryRails = libraryViews.map { view -> latestRails.getValue(view.id) }
-                // Top 10 in Your Home: what this device's profiles watch most on this server.
-                val top10 = RailState(TOP10_KEY, "Top 10 in Your Home", CardStyle.Poster) {
-                    val (accounts, locals) = container.sessions.household(session.server.id, api.baseUrl)
-                    container.top10.top(api, session.server.id, accounts, locals)
-                }
+                val top10 = top10Rail()
                 // The history is sent alongside the others. If it's back by the time the other rows
                 // are (or within REC_WAIT_MS of Home opening), its rows are placed at once; otherwise
                 // the rows show without it and the recommendation rows are merged in when it arrives.
@@ -412,6 +441,8 @@ fun HomeScreen() {
         model.seenWatch = watchVersion
         if (model.rails == null) return@LaunchedEffect
         delay(400) // let the server record the stop first
+        // The household's Top 10 is worked out again too (no more than once a minute).
+        container.top10.invalidate()
         runCatching {
             coroutineScope {
                 val resume = async { api.resumeItems() }
@@ -420,7 +451,7 @@ fun HomeScreen() {
                     .onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }.getOrNull()
                 val current = model.rails ?: return@coroutineScope
                 val fresh = arrangeRails(resume.await(), nextUp.await(), recommendationRails(container, api, profileKey, plan),
-                    current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" }, current.firstOrNull { it.key == TOP10_KEY })
+                    current.filter { it.key.startsWith("latest-") }, current.firstOrNull { it.key == "favorites" }, top10Rail())
                 model.rails = mergeRails(current, fresh)
             }
         }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it; com.auroratv.core.Log.w("Home", "Refresh after watching failed: ${it.message}") }
@@ -460,63 +491,113 @@ fun HomeScreen() {
             // not the whole of Home.
             HomeBackdrop(heroItem, model, settings.frostedBackground, settings.artworkAccents)
         }
+        val rowFocus = model.rowFocus
+        rowFocus.register("hero", heroFocus)
+        val leading = buildList {
+            if (settings.showHeroCarousel) add("hero")
+            if (settings.showBrandTiles && model.brands.isNotEmpty()) add("brands")
+        }
+        val regions = com.auroratv.ui.nav.LocalFocusRegions.current
+        val sideBar = com.auroratv.ui.LocalSideBar.current
         LazyColumn(
             state = model.listState,
             contentPadding = PaddingValues(bottom = 64.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().homeRowNavigation(
+                rowFocus, model.listState,
+                stops = { homeStops(leading, model.rails) },
+                // Not when focus left on purpose: the sidebar, the profile button, another screen, the update card.
+                mayRecover = { !regions.headerHasFocus && !sideBar.hasFocus && navigator.current === entry && container.updates.prompt.value == null },
+            ),
         ) {
             if (settings.showHeroCarousel) {
                 item(key = "hero") {
-                    Hero(model, heroItem, heroFocus, heroHeight, onPlay = ::playBanner,
-                        onInfo = { bannerSeries(it)?.let { s -> navigator.push(Route.Detail(s)) } ?: navigator.push(Route.Detail(it.id, it)) },
-                        onFocusItem = { bannerFocus.value = it })
+                    Box(Modifier.onFocusChanged { if (it.hasFocus) rowFocus.focused("hero", 0) }) {
+                        Hero(model, heroItem, heroFocus, heroHeight, onPlay = ::playBanner,
+                            onInfo = { bannerSeries(it)?.let { s -> navigator.push(Route.Detail(s)) } ?: navigator.push(Route.Detail(it.id, it)) },
+                            onFocusItem = { bannerFocus.value = it })
+                    }
                 }
             }
             if (settings.showBrandTiles && model.brands.isNotEmpty()) {
                 item(key = "brands") {
-                    BrandRow(model.brands) { b -> navigator.push(Route.Brand(b.brand.id, b.brand.name)) }
+                    val index = leading.indexOf("brands")
+                    Box(Modifier.onFocusChanged { if (it.hasFocus) rowFocus.focused("brands", index) }) {
+                        BrandRow(model.brands, rowFocus = rowFocus.requester("brands")) { b -> navigator.push(Route.Brand(b.brand.id, b.brand.name)) }
+                    }
                 }
             }
             if (rails == null) {
                 items(3) { SkeletonRail(if (it < 1) CardStyle.Landscape else CardStyle.Poster) }
             } else {
-                items(rails, key = { it.key }) { rail ->
-                    LaunchedEffect(rail) { rail.ensureLoaded() }
-                    val items = rail.items
-                    when {
-                        items == null -> SkeletonRail(rail.style)
-                        items.isEmpty() && rail.failed -> RailRetry(rail.title) { scope.launch { rail.ensureLoaded() } }
-                        items.isEmpty() -> Unit
-                        rail.key == TOP10_KEY -> RankedRail(
-                            title = rail.title,
-                            items = items,
-                            images = api.images,
-                            railKey = rail.key,
-                            onItemClick = { item -> openItem(navigator, item) },
-                            onItemFocused = { model.focused = it },
-                        )
-                        else -> ContentRail(
-                            title = rail.title,
-                            items = items,
-                            images = api.images,
-                            style = rail.style,
-                            railKey = rail.key,
-                            onItemClick = { item -> openItem(navigator, item) },
-                            onItemFocused = {
-                                model.focused = it
-                                if (rail.key == "resume" || rail.key == "nextup") prewarmRequests.value = it.id
-                            },
-                        )
-                    }
-                }
+                homeRails(
+                    rails, leading.size, rowFocus, api.images,
+                    // Loads run in Home's scope, so scrolling a row off screen mid-load doesn't cancel
+                    // it (and start it again when the row comes back).
+                    load = { rail -> scope.launch { rail.ensureLoaded() } },
+                    onRetry = { rail -> scope.launch { rail.ensureLoaded() } },
+                    onItemClick = { item -> openItem(navigator, item) },
+                    onItemFocused = { rail, item ->
+                        model.focused = item
+                        if (rail.key == "resume" || rail.key == "nextup") prewarmRequests.value = item.id
+                    },
+                )
             }
         }
     }
 }
 
+/**
+ * Home's rows, one lazy item each, starting at list item [firstIndex] (shared with the
+ * remote-navigation tests). A row that loaded empty isn't laid out at all ([shownRails]); one still
+ * loading shows a placeholder that focus passes over ([HomeRowFocus]).
+ */
+internal fun androidx.compose.foundation.lazy.LazyListScope.homeRails(
+    rails: List<RailState>,
+    firstIndex: Int,
+    focus: HomeRowFocus,
+    images: com.auroratv.jellyfin.ImageUrls,
+    load: (RailState) -> Unit,
+    onRetry: (RailState) -> Unit,
+    onItemClick: (BaseItemDto) -> Unit,
+    onItemFocused: (RailState, BaseItemDto) -> Unit,
+) {
+    val shown = shownRails(rails)
+    items(shown.size, key = { shown[it].key }) { i ->
+        val rail = shown[i]
+        LaunchedEffect(rail) { load(rail) }
+        val items = rail.items
+        val tracked = Modifier.onFocusChanged { if (it.hasFocus) focus.focused(rail.key, firstIndex + i) }
+        when {
+            items == null -> SkeletonRail(rail.style)
+            items.isEmpty() -> RailRetry(rail.title, tracked, focus.requester(rail.key)) { onRetry(rail) }
+            rail.key == TOP10_KEY -> RankedRail(
+                title = rail.title,
+                items = items,
+                images = images,
+                railKey = rail.key,
+                onItemClick = onItemClick,
+                onItemFocused = { onItemFocused(rail, it) },
+                modifier = tracked,
+                rowFocus = focus.requester(rail.key),
+            )
+            else -> ContentRail(
+                title = rail.title,
+                items = items,
+                images = images,
+                style = rail.style,
+                railKey = rail.key,
+                onItemClick = onItemClick,
+                onItemFocused = { onItemFocused(rail, it) },
+                modifier = tracked,
+                rowFocus = focus.requester(rail.key),
+            )
+        }
+    }
+}
+
 private const val HERO_WAIT_MS = 4_000L
-private const val TOP10_KEY = "top10"
+internal const val TOP10_KEY = "top10"
 private const val HOME_COST_AFTER_MS = 10_000L
 private const val REC_WAIT_MS = 600L
 /** Home opened again within this long of its last load shows the same rows without asking the server. */
@@ -595,13 +676,13 @@ private class SavedHome(val hero: List<BaseItemDto>, val rails: List<RailState>)
 
 /** A rail that couldn't load (server busy or offline): say so and offer another go instead of vanishing. */
 @Composable
-private fun RailRetry(title: String, onRetry: () -> Unit) {
-    Column(Modifier.padding(start = ScreenStart, end = ScreenPadding)) {
+private fun RailRetry(title: String, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, onRetry: () -> Unit) {
+    Column(modifier.padding(start = ScreenStart, end = ScreenPadding)) {
         Text(title, style = AuroraType.section, color = Aurora.colors.onBackground)
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Couldn't load this row.", style = AuroraType.body, color = Aurora.colors.onSurfaceMuted)
-            AuroraButton("Try again", onRetry)
+            AuroraButton("Try again", onRetry, focusRequester = focusRequester)
         }
     }
 }

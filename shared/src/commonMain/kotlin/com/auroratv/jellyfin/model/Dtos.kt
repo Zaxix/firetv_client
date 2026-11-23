@@ -26,6 +26,14 @@ data class UserDto(
     @SerialName("ServerId") val serverId: String? = null,
     @SerialName("PrimaryImageTag") val primaryImageTag: String? = null,
     @SerialName("HasPassword") val hasPassword: Boolean = true,
+    @SerialName("Policy") val policy: UserPolicyDto? = null,
+)
+
+/** The parts of a user's server policy the app reads. */
+@Serializable
+data class UserPolicyDto(
+    @SerialName("IsAdministrator") val isAdministrator: Boolean = false,
+    @SerialName("IsDisabled") val isDisabled: Boolean = false,
 )
 
 @Serializable

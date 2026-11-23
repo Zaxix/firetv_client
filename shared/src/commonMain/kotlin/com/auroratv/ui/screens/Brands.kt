@@ -1,5 +1,7 @@
 package com.auroratv.ui.screens
 
+import androidx.compose.ui.focus.focusRequester
+
 import com.auroratv.ui.nav.focusRow
 
 import androidx.compose.animation.core.RepeatMode
@@ -97,7 +99,7 @@ private fun ResolvedBrand.gradient(): List<Color> = brand.colors.map { Color(it)
 /** "Brands" row on Home: one tile per studio/network found in the library. */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
+fun BrandRow(brands: List<ResolvedBrand>, rowFocus: androidx.compose.ui.focus.FocusRequester? = null, onOpen: (ResolvedBrand) -> Unit) {
     val container = LocalContainer.current
     val api = LocalSession.current.api
     var focusedBrand by remember { mutableStateOf<ResolvedBrand?>(null) }
@@ -111,7 +113,7 @@ fun BrandRow(brands: List<ResolvedBrand>, onOpen: (ResolvedBrand) -> Unit) {
     com.auroratv.ui.components.RowScroll { LazyRow(
         contentPadding = PaddingValues(start = ScreenStart, end = ScreenPadding, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.focusRow().focusRestorer(),
+        modifier = (if (rowFocus != null) Modifier.focusRequester(rowFocus) else Modifier).focusRow().focusRestorer(),
     ) {
         items(brands, key = { it.brand.id }) { b -> BrandTile(b, onFocused = { focusedBrand = b }) { onOpen(b) } }
     } }

@@ -10,7 +10,8 @@ and never cache anything that could go stale silently.
 |---|---|---|
 | Back-stack screen models | Until the entry is popped | Re-fetching when going Back |
 | Home saved copy | Replaced every visit | Blank Home at launch; works offline |
-| Recommendation rows | While the history signature is unchanged (memory + disk, card fields only) | Candidate queries on most launches |
+| Recommendation rows | While the history signature is unchanged (memory + disk, card fields only). Rows worked out while a request failed are kept in memory only and worked out again after 1 min | Candidate queries on most launches |
+| Top 10 in Your Home | Ranking per server for 30 min; after watching, worked out again no sooner than 1 min; the row as fetched for a viewer reused while the ranking is the same | Household history requests on every Home |
 | Recommendation history plan | Per profile in memory: until something is watched/marked/favourited here, or 30 min; stale shown while a new one loads | The history requests every time Home opens |
 | Home rows (`HomeSnapshot`) | Session, last 2 profiles; refreshed when 5 min old | Every request Home makes when opened again from the side menu |
 | Upcoming air dates | 6 h per series in memory (50 series), aired ones dropped on read | A request per series page |

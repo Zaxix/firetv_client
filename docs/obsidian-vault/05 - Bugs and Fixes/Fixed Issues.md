@@ -5,6 +5,16 @@ tags: [bug]
 
 Newest first. Each entry: symptom → cause → fix.
 
+## Home navigation, Top 10 and Recommended (Nov 2026)
+| Symptom | Cause | Fix |
+|---|---|---|
+| After going down Home to Recently Added and below, Up jumped to the profile button instead of the row above (Down could also stop dead) | Rows still loading (placeholders) and rows that loaded empty (zero height) stayed in Home's list. Compose's search for the next row only lays out about two screens' worth of extra list items when nothing is on screen, and these non-focusable items used that up, so it found nothing. The shell reads "Up found nothing" as "top of the screen" and opens the profile button | Empty rows aren't laid out; when the geometric search finds nothing, Home moves to the next row with cards itself (scrolling it into the list first) and only Up from the banner reaches the profile button. Reproduced and checked in `HomeNavigationTest` (CI: before the fix, Up from below three loading rows went to the profile button every time; Down stopped) ([[Focus Management]]) |
+| Focus could vanish when the focused card's row reloaded or emptied | Nothing put it back except the shell's generic safety net (to whatever the content restored first) | Home puts it on the same row, else the nearest one |
+| Top 10 didn't appear | Fewer than three titles watched in the household (by design, no row), only this TV's profiles counted, and the ranking ignored new viewing for up to 30 minutes (`invalidate()` was never called) | Administrators' Top 10 counts every account on the server; watching something refreshes it (at most once a minute); the history request no longer returns 300 unwatched titles for a new profile ([[Top 10 in Your Home]]) |
+| Recommended didn't appear | A new profile was never offered recommendation rows; a failed request was saved as "no recommendations" and reused until something new was watched | New profiles get suggestions from favourites or the library's best-rated titles; partial results aren't saved and are tried again after a minute; a total failure shows Try Again ([[Recommendations]]) |
+| A row's placeholder could stay forever if a request never answered | No limit on an attempt | 30 s per attempt, three attempts, then Try Again |
+| Scrolling past a row while it loaded cancelled the load and started it again later | The load ran inside the row's own composition | Loads run in Home's scope |
+
 ## Performance audit (Nov 2026)
 | Symptom | Cause | Fix |
 |---|---|---|

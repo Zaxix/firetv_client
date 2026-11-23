@@ -13,45 +13,76 @@ import kotlinx.coroutines.coroutineScope
 data class HouseholdWatch(val titleId: String, val ticks: Long, val atMs: Long)
 
 /**
- * "Top 10 in Your Home": the films and shows watched most on this server by every profile this
- * device knows (account profiles' history from the server, device-only profiles' from the device),
- * ranked by time spent watching them in the last [WINDOW_DAYS] days, then by all-time time when
- * fewer than ten were watched lately.
+ * "Top 10 in Your Home": the films and shows watched most on this server, ranked by time spent
+ * watching them in the last [WINDOW_DAYS] days, then by all-time time when fewer than ten were
+ * watched lately. Whose viewing counts: every profile this device knows (account profiles' history
+ * from the server, device-only profiles' from the device) and, when the signed-in account is a
+ * server administrator, every other account on the server too (people who watch on other devices).
  *
- * The titles are then fetched as the profile that's looking, so nothing it can't see on the server
- * (another library, a parental rating) ever appears. Worked out at most every [TTL_MS] per server;
- * Home keeps the last row on screen in the meantime. Needs no internet.
+ * Only real viewing counts: with fewer than [MIN] titles watched in the whole house the row isn't
+ * shown (nothing is made up from ratings or popularity, and nothing is called "most watched"
+ * without being watched). The titles are fetched as the profile that's looking, so nothing it
+ * can't see on the server (another library, a parental rating) ever appears.
+ *
+ * Worked out at most every [TTL_MS] per server; after something is watched ([invalidate]) it's
+ * worked out again, but not more than once every [REFRESH_MS]. Needs no internet.
  */
 class HouseholdTop10(private val now: () -> Long = { com.auroratv.playback.wallClockMs() }) {
-    private class Cached(val serverId: String, val atMs: Long, val ids: List<String>)
+    private class Cached(val serverId: String, val atMs: Long, val ids: List<String>, val stale: Boolean = false)
     @kotlin.concurrent.Volatile private var cached: Cached? = null
+    /** The last row as fetched for a viewer, reused while the ranking hasn't changed. */
+    private class Shown(val viewer: JellyfinApi, val serverId: String, val ids: List<String>, val items: List<BaseItemDto>)
+    @kotlin.concurrent.Volatile private var shown: Shown? = null
 
-    /** Forgets the ranking (something was watched), so the next Home works it out again. */
-    fun invalidate() { cached = null }
+    /** Something was watched: the ranking is worked out again next time (at most every [REFRESH_MS]). */
+    fun invalidate() {
+        cached = cached?.let { Cached(it.serverId, it.atMs, it.ids, stale = true) }
+        shown = null
+    }
 
     /**
      * The household's top ten, as [viewer] sees them. [accounts]: one client per account profile on
-     * the server (its own sign-in); [locals]: device-only profiles' histories. Fewer than [MIN] titles
-     * watched in total: no row.
+     * this device (its own sign-in); [locals]: device-only profiles' histories. Fewer than [MIN]
+     * titles watched in total: an empty list (no row).
      */
     suspend fun top(viewer: JellyfinApi, serverId: String, accounts: List<JellyfinApi>, locals: List<LocalWatchStore>): List<BaseItemDto> {
-        val ids = cached?.takeIf { it.serverId == serverId && now() - it.atMs < TTL_MS }?.ids ?: run {
+        val c = cached
+        val age = c?.let { now() - it.atMs } ?: Long.MAX_VALUE
+        val reuse = c != null && c.serverId == serverId && age < TTL_MS && !(c.stale && age >= REFRESH_MS)
+        val ids = if (reuse) c!!.ids else run {
+            val onDevice = accounts.mapNotNull { it.userId }.toSet()
+            // An administrator's sign-in can read every account's history; anyone else's is refused.
+            val others = runCatching { viewer.serverUsers() }
+                .map { users -> users.filter { !(it.policy?.isDisabled ?: false) && it.id !in onDevice }.map { it.id } }
+                .getOrElse { emptyList() }
             val watches = coroutineScope {
-                accounts.map { a -> async { runCatching { fromServer(a.watchHistory()) }.onFailure { Log.w(TAG, "A profile's history couldn't be read: ${it.message}") }.getOrDefault(emptyList()) } }.awaitAll().flatten()
+                val mine = accounts.map { a -> async { history { a.watchHistory() } } }
+                val theirs = others.map { id -> async { history { viewer.watchHistory(forUser = id) } } }
+                (mine + theirs).awaitAll().flatten()
             } + locals.flatMap { fromLocal(it.history()) }
             rank(watches, now(), CANDIDATES).also {
                 cached = Cached(serverId, now(), it)
-                Log.i(TAG, "${accounts.size + locals.size} profile(s), ${watches.size} things watched, ${it.size} titles ranked")
+                Log.i(TAG, "${accounts.size + others.size + locals.size} profile(s) (${others.size} from the server), ${watches.size} things watched, ${it.size} titles ranked")
             }
         }
-        if (ids.size < MIN) return emptyList()
+        if (ids.size < MIN) {
+            Log.i(TAG, "Top 10 in Your Home: not enough watched yet (${ids.size} title(s), needs $MIN), row not shown")
+            return emptyList()
+        }
+        shown?.takeIf { it.viewer === viewer && it.serverId == serverId && it.ids == ids }?.let { return it.items }
         // As the viewer: only what this profile is allowed to see, in ranked order.
         val items = viewer.items(ItemQuery(ids = ids, includeItemTypes = listOf("Movie", "Series"), sortBy = "SortName", limit = ids.size, totalCount = false)).items
         val byId = items.associateBy { it.id }
-        val shown = ids.mapNotNull { byId[it] }.take(SIZE).takeIf { it.size >= MIN }.orEmpty()
-        Log.i(TAG, "Top 10 in Your Home: ${shown.size} titles shown (of ${ids.size} ranked): " + shown.take(3).joinToString { "\"${it.name}\"" })
-        return shown
+        val list = ids.mapNotNull { byId[it] }.take(SIZE).takeIf { it.size >= MIN }.orEmpty()
+        shown = Shown(viewer, serverId, ids, list)
+        Log.i(TAG, "Top 10 in Your Home: ${list.size} titles shown (of ${ids.size} ranked): " + list.take(3).joinToString { "\"${it.name}\"" })
+        return list
     }
+
+    private suspend fun history(read: suspend () -> List<BaseItemDto>): List<HouseholdWatch> =
+        runCatching { fromServer(read()) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; Log.w(TAG, "A profile's history couldn't be read: ${it.message}") }
+            .getOrDefault(emptyList())
 
     companion object {
         private const val TAG = "Top10"
@@ -63,6 +94,8 @@ class HouseholdTop10(private val now: () -> Long = { com.auroratv.playback.wallC
         const val WINDOW_DAYS = 30
         private const val WINDOW_MS = WINDOW_DAYS * 24L * 3600 * 1000
         const val TTL_MS = 30L * 60 * 1000
+        /** After something is watched, the ranking is worked out again no sooner than this. */
+        const val REFRESH_MS = 60L * 1000
 
         /**
          * Title ids, most watched first: time watched in the last [WINDOW_DAYS] days (ties: the

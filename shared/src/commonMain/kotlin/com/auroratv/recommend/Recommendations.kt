@@ -131,6 +131,29 @@ object RecommendationEngine {
             .take(limit).map { it.first }.toList()
     }
 
+    /**
+     * For a profile with little to go on: well-rated titles, best first but taking turns across
+     * genres (so it isn't ten of one kind of film). With a [taste], only the kinds of content the
+     * profile watches (anime, animation, live action) and no children's titles for one that never
+     * watches them.
+     */
+    fun highlights(candidates: List<BaseItemDto>, taste: Taste?, limit: Int): List<BaseItemDto> {
+        var pool = candidates.distinctBy { it.id }
+        if (taste != null && taste.kinds.isNotEmpty()) {
+            pool = pool.filter { (taste.kinds[ContentKind.of(it)] ?: 0.0) >= 0.2 }
+            if ((taste.audiences[Similarity.Audience.Kids] ?: 0.0) < 0.1) pool = pool.filter { Similarity.audience(it) != Similarity.Audience.Kids }
+        }
+        val byGenre = LinkedHashMap<String, ArrayDeque<BaseItemDto>>()
+        pool.sortedByDescending { it.communityRating ?: 0.0 }.forEach {
+            byGenre.getOrPut(Similarity.contentGenres(it).firstOrNull().orEmpty()) { ArrayDeque() }.addLast(it)
+        }
+        val out = ArrayList<BaseItemDto>(limit)
+        while (out.size < limit && byGenre.values.any { it.isNotEmpty() }) {
+            for (q in byGenre.values) { if (out.size < limit) q.removeFirstOrNull()?.let(out::add) }
+        }
+        return out
+    }
+
     /** Two from [primary] for every one from [secondary], keeping each list's order, without repeats. */
     fun interleave(primary: List<BaseItemDto>, secondary: List<BaseItemDto>): List<BaseItemDto> {
         val out = LinkedHashMap<String, BaseItemDto>()
@@ -163,6 +186,8 @@ class RecommendationService(
         val genres: Map<String, List<String>>,
         /** The most recent watched titles with what similarity compares (tags, description, origin…). */
         val details: Map<String, BaseItemDto> = emptyMap(),
+        /** A profile that has watched little ([COLD] titles or fewer): its favourites, the first signal of taste. */
+        val favorites: List<BaseItemDto> = emptyList(),
     ) {
         /** The titles the "Because You Watched" rows are about (newest first, never a thumbs-down). */
         val seeds: List<WatchedTitle> get() = titles.filter { !it.disliked && it.name.isNotBlank() }.take(SEEDS)
@@ -174,7 +199,14 @@ class RecommendationService(
     @kotlinx.serialization.Serializable
     private data class Saved(val signature: String, val rows: List<Row>)
 
-    private val cache = HashMap<String, Pair<String, Deferred<List<Row>?>>>()
+    /** The rows being (or last) worked out for a profile, and for which history. */
+    private class Rows(val signature: String) {
+        lateinit var job: Deferred<List<Row>?>
+        val started = kotlin.time.TimeSource.Monotonic.markNow()
+        /** Some requests failed: shown, but not saved, and worked out again after [RETRY_MS]. */
+        @kotlin.concurrent.Volatile var partial = false
+    }
+    private val cache = HashMap<String, Rows>()
 
     /** A profile's plan as last loaded: which watch activity it reflects and when it was loaded. */
     private class CachedPlan(val plan: Plan, val watchVersion: Int, val loadedAt: kotlin.time.TimeSource.Monotonic.ValueTimeMark)
@@ -224,7 +256,13 @@ class RecommendationService(
         val titles = RecommendationEngine.watchedTitles(history)
         val watched = history.flatMap { listOfNotNull(it.id, it.seriesId) }.toSet()
         // ALGORITHM changes the signature, so rows saved by an older ranking are worked out again once.
-        val signature = titles.take(12).joinToString(",") { "${it.id}:${(it.weight * 100).toInt()}" } + "|" + watched.size + "|" + ALGORITHM
+        val signature0 = titles.take(12).joinToString(",") { "${it.id}:${(it.weight * 100).toInt()}" } + "|" + watched.size + "|" + ALGORITHM
+        // Little watched yet: favourites say what the profile likes (one small request, only then).
+        val favorites = if (titles.size > COLD) emptyList() else runCatching {
+            api.items(ItemQuery(isFavorite = true, includeItemTypes = listOf("Movie", "Series"), recursive = true, limit = 24,
+                fields = Fields.SIMILARITY, totalCount = false, imageTypes = "Primary")).items
+        }.onFailure { if (it is CancellationException) throw it; Log.w("Recommend", "Favourites unavailable: ${it.message}") }.getOrDefault(emptyList())
+        val coldSignature = if (titles.size > COLD) "" else "|fav:" + favorites.joinToString(",") { it.id }
         val genres = HashMap<String, List<String>>()
         history.filter { !it.isEpisode && it.genres.isNotEmpty() }.forEach { genres[it.id] = it.genres }
         // The newest titles (series and films) with everything similarity compares: one small request.
@@ -233,7 +271,7 @@ class RecommendationService(
             api.items(ItemQuery(ids = lookup, limit = lookup.size, recursive = true, fields = Fields.SIMILARITY, totalCount = false, userData = false, imageTypes = "Primary")).items
         }.getOrNull().orEmpty().associateBy { it.id }
         details.values.forEach { if (it.genres.isNotEmpty()) genres[it.id] = it.genres }
-        return Plan(titles, watched, signature, genres, details)
+        return Plan(titles, watched, signature0 + coldSignature, genres, details, favorites)
     }
 
     /**
@@ -243,11 +281,14 @@ class RecommendationService(
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun rows(api: JellyfinApi, profileKey: String, plan: Plan): Deferred<List<Row>?> {
-        cache[profileKey]?.let { (sig, d) ->
+        cache[profileKey]?.let { e ->
+            val d = e.job
             val failed = d.isCompleted && (d.isCancelled || d.getCompleted() == null)
-            if (sig == plan.signature && !failed) return d
+            val retry = d.isCompleted && e.partial && e.started.elapsedNow().inWholeMilliseconds >= RETRY_MS
+            if (e.signature == plan.signature && !failed && !retry) return d
         }
-        val d = scope.async {
+        val entry = Rows(plan.signature)
+        entry.job = scope.async {
             val file = com.auroratv.profiles.ProfileFiles.name("recommendations", profileKey)
             val saved = runCatching { files?.read(file)?.let { AuroraJson.decodeFromString(Saved.serializer(), it) } }.getOrNull()
             if (saved != null && saved.signature == plan.signature) {
@@ -256,18 +297,26 @@ class RecommendationService(
             }
             try {
                 val t0 = kotlin.time.TimeSource.Monotonic.markNow()
+                val computed = compute(api, plan)
                 // Kept (in memory and on disk) as the ranked titles with what a card shows, not the
                 // tags, cast and descriptions the ranking compared.
-                compute(api, plan).map { r -> r.copy(items = r.items.map(::slim)) }.also { rows ->
+                computed.rows.map { r -> r.copy(items = r.items.map(::slim)) }.also { rows ->
                     Log.i("Recommend", "${rows.size} row(s) in ${t0.elapsedNow().inWholeMilliseconds} ms: " + rows.joinToString { "${it.title} (${it.items.size})" })
-                    runCatching { files?.write(file, AuroraJson.encodeToString(Saved.serializer(), Saved(plan.signature, rows))) }
+                    if (computed.complete) {
+                        runCatching { files?.write(file, AuroraJson.encodeToString(Saved.serializer(), Saved(plan.signature, rows))) }
+                    } else {
+                        // A request failed (server busy, offline): what did load is shown, but it isn't
+                        // saved as this history's answer; it's worked out again shortly.
+                        entry.partial = true
+                        Log.w("Recommend", "Some requests failed: rows not saved, tried again in ${RETRY_MS / 1000} s")
+                    }
                 }
             } catch (c: CancellationException) { throw c } catch (t: Throwable) {
                 Log.w("Recommend", "Couldn't work out recommendations: ${t.message}"); null
             }
         }
-        cache[profileKey] = plan.signature to d
-        return d
+        cache[profileKey] = entry
+        return entry.job
     }
 
     /** What a card needs, without long text (keeps the saved file small). */
@@ -277,10 +326,14 @@ class RecommendationService(
 
     /** Unwatched titles of [types] in any of [genres], best rated first: one small, filtered request. */
     private suspend fun unwatched(api: JellyfinApi, types: List<String>, genres: Collection<String>, limit: Int): List<BaseItemDto> =
-        if (genres.isEmpty()) emptyList() else runCatching {
+        if (genres.isEmpty()) emptyList() else
             api.items(ItemQuery(includeItemTypes = types, genres = genres.toList(), filters = listOf("IsUnplayed"), recursive = true,
                 sortBy = "CommunityRating,SortName", sortDescending = true, limit = limit, totalCount = false, fields = Fields.SIMILARITY)).items
-        }.getOrDefault(emptyList())
+
+    /** The library's best-rated unwatched films and shows (any genre): one request, for a profile with little to go on. */
+    private suspend fun highlights(api: JellyfinApi, limit: Int): List<BaseItemDto> =
+        api.items(ItemQuery(includeItemTypes = listOf("Movie", "Series"), filters = listOf("IsUnplayed"), recursive = true,
+            sortBy = "CommunityRating,SortName", sortDescending = true, limit = limit, totalCount = false, fields = Fields.SIMILARITY)).items
 
     /**
      * Where to look for titles like [seed]: anime among anime/animation, other animation among
@@ -292,18 +345,42 @@ class RecommendationService(
         ContentKind.LiveAction -> Similarity.contentGenres(seed)
     }
 
-    private suspend fun compute(api: JellyfinApi, plan: Plan): List<Row> {
+    /** Rows worked out for a plan; [complete] false when a request failed along the way. */
+    private class Computed(val rows: List<Row>, val complete: Boolean)
+
+    /** A request's items, or nothing when it failed ([ok] false), so one failure doesn't stop the rest. */
+    private class Fetched(val items: List<BaseItemDto>, val ok: Boolean)
+
+    private suspend fun fetch(what: String, block: suspend () -> List<BaseItemDto>): Fetched = try {
+        Fetched(block(), true)
+    } catch (c: CancellationException) { throw c } catch (t: Throwable) {
+        Log.w("Recommend", "$what failed: ${t.message}"); Fetched(emptyList(), false)
+    }
+
+    private suspend fun compute(api: JellyfinApi, plan: Plan): Computed = kotlinx.coroutines.coroutineScope {
         val genresOf: (String) -> Collection<String> = { id -> plan.genres[id].orEmpty() }
-        val used = HashSet(plan.watchedIds)
-        val rows = mutableListOf<Row>()
-        plan.seeds.forEachIndexed { i, seed ->
-            val seedItem = plan.details[seed.id] ?: return@forEachIndexed // nothing to compare with: no row
+        // Every request goes out at once (they don't depend on each other); the ranking that follows
+        // is in order, so a title still shows up in one row only.
+        val seeds = plan.seeds.mapIndexedNotNull { i, seed -> plan.details[seed.id]?.let { Triple(i, seed, it) } } // nothing to compare with: no row
+        val seedLoads = seeds.map { (_, seed, item) ->
             // Candidates: the server's own Similar list (it also weighs cast, crew and studios), plus
             // unwatched titles of the same kind of content. Both are ranked by Similarity; anything
             // without a clear reason to appear is dropped, however popular.
-            val server = runCatching { api.similar(seed.id, limit = 24, fields = Fields.SIMILARITY) }.getOrDefault(emptyList())
-                .filter { (it.isMovie || it.isSeries) && it.userData?.played != true && it.id !in used }
-            val pool = unwatched(api, listOf("Movie", "Series"), poolGenres(seedItem), POOL).filter { it.id !in used }
+            async { fetch("Similar to ${seed.name}") { api.similar(seed.id, limit = 24, fields = Fields.SIMILARITY) } } to
+                async { fetch("Titles like ${seed.name}") { unwatched(api, listOf("Movie", "Series"), poolGenres(item), POOL) } }
+        }
+        val forYou = async { forYouCandidates(api, plan, genresOf) }
+
+        val used = HashSet(plan.watchedIds)
+        plan.favorites.forEach { used += it.id }
+        val rows = mutableListOf<Row>()
+        var complete = true
+        seeds.forEachIndexed { n, (i, seed, seedItem) ->
+            val (serverLoad, poolLoad) = seedLoads[n]
+            val serverFetch = serverLoad.await(); val poolFetch = poolLoad.await()
+            complete = complete && serverFetch.ok && poolFetch.ok
+            val server = serverFetch.items.filter { (it.isMovie || it.isSeries) && it.userData?.played != true && it.id !in used }
+            val pool = poolFetch.items.filter { it.id !in used }
             val items = withContext(Dispatchers.Default) {
                 Similarity.rank(seedItem, server + pool, server.map { it.id }.toSet(), PER_ROW)
             }
@@ -314,15 +391,52 @@ class RecommendationService(
                 Log.i("Recommend", "Because You Watched ${seed.name}: ${items.size} close match(es) in the library, row left out")
             }
         }
-        if (plan.titles.size >= 2) {
-            val taste = RecommendationEngine.taste(plan.titles, plan.details, genresOf)
+        val (picked, forYouOk) = forYou.await()
+        complete = complete && forYouOk
+        val items = picked.filter { it.id !in used }.take(PER_ROW)
+        if (items.size >= MIN_ROW) rows += Row("foryou", "Recommended For You", items)
+        else Log.i("Recommend", "Recommended For You: ${items.size} title(s) to suggest, row left out")
+        Computed(rows, complete)
+    }
+
+    /**
+     * "Recommended For You", best first, and whether every request worked.
+     * - Enough watched (more than [COLD] titles): genre match with the profile's taste (see
+     *   [RecommendationEngine.rankForTaste]).
+     * - A new profile: the same from its favourites, if it has any.
+     * - A new profile with nothing to go on, or too few matches in a small library: the library's
+     *   best-rated unwatched titles, mixed across genres and, once it has a favourite or a watched
+     *   title, of the kinds of content those are. Never more than two requests.
+     */
+    private suspend fun forYouCandidates(api: JellyfinApi, plan: Plan, genresOf: (String) -> Collection<String>): Pair<List<BaseItemDto>, Boolean> {
+        val cold = plan.titles.size <= COLD
+        val signals = if (!cold) plan.titles else plan.titles + plan.favorites.filter { f -> plan.titles.none { it.id == f.id } }
+            .map { WatchedTitle(it.id, it.name.orEmpty(), it.isSeries, 1.0) }
+        val details = plan.details + plan.favorites.associateBy { it.id }
+        val genresFor: (String) -> Collection<String> = { id -> genresOf(id).ifEmpty { plan.favorites.firstOrNull { it.id == id }?.genres.orEmpty() } }
+        val exclude = plan.watchedIds + plan.favorites.map { it.id }
+        var ok = true
+        val taste = if (signals.isEmpty()) null else RecommendationEngine.taste(signals, details, genresFor)
+        val matched = if (taste == null || taste.genres.isEmpty()) emptyList() else {
             val top = taste.genres.entries.sortedByDescending { it.value }.take(4).map { it.key } +
                 (if ((taste.kinds[ContentKind.Anime] ?: 0.0) >= 0.3) listOf("Anime", "Animation") else emptyList())
-            val candidates = unwatched(api, listOf("Movie", "Series"), top.distinct(), 80).filter { it.id !in used }
-            val items = withContext(Dispatchers.Default) { RecommendationEngine.rankForTaste(candidates, taste, PER_ROW) }
-            if (items.size >= MIN_ROW) rows += Row("foryou", "Recommended For You", items)
+            val got = fetch("Titles in this profile's genres") { unwatched(api, listOf("Movie", "Series"), top.distinct(), 80) }
+            ok = got.ok
+            withContext(Dispatchers.Default) { RecommendationEngine.rankForTaste(got.items.filter { it.id !in exclude }, taste, PER_ROW) }
         }
-        return rows
+        if (matched.size >= MIN_ROW) {
+            if (cold) Log.i("Recommend", "Recommended For You from ${plan.favorites.size} favourite(s) and ${plan.titles.size} watched title(s)")
+            return matched to ok
+        }
+        // A profile with a real history only gets what fits it (a short or missing row beats titles
+        // it has shown no interest in).
+        if (!cold) return matched to ok
+        // A new profile with too little to match on: well-rated titles from the library, across genres.
+        val got = fetch("Library highlights") { highlights(api, HIGHLIGHTS) }
+        val pool = got.items.filter { it.id !in exclude && it.id !in matched.map { m -> m.id } }
+        val fitting = withContext(Dispatchers.Default) { RecommendationEngine.highlights(pool, taste, PER_ROW) }
+        Log.i("Recommend", "Recommended For You: ${matched.size} genre match(es); ${fitting.size} well-rated title(s) from the library added")
+        return (matched + fitting) to (ok && got.ok)
     }
 
     fun forget(profileKey: String) { cache.remove(profileKey); plans.remove(profileKey); planLoads.remove(profileKey) }
@@ -334,8 +448,14 @@ class RecommendationService(
         const val POOL = 60
         const val MIN_ROW = 3
         const val DETAIL_LOOKUPS = 8
+        /** A profile that has watched this many titles or fewer gets the new-profile ("cold start") suggestions. */
+        const val COLD = 1
+        /** Library titles looked at for a new profile's suggestions. */
+        const val HIGHLIGHTS = 60
+        /** Rows worked out while a request was failing are tried again after this. */
+        const val RETRY_MS = 60_000L
         /** Bumped when the ranking changes, so saved rows are recomputed once. */
-        const val ALGORITHM = "v2"
+        const val ALGORITHM = "v3"
         /** How long a profile's history is trusted without asking the server again (when nothing was watched here). */
         const val PLAN_FRESH_MS = 30 * 60_000L
     }

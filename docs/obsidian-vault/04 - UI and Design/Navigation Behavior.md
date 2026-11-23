@@ -9,7 +9,8 @@ tags: [design]
 | First card of a row | Left | Opens the sidebar |
 | Last card of a row | Right | Stays (silent) |
 | Sidebar | Right / Back | Closes, back to the card that had focus |
-| Top row / banner | Up | Opens the profile button |
+| Home row | Up / Down | Previous / next row with cards (loading and empty rows skipped) |
+| Banner (top of Home) / top of another screen | Up | Opens the profile button |
 | Profile button | Down / Back | Back to the content |
 | Any screen | Back | Previous screen, same card focused |
 | Home (root) | Back twice | Exit (a hint shows after the first press) |

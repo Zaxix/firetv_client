@@ -17,7 +17,8 @@ Every Jellyfin route Sharkfin calls (from `jellyfin/JellyfinApi.kt`). Requires J
 | `GET /Shows/NextUp` | Next Up (account profiles) |
 | `GET /Shows/{id}/Seasons` · `/Shows/{id}/Episodes` | Episode browser, Next Up for device profiles, chapters for skip detection |
 | `GET /Shows/{id}/Episodes` (no season) | Once a minute at most for a show in another episode order: all its episodes, arranged on the device ([[Episode Orders]]) |
-| `GET /Items?userId=…&sortBy=DatePlayed&includeItemTypes=Movie,Episode&limit=300` | Each account profile on this device, at most every 30 min: its viewing history for [[Top 10 in Your Home]] |
+| `GET /Items?userId=…&sortBy=DatePlayed&includeItemTypes=Movie,Episode&filters=IsPlayed&limit=300` and `…&filters=IsResumable&limit=50` | Each account whose viewing counts, at most every 30 min (and after watching, at most once a minute): its finished and in-progress titles for [[Top 10 in Your Home]]. Before: one unfiltered request, which returned 300 unwatched titles for a profile that had watched nothing |
+| `GET /Users` | An administrator's Top 10 only: every account on the server (others are refused; then only this device's profiles count) |
 | TMDB `GET /3/tv/{id}/episode_groups`, `/3/tv/episode_group/{id}` | Outside service, from the TV, with the viewer's key: a show's alternative orders, at most weekly ([[Episode Orders]]) |
 | `GET /Items?ids=…&fields=Chapters,Path` | Once per season with possible multi-episode files: their chapters ([[Virtual Episode Splitting]]) |
 | `GET /Shows/Upcoming?parentId={series}` | Air dates of a series' upcoming episodes (details page, episode browser) |
