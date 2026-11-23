@@ -27,6 +27,7 @@ note disagree, the code wins — and the note should be fixed (see [[How to Upda
 | [[Skip Markers]] | [[Episode Browser]] | | [[App Updates]] |
 | [[Virtual Episode Splitting]] | [[Recommendations]] | | |
 | [[Episode Orders]] | [[Top 10 in Your Home]] | | |
+| [[Disc Menus]] | | | |
 
 ## Architecture #architecture
 [[System Architecture]] · [[Frontend Architecture]] · [[Backend Architecture]] · [[API Endpoints]] ·

@@ -35,6 +35,17 @@ flowchart LR
   the last row and back up; rows loading or empty skipped both ways; many placeholders in a row;
   rows finishing loading while focus is below; rows of different lengths; the focused card removed
   or its row emptied; rapid/held presses; a row that never answers ending in Try again).
+- **Disc menus** (`MenuLogicTest`, `ShippedPackTest`): the menu's state machine with a small test
+  pack (intro hand-off, transitions, skipping, page actions, chapters the server lacks, subtitles,
+  Back, mouse, shutdown, credits layout) and the real pack's data (every button reachable with the
+  arrows, no overlapping buttons, 35 chapter slots). Checks to do **on a Fire TV** (not covered by
+  CI): sparkles blend over the video, loop and music loops are gapless, three decoders at once keep
+  up, Back from the player returns to the menu, chapters start at the right place ([[Disc Menus]]).
+  Downloading (`PackDownloadTest`, `DownloadGatingTest`, the manifest check in `ShippedPackTest`):
+  manifest rules (unsafe paths, sizes, duplicates), stage order and readiness, resume and retry,
+  the intro waiting for the menu's files, actions waiting for theirs. On a device: set a source,
+  press Play, watch the intro while the percentage climbs, press a button before its stage is in,
+  turn the network off mid-download, leave the menu and check the folder is gone.
 - **Emulator e2e** (`ci/android_e2e.sh`, `ci/android_release_smoke.sh`): sign-in, D-pad navigation
   with screenshots, playback/resume timings, Home fill time and request counts, Home opened again
   from the side menu three times (`am start --activity-single-top … --es route section:…`, delivered

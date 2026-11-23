@@ -29,6 +29,8 @@ class AppContainer(val platform: Platform) {
         if (how == "from the server" && !homeFreshLogged) { homeFreshLogged = true; Log.i("Perf", "Home rows from the server in $ms ms") }
     }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    /** Disc-style film menus found on this device (none unless a pack has been copied there). */
+    val discMenus = com.auroratv.discmenu.DiscMenuRepository(platform.discMenus, platform.files)
     val http = createJellyfinHttpClient()
     val settings = SettingsRepository(platform.files)
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
@@ -79,6 +81,20 @@ class AppContainer(val platform: Platform) {
     var pendingSettingsPage: String? = null
 
     /** A change asked for at launch (e.g. `--es player mpv`), re-applied once a profile's own settings load. */
+    /**
+     * Where disc menu packs are downloaded from. An address set in Settings wins (the token for a private host lives in the vault).
+     * With none set, the Jellyfin server itself is asked, at `/web/discmenus` (a folder put into the server's web folder).
+     */
+    fun discMenuSource(): com.auroratv.discmenu.PackSource? {
+        val set = settings.current.discMenuSource.trim()
+        if (set.isNotEmpty()) return com.auroratv.discmenu.PackSource(set, platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()).takeIf { it.valid }
+        val server = sessions.activeSession?.api?.baseUrl ?: return null
+        return com.auroratv.discmenu.PackSource(server.trimEnd('/') + "/web/discmenus").takeIf { it.valid }
+    }
+
+    fun saveDiscMenuToken(token: String) { if (token.isBlank()) platform.vault.remove(DISC_MENU_TOKEN_KEY) else platform.vault.put(DISC_MENU_TOKEN_KEY, token.trim()) }
+    fun discMenuToken(): String = platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()
+
     var launchSettingsOverride: ((com.auroratv.settings.Settings) -> com.auroratv.settings.Settings)? = null
 
     init {
@@ -96,6 +112,8 @@ class AppContainer(val platform: Platform) {
             skipMarkers.switchProfile(key)
             searchHistory.switchProfile(key)
             prewarmer.invalidate()
+            // Menu packs the app downloaded last time (the app was closed or killed inside a menu) are removed unless kept.
+            if (!settings.current.discMenuKeepDownloads) runCatching { discMenus.purgeDownloads() }
             Log.i("Profiles", "Opened profile ${profile.displayName}")
         }
         sessions.onProfileRemoved = { profile ->
@@ -159,3 +177,4 @@ class AppContainer(val platform: Platform) {
 
 /** Delay before the once-per-start temporary file sweep (after Home has loaded). */
 private const val TEMP_SWEEP_DELAY_MS = 20_000L
+private const val DISC_MENU_TOKEN_KEY = "discmenu.source.token"

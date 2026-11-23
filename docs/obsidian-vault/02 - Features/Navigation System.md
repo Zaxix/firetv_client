@@ -43,5 +43,9 @@ D-pad / arrows, OK/Enter, Back/Escape; mouse hover focuses.
 ## Known limitations
 See [[Navigation Bugs]].
 
+## Disc menus
+The disc menu has its own focus model (nearest button in the pressed direction, skipping buttons the
+server can't serve); see [[Disc Menus]]. The shell treats it as a full-screen route like the player.
+
 ## Related notes
 [[Navigation Behavior]] · [[Focus Management]]

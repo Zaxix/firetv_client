@@ -1,0 +1,1875 @@
+{
+ "schema": 2,
+ "id": "hp1-uk-disc1",
+ "title": "Harry Potter and the Philosopher's Stone",
+ "edition": "UK DVD 2002 Disc 1 (as titled by the supplied walkthrough; edition not independently verified)",
+ "match": {
+  "tmdb": [
+   "671"
+  ],
+  "imdb": [
+   "tt0241527"
+  ],
+  "titleRegex": "^\\s*Harry Potter and the (Philosopher's|Sorcerer's) Stone\\b"
+ },
+ "canvas": {
+  "w": 1920,
+  "h": 1080
+ },
+ "video": {
+  "loop": {
+   "file": "video/menu_loop.mp4",
+   "durationMs": 20274,
+   "entryMs": 15794,
+   "fps": 40.8397
+  },
+  "transition": {
+   "file": "video/transition.mp4",
+   "durationMs": 7346,
+   "pageCutMs": 8692,
+   "audioDelayMs": 180
+  },
+  "intro": {
+   "file": "video/intro.mp4",
+   "durationMs": 42233,
+   "width": 640,
+   "height": 360,
+   "fps": 30,
+   "skippable": true,
+   "audioMuxed": true,
+   "handsOffTo": "main (loop entered at video.loop.entryMs, music restarted from its start)",
+   "provenance": {
+    "source": "harrypotter_disc1.mp4 (second recording supplied by the pack author; 640x360, 30 fps, 180.6 s)",
+    "measured": "recording t=0..42.233 s; hand-off time found by fitting the settled menu loop (phase 15.7935 s at t=42.23, fit error minimum over 41.9..42.5 s); music file starts at t=42.24 (audio cross-correlation).",
+    "status": "measured from a 640x360 screen recording; the clip is stream-copied, not re-encoded, and is soft when scaled to 1920x1080"
+   },
+   "clipDurationMs": 42500,
+   "crossfadeMs": 400,
+   "crossfadeNote": "The intro recording is the US 'Sorcerer's Stone' edition (its title line and the Languages page differ from the UK 'Philosopher's Stone' loop), so the engine crossfades from the intro into the loop over crossfadeMs centred on durationMs. The crossfade is an engine addition, not an observed behaviour; the reveal of the menu text, bat and title during the last seconds of the intro is the recording's own.",
+   "audioEndsMs": 42233
+  },
+  "letter": {
+   "file": "video/letter.mp4",
+   "durationMs": 2700,
+   "width": 640,
+   "height": 360,
+   "fps": 30,
+   "holdLastFrame": true,
+   "staticPlate": "pages/letter_final.webp",
+   "provenance": {
+    "source": "harrypotter_disc1.mp4 (second recording supplied by the pack author; 640x360, 30 fps, 180.6 s)",
+    "measured": "dissolve starts at recording t=158.30 s (first change in the Play Movie button region), reaches the static letter by t~160.5 s",
+    "status": "measured"
+   }
+  }
+ },
+ "music": {
+  "file": "audio/music.opus",
+  "restartOnMainEntry": true,
+  "startLagAfterVideoEntryMs": 0,
+  "startLagNote": "first recording measured +190 ms, second recording measured -20..-150 ms (median about -100 ms) at four page-to-main cuts and the intro hand-off; both are capture artefacts, so music and video entry are treated as simultaneous",
+  "fadeOutOnPlayMovie": {
+   "startAfterDissolveMs": 1000,
+   "durationMs": 2200,
+   "status": "measured coarsely from the audio envelope (about 159.3 s to 161.5 s in the second recording)"
+  },
+  "formatNote": "Opus 160 kbps VBR re-encoded from the pack author's lossless copy of the supplied MP3 (the source was already lossy); Opus decodes on every Android version the app supports and loops gaplessly via its pre-skip header (gapless looping not yet verified on a device)"
+ },
+ "sparkles": {
+  "index": "sprites.json",
+  "data": "sprites.bin"
+ },
+ "timing": {
+  "activationToTransitionMs": {
+   "special_features": 514,
+   "scene_selections": 686,
+   "languages": 660,
+   "play_movie": null
+  },
+  "subActivationToCutMs": 245,
+  "playMovie": {
+   "activationToDissolveMs": 0,
+   "status": "INFERRED: the dissolve start is the first visible change; the recording shows no separate key-press cue for Play Movie",
+   "letterHoldBeforePlaybackMs": null,
+   "letterHoldStatus": "UNKNOWN: the recording holds the letter at least 17.7 s with the film audio running and shows nothing that starts playback; the engine starts playback when the dissolve ends"
+  },
+  "returnToMain": {
+   "entryPhaseMsObserved": [
+    15768,
+    15768,
+    15768,
+    15572
+   ],
+   "note": "page 'main menu' returns land on the loop at the same entry phase as before (15.77 s), four cuts at 106.7, 136.9, 152.567, 178.833 s of the second recording",
+   "status": "measured"
+  }
+ },
+ "activatedOutline": {
+  "color": "#5E5A42",
+  "thicknessPx": 6,
+  "status": "measured at ref t=53.91 (cast2 continue); used only where no observed activated sprite exists"
+ },
+ "selectedOutline": {
+  "color": "#A55A3E",
+  "thicknessPx": 6,
+  "status": "approximate (hl.py OUT=[165,90,62]); used only where no observed selected sprite exists"
+ },
+ "main": {
+  "buttons": [
+   {
+    "id": "play_movie",
+    "label": "PLAY MOVIE",
+    "rect": [
+     418,
+     176,
+     684,
+     246
+    ],
+    "selected": "PM_selected",
+    "activated": null,
+    "action": "play_movie",
+    "default": true
+   },
+   {
+    "id": "special_features",
+    "label": "SPECIAL FEATURES",
+    "rect": [
+     417,
+     248,
+     708,
+     342
+    ],
+    "selected": "SF_selected",
+    "activated": "SF_activated",
+    "action": "goto:sf",
+    "default": false
+   },
+   {
+    "id": "scene_selections",
+    "label": "SCENE SELECTIONS",
+    "rect": [
+     420,
+     360,
+     682,
+     446
+    ],
+    "selected": "SS_selected",
+    "activated": "SS_activated",
+    "action": "goto:ss1",
+    "default": false
+   },
+   {
+    "id": "languages",
+    "label": "LANGUAGES",
+    "rect": [
+     424,
+     468,
+     678,
+     522
+    ],
+    "selected": "LA_selected",
+    "activated": "LA_activated",
+    "action": "goto:lang",
+    "default": false
+   }
+  ],
+  "hotspotPadPx": 14,
+  "hotspotPadStatus": "ASSUMED"
+ },
+ "pages": {
+  "sf": {
+   "title": "Special Features",
+   "plate": "pages/sf.webp",
+   "default": "cast_crew",
+   "entryDefaultFrom": {
+    "crew": "theatrical",
+    "cast1": "theatrical",
+    "cast2": "theatrical"
+   },
+   "hotspots": [
+    {
+     "id": "cast_crew",
+     "rect": [
+      522,
+      371,
+      773,
+      422
+     ],
+     "spriteRect": [
+      508,
+      357,
+      787,
+      436
+     ],
+     "selected": "page_sprites/sf/cast_crew_sel.webp",
+     "activated": "page_sprites/sf/cast_crew_act.webp",
+     "action": "goto:cast1"
+    },
+    {
+     "id": "theatrical",
+     "rect": [
+      522,
+      431,
+      869,
+      482
+     ],
+     "spriteRect": [
+      508,
+      417,
+      883,
+      496
+     ],
+     "selected": "page_sprites/sf/theatrical_sel.webp",
+     "activated": null,
+     "action": "gate:Theatrical Trailer action not observed in reference"
+    },
+    {
+     "id": "teaser",
+     "rect": [
+      523,
+      491,
+      800,
+      542
+     ],
+     "spriteRect": [
+      509,
+      477,
+      814,
+      556
+     ],
+     "selected": "page_sprites/sf/teaser_sel.webp",
+     "activated": null,
+     "action": "gate:Teaser Trailer action not observed in reference"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      522,
+      808,
+      736,
+      858
+     ],
+     "spriteRect": [
+      508,
+      794,
+      750,
+      872
+     ],
+     "selected": "page_sprites/sf/main_menu_sel.webp",
+     "activated": "page_sprites/sf/main_menu_act.webp",
+     "action": "goto:main"
+    }
+   ]
+  },
+  "cast1": {
+   "title": "Cast (1)",
+   "plate": "pages/cast1.webp",
+   "default": "special_features",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "special_features",
+     "rect": [
+      523,
+      808,
+      806,
+      853
+     ],
+     "spriteRect": [
+      509,
+      794,
+      820,
+      867
+     ],
+     "selected": "page_sprites/cast1/special_features_sel.webp",
+     "activated": null,
+     "action": "goto:sf"
+    },
+    {
+     "id": "continue",
+     "rect": [
+      523,
+      864,
+      685,
+      914
+     ],
+     "spriteRect": [
+      509,
+      850,
+      699,
+      928
+     ],
+     "selected": "page_sprites/cast1/continue_sel.webp",
+     "activated": "page_sprites/cast1/continue_act.webp",
+     "action": "goto:cast2"
+    }
+   ],
+   "backTo": "sf"
+  },
+  "cast2": {
+   "title": "Cast (2)",
+   "plate": "pages/cast2.webp",
+   "default": "continue",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "continue",
+     "rect": [
+      523,
+      864,
+      685,
+      914
+     ],
+     "spriteRect": [
+      509,
+      850,
+      699,
+      928
+     ],
+     "selected": "page_sprites/cast2/continue_sel.webp",
+     "activated": "page_sprites/cast2/continue_act.webp",
+     "action": "goto:crew"
+    },
+    {
+     "id": "back",
+     "rect": [
+      523,
+      752,
+      605,
+      797
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:cast1"
+    },
+    {
+     "id": "special_features",
+     "rect": [
+      523,
+      808,
+      806,
+      853
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:sf"
+    }
+   ],
+   "backTo": "sf"
+  },
+  "crew": {
+   "title": "Crew",
+   "plate": "pages/crew.webp",
+   "default": "special_features",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "special_features",
+     "rect": [
+      523,
+      808,
+      806,
+      853
+     ],
+     "spriteRect": [
+      509,
+      794,
+      820,
+      867
+     ],
+     "selected": "page_sprites/crew/special_features_sel.webp",
+     "activated": "page_sprites/crew/special_features_act.webp",
+     "action": "goto:sf"
+    },
+    {
+     "id": "back",
+     "rect": [
+      523,
+      752,
+      605,
+      797
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:cast2"
+    }
+   ],
+   "backTo": "sf"
+  },
+  "ss1": {
+   "title": "Scene Selections 1-6",
+   "plate": "pages/ss1.webp",
+   "default": "start_movie",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": [
+      450,
+      651,
+      697,
+      729
+     ],
+     "selected": "page_sprites/ss1/start_movie_sel.webp",
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": [
+      452,
+      323,
+      577,
+      401
+     ],
+     "selected": "page_sprites/ss1/link_7_12_sel.webp",
+     "activated": "page_sprites/ss1/link_7_12_act.webp",
+     "action": "goto:ss2"
+    },
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": [
+      490,
+      383,
+      633,
+      461
+     ],
+     "selected": "page_sprites/ss1/link_19_24_sel.webp",
+     "activated": null,
+     "action": "goto:ss4"
+    },
+    {
+     "id": "tag_3",
+     "rect": [
+      560,
+      545,
+      646,
+      603
+     ],
+     "spriteRect": [
+      546,
+      531,
+      660,
+      617
+     ],
+     "selected": "page_sprites/ss1/tag_3_sel.webp",
+     "activated": null,
+     "action": "chapter:3"
+    },
+    {
+     "id": "tag_1",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": [
+      578,
+      92,
+      695,
+      178
+     ],
+     "selected": "page_sprites/ss1/tag_1_sel.webp",
+     "activated": null,
+     "action": "chapter:1"
+    },
+    {
+     "id": "tag_2",
+     "rect": [
+      1088,
+      117,
+      1177,
+      175
+     ],
+     "spriteRect": [
+      1074,
+      103,
+      1191,
+      189
+     ],
+     "selected": "page_sprites/ss1/tag_2_sel.webp",
+     "activated": null,
+     "action": "chapter:2"
+    },
+    {
+     "id": "tag_4",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": [
+      1062,
+      437,
+      1180,
+      523
+     ],
+     "selected": "page_sprites/ss1/tag_4_sel.webp",
+     "activated": null,
+     "action": "chapter:4"
+    },
+    {
+     "id": "tag_6",
+     "rect": [
+      1066,
+      751,
+      1152,
+      809
+     ],
+     "spriteRect": [
+      1052,
+      737,
+      1166,
+      823
+     ],
+     "selected": "page_sprites/ss1/tag_6_sel.webp",
+     "activated": null,
+     "action": "chapter:6"
+    },
+    {
+     "id": "tag_5",
+     "rect": [
+      603,
+      856,
+      688,
+      917
+     ],
+     "spriteRect": [
+      589,
+      842,
+      702,
+      931
+     ],
+     "selected": "page_sprites/ss1/tag_5_sel.webp",
+     "activated": null,
+     "action": "chapter:5"
+    },
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss3"
+    },
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss5"
+    },
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss6"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:main"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "ss2": {
+   "title": "Scene Selections 7-12",
+   "plate": "pages/ss2.webp",
+   "default": "link_7_12",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": [
+      452,
+      323,
+      577,
+      401
+     ],
+     "selected": "page_sprites/ss2/link_7_12_sel.webp",
+     "activated": null,
+     "action": "stay"
+    },
+    {
+     "id": "tag_7",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": [
+      578,
+      92,
+      695,
+      178
+     ],
+     "selected": "page_sprites/ss2/tag_1_sel.webp",
+     "activated": null,
+     "action": "chapter:7"
+    },
+    {
+     "id": "tag_9",
+     "rect": [
+      560,
+      545,
+      646,
+      603
+     ],
+     "spriteRect": [
+      546,
+      531,
+      660,
+      617
+     ],
+     "selected": "page_sprites/ss2/tag_3_sel.webp",
+     "activated": null,
+     "action": "chapter:9"
+    },
+    {
+     "id": "tag_8",
+     "rect": [
+      1088,
+      117,
+      1177,
+      175
+     ],
+     "spriteRect": [
+      1074,
+      103,
+      1191,
+      189
+     ],
+     "selected": "page_sprites/ss2/tag_2_sel.webp",
+     "activated": null,
+     "action": "chapter:8"
+    },
+    {
+     "id": "tag_12",
+     "rect": [
+      1066,
+      751,
+      1152,
+      809
+     ],
+     "spriteRect": [
+      1052,
+      737,
+      1166,
+      823
+     ],
+     "selected": "page_sprites/ss2/tag_6_sel.webp",
+     "activated": null,
+     "action": "chapter:12"
+    },
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": [
+      373,
+      383,
+      513,
+      461
+     ],
+     "selected": "page_sprites/ss2/link_13_18_sel.webp",
+     "activated": "page_sprites/ss2/link_13_18_act.webp",
+     "action": "goto:ss3"
+    },
+    {
+     "id": "tag_10",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:10"
+    },
+    {
+     "id": "tag_11",
+     "rect": [
+      603,
+      856,
+      688,
+      917
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:11"
+    },
+    {
+     "id": "link_1_6",
+     "rect": [
+      387,
+      337,
+      447,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss1"
+    },
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss4"
+    },
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss5"
+    },
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss6"
+    },
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:main"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "ss3": {
+   "title": "Scene Selections 13-18",
+   "plate": "pages/ss3.webp",
+   "default": "link_13_18",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": [
+      373,
+      383,
+      513,
+      461
+     ],
+     "selected": "page_sprites/ss3/link_13_18_sel.webp",
+     "activated": null,
+     "action": "stay"
+    },
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": [
+      490,
+      383,
+      633,
+      461
+     ],
+     "selected": "page_sprites/ss3/link_19_24_sel.webp",
+     "activated": "page_sprites/ss3/link_19_24_act.webp",
+     "action": "goto:ss4"
+    },
+    {
+     "id": "tag_13",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:13"
+    },
+    {
+     "id": "tag_14",
+     "rect": [
+      1088,
+      117,
+      1177,
+      175
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:14"
+    },
+    {
+     "id": "tag_15",
+     "rect": [
+      560,
+      545,
+      646,
+      603
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:15"
+    },
+    {
+     "id": "tag_16",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:16"
+    },
+    {
+     "id": "tag_17",
+     "rect": [
+      603,
+      856,
+      688,
+      917
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:17"
+    },
+    {
+     "id": "tag_18",
+     "rect": [
+      1066,
+      751,
+      1152,
+      809
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:18"
+    },
+    {
+     "id": "link_1_6",
+     "rect": [
+      387,
+      337,
+      447,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss1"
+    },
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss2"
+    },
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss5"
+    },
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss6"
+    },
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:main"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "ss4": {
+   "title": "Scene Selections 19-24",
+   "plate": "pages/ss4.webp",
+   "default": "link_19_24",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": [
+      490,
+      383,
+      633,
+      461
+     ],
+     "selected": "page_sprites/ss4/link_19_24_sel.webp",
+     "activated": null,
+     "action": "stay"
+    },
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": [
+      368,
+      441,
+      521,
+      521
+     ],
+     "selected": "page_sprites/ss4/link_25_30_sel.webp",
+     "activated": "page_sprites/ss4/link_25_30_act.webp",
+     "action": "goto:ss5"
+    },
+    {
+     "id": "tag_19",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:19"
+    },
+    {
+     "id": "tag_20",
+     "rect": [
+      1088,
+      117,
+      1177,
+      175
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:20"
+    },
+    {
+     "id": "tag_21",
+     "rect": [
+      560,
+      545,
+      646,
+      603
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:21"
+    },
+    {
+     "id": "tag_22",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:22"
+    },
+    {
+     "id": "tag_23",
+     "rect": [
+      603,
+      856,
+      688,
+      917
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:23"
+    },
+    {
+     "id": "tag_24",
+     "rect": [
+      1066,
+      751,
+      1152,
+      809
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:24"
+    },
+    {
+     "id": "link_1_6",
+     "rect": [
+      387,
+      337,
+      447,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss1"
+    },
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss2"
+    },
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss3"
+    },
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss6"
+    },
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:main"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "ss5": {
+   "title": "Scene Selections 25-30",
+   "plate": "pages/ss5.webp",
+   "default": "link_25_30",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": [
+      368,
+      441,
+      521,
+      521
+     ],
+     "selected": "page_sprites/ss5/link_25_30_sel.webp",
+     "activated": null,
+     "action": "stay"
+    },
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": [
+      501,
+      441,
+      641,
+      521
+     ],
+     "selected": "page_sprites/ss5/link_31_35_sel.webp",
+     "activated": "page_sprites/ss5/link_31_35_act.webp",
+     "action": "goto:ss6"
+    },
+    {
+     "id": "tag_25",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:25"
+    },
+    {
+     "id": "tag_26",
+     "rect": [
+      1088,
+      117,
+      1177,
+      175
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:26"
+    },
+    {
+     "id": "tag_27",
+     "rect": [
+      560,
+      545,
+      646,
+      603
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:27"
+    },
+    {
+     "id": "tag_28",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:28"
+    },
+    {
+     "id": "tag_29",
+     "rect": [
+      603,
+      856,
+      688,
+      917
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:29"
+    },
+    {
+     "id": "tag_30",
+     "rect": [
+      1066,
+      751,
+      1152,
+      809
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:30"
+    },
+    {
+     "id": "link_1_6",
+     "rect": [
+      387,
+      337,
+      447,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss1"
+    },
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss2"
+    },
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss3"
+    },
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss4"
+    },
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:main"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "ss6": {
+   "title": "Scene Selections 31-35",
+   "plate": "pages/ss6.webp",
+   "default": "link_31_35",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "link_31_35",
+     "rect": [
+      515,
+      455,
+      627,
+      507
+     ],
+     "spriteRect": [
+      501,
+      441,
+      641,
+      521
+     ],
+     "selected": "page_sprites/ss6/link_31_35_sel.webp",
+     "activated": null,
+     "action": "stay"
+    },
+    {
+     "id": "tag_32",
+     "rect": [
+      1087,
+      117,
+      1178,
+      175
+     ],
+     "spriteRect": [
+      1073,
+      103,
+      1192,
+      189
+     ],
+     "selected": "page_sprites/ss6/tag_32_sel.webp",
+     "activated": null,
+     "action": "chapter:32"
+    },
+    {
+     "id": "tag_34",
+     "rect": [
+      1076,
+      451,
+      1166,
+      509
+     ],
+     "spriteRect": [
+      1062,
+      437,
+      1180,
+      523
+     ],
+     "selected": "page_sprites/ss6/tag_34_sel.webp",
+     "activated": null,
+     "action": "chapter:34"
+    },
+    {
+     "id": "tag_35",
+     "rect": [
+      851,
+      845,
+      936,
+      903
+     ],
+     "spriteRect": [
+      837,
+      831,
+      950,
+      917
+     ],
+     "selected": "page_sprites/ss6/tag_35_sel.webp",
+     "activated": null,
+     "action": "chapter:35"
+    },
+    {
+     "id": "tag_33",
+     "rect": [
+      560,
+      545,
+      648,
+      603
+     ],
+     "spriteRect": [
+      546,
+      531,
+      662,
+      617
+     ],
+     "selected": "page_sprites/ss6/tag_33_sel.webp",
+     "activated": null,
+     "action": "chapter:33"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      455,
+      721,
+      677,
+      771
+     ],
+     "spriteRect": [
+      441,
+      707,
+      691,
+      785
+     ],
+     "selected": "page_sprites/ss6/main_menu_sel.webp",
+     "activated": "page_sprites/ss6/main_menu_act.webp",
+     "action": "goto:main"
+    },
+    {
+     "id": "tag_31",
+     "rect": [
+      592,
+      106,
+      681,
+      164
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:31"
+    },
+    {
+     "id": "link_1_6",
+     "rect": [
+      387,
+      337,
+      447,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss1"
+    },
+    {
+     "id": "link_7_12",
+     "rect": [
+      466,
+      337,
+      563,
+      387
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss2"
+    },
+    {
+     "id": "link_13_18",
+     "rect": [
+      387,
+      397,
+      499,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss3"
+    },
+    {
+     "id": "link_19_24",
+     "rect": [
+      504,
+      397,
+      619,
+      447
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss4"
+    },
+    {
+     "id": "link_25_30",
+     "rect": [
+      382,
+      455,
+      507,
+      507
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "goto:ss5"
+    },
+    {
+     "id": "start_movie",
+     "rect": [
+      464,
+      665,
+      683,
+      715
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "play"
+    },
+    {
+     "id": "end_credits",
+     "rect": [
+      458,
+      777,
+      660,
+      827
+     ],
+     "spriteRect": null,
+     "selected": null,
+     "activated": null,
+     "action": "chapter:last"
+    }
+   ]
+  },
+  "lang": {
+   "title": "Languages",
+   "plate": "pages/lang.webp",
+   "default": "main_menu",
+   "entryDefaultFrom": {},
+   "hotspots": [
+    {
+     "id": "main_menu",
+     "rect": [
+      557,
+      892,
+      771,
+      947
+     ],
+     "spriteRect": [
+      543,
+      878,
+      785,
+      961
+     ],
+     "selected": "page_sprites/lang/main_menu_sel.webp",
+     "activated": "page_sprites/lang/main_menu_act.webp",
+     "action": "goto:main"
+    },
+    {
+     "id": "sub_hearing_impaired",
+     "rect": [
+      635,
+      482,
+      984,
+      580
+     ],
+     "spriteRect": [
+      621,
+      468,
+      998,
+      594
+     ],
+     "selected": "page_sprites/lang/sub_hearing_impaired_sel.webp",
+     "activated": null,
+     "action": "subtitle:en_hi"
+    },
+    {
+     "id": "sub_english",
+     "rect": [
+      829,
+      418,
+      984,
+      469
+     ],
+     "spriteRect": [
+      815,
+      404,
+      998,
+      483
+     ],
+     "selected": "page_sprites/lang/sub_english_sel.webp",
+     "activated": null,
+     "action": "subtitle:en"
+    },
+    {
+     "id": "sub_arabic",
+     "rect": [
+      632,
+      587,
+      819,
+      645
+     ],
+     "spriteRect": [
+      618,
+      573,
+      833,
+      659
+     ],
+     "selected": "page_sprites/lang/sub_arabic_sel.webp",
+     "activated": null,
+     "action": "subtitle:ar"
+    },
+    {
+     "id": "sub_off",
+     "rect": [
+      906,
+      592,
+      984,
+      643
+     ],
+     "spriteRect": [
+      892,
+      578,
+      998,
+      657
+     ],
+     "selected": "page_sprites/lang/sub_off_sel.webp",
+     "activated": null,
+     "action": "subtitle:off"
+    }
+   ]
+  }
+ },
+ "provenanceNotes": {
+  "secondRecordingEdition": "harrypotter_disc1.mp4 shows the title 'Sorcerer's Stone' and a Spanish/English Languages page, i.e. a different regional edition from the first walkthrough; background loop, page layouts and timings otherwise matched (loop phase fit error 2.5/255 mean on 160x90 grey frames)."
+ },
+ "sequences": {
+  "scenes": [
+   "ss1",
+   "ss2",
+   "ss3",
+   "ss4",
+   "ss5",
+   "ss6"
+  ],
+  "credits": [
+   "cast1",
+   "cast2",
+   "crew"
+  ]
+ },
+ "sequencesNote": "ASSUMED grouping from the observed link structure; the order of the scene pages and of cast/crew is observed, the Next/Previous page keys are an addition",
+ "backNote": "ASSUMED: Back from cast/crew goes to Special Features; from every other page to the main menu (never observed)",
+ "credits": {
+  "textLeftPx": 530,
+  "firstLineCenterYPx": 402,
+  "lineHeightPx": 50,
+  "fontSizePx": 38,
+  "textScaleX": 0.78,
+  "maxWidthPx": 590,
+  "color": "#74594A",
+  "status": "APPROXIMATE: colour is the median of the baked text pixels (114,89,74 / 115,90,73 / 116,90,72); line pitch 50 px and left edge measured from the plates; the condensed face is not identified, so size and horizontal squeeze are fitted by eye to the baked text's extent. Capacity of cast2 and crew is what fits above their 'back' link, not an observed count (baked: cast1 8 lines, cast2 6, crew 4).",
+  "pages": {
+   "cast1": {
+    "kind": "cast",
+    "capacity": 8,
+    "cleanPlate": "pages/cast1_clean.webp"
+   },
+   "cast2": {
+    "kind": "cast",
+    "capacity": 7,
+    "cleanPlate": "pages/cast2_clean.webp"
+   },
+   "crew": {
+    "kind": "crew",
+    "capacity": 7,
+    "cleanPlate": "pages/crew_clean.webp"
+   }
+  }
+ }
+}

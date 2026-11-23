@@ -24,7 +24,18 @@ sealed interface Route {
     data class Brand(val brandId: String, val name: String) : Route
     data class Detail(val itemId: String, val preview: BaseItemDto? = null) : Route
     /** [previewAtMs]: play the whole file from that point without recording anything (checking a split). */
-    data class Player(val itemId: String, val startFromBeginning: Boolean = false, val preview: BaseItemDto? = null, val previewAtMs: Long? = null) : Route
+    data class Player(
+        val itemId: String,
+        val startFromBeginning: Boolean = false,
+        val preview: BaseItemDto? = null,
+        val previewAtMs: Long? = null,
+        /** Start here (a disc menu's chapter) instead of the resume point; recorded like any playback. */
+        val startAtMs: Long? = null,
+        /** A subtitle choice from the disc menu's Languages page (see DiscSubtitles). */
+        val subtitleCode: String? = null,
+    ) : Route
+    /** A film's disc-style menu (see com.auroratv.discmenu). Play and chapter choices push [Player] on top of it. */
+    data class DiscMenu(val itemId: String, val preview: BaseItemDto? = null) : Route
     /** Where the episodes in one file start and end (Virtual Episode Splitting). */
     data class SplitEditor(val itemId: String) : Route
     /** A show's episode order: automatic, from TMDB, or arranged by hand. */

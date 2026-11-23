@@ -6,6 +6,32 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Disc menus (first version)
+**Play on a film can now open a DVD-style menu** instead of starting the video: main menu with
+sparkles and music, scene selection with the film's chapters, cast and crew from the server,
+languages / subtitles, the cloud intro and the Play Movie letter. First pack: Harry Potter and the
+Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
+
+**Changes:**
+- **New:** `discmenu` package (state machine, screen, media layer, pack loader), a "Disc menus"
+  switch in Settings (shown only when a pack is installed), `Route.DiscMenu`, and a start position
+  and subtitle override on `Route.Player`. Films without a pack are unaffected.
+- **Size:** the pack is about 20 MB (the first Electron recreation was 171 MB zipped, about 58 MB of
+  assets). Video stays H.264 for hardware decoding; music is Opus.
+- **Tests:** 234 unit tests pass on CI (`:shared:testDebugUnitTest`), including the menu's state
+  machine and the real pack's data. They found two real mistakes: scene buttons on page 2 were
+  labelled with page-1 chapter numbers, and a bad "entry default" in a pack would have thrown
+  instead of falling back. Both fixed.
+- **Download as it plays:** the pack can be fetched from a source address (Settings → Disc menus)
+  while the intro plays, and is deleted from the device when the menu is left (unless kept). New:
+  `PackManifest` / `PackCatalog` (file list with size, SHA-256 and stage), `PackInstall`
+  (resumable, retried, in stage order), `AndroidPackStore`, a catalog cache refreshed in the
+  background from the film page, a Disc menus settings page, and `tools/disc-menu/make_manifest.py`.
+  The menu's loop and music players are now created only once their files exist.
+- **Not done / not verified:** nothing here has run on a Fire TV, and downloading has not been
+  tried against a real host. See "Known limitations" in
+  [[Disc Menus]] (sparkle blending over video, looping, three decoders, assumed actions).
+
 ## Home navigation, Top 10 and Recommended
 **Up from the lower rows of Home went to the profile button.** Cause: rows still loading and rows
 that had loaded empty stayed in Home's list. When enough of them sat between two real rows,

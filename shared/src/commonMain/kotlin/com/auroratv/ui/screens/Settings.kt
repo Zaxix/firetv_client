@@ -67,7 +67,7 @@ import com.auroratv.ui.theme.AuroraType
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 
-private enum class SettingsPage(val label: String) { Appearance("Appearance"), Playback("Playback"), Subtitles("Subtitles"), Server("Server"), Ratings("Ratings"), About("About") }
+private enum class SettingsPage(val label: String) { Appearance("Appearance"), Playback("Playback"), Subtitles("Subtitles"), Server("Server"), Ratings("Ratings"), DiscMenus("Disc menus"), About("About") }
 
 private val LANGUAGES = listOf("" to "Default", "eng" to "English", "spa" to "Spanish", "fra" to "French", "deu" to "German", "ita" to "Italian",
     "por" to "Portuguese", "jpn" to "Japanese", "kor" to "Korean", "zho" to "Chinese", "rus" to "Russian", "nld" to "Dutch", "swe" to "Swedish",
@@ -120,6 +120,7 @@ fun SettingsScreen(container: AppContainer) {
                 SettingsPage.Subtitles -> SubtitlePage(container)
                 SettingsPage.Server -> ServerPage(container)
                 SettingsPage.Ratings -> RatingsPage(container)
+                SettingsPage.DiscMenus -> DiscMenusPage(container)
                 SettingsPage.About -> AboutPage(container)
             }
         }
@@ -327,6 +328,53 @@ private fun ServerPage(container: AppContainer) {
         items(servers.filter { it.id != session.server.id }, key = { "remove-" + it.id }) { server ->
             SettingRow("Remove ${server.name}", if (confirmRemove == server.id) "Press again to confirm" else null, "Forgets the server and its saved sign-ins") {
                 if (confirmRemove == server.id) { container.sessions.removeServer(server); confirmRemove = null } else confirmRemove = server.id
+            }
+        }
+    }
+}
+
+/** Disc menus: on or off, where packs are downloaded from, and whether a downloaded pack stays on the device. */
+@Composable
+private fun DiscMenusPage(container: AppContainer) {
+    val s by container.settings.settings.collectAsState()
+    fun set(t: (Settings) -> Settings) = container.settings.update(t)
+    var source by remember { mutableStateOf(s.discMenuSource) }
+    var token by remember { mutableStateOf(container.discMenuToken()) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val colors = Aurora.colors
+    SettingsList {
+        item { Header("Disc menus") }
+        item { SettingRow("Disc menus", onOff(s.discMenus), "Films with a disc menu open it when you press Play (Back leaves it; OK skips the intro). Resuming or From Beginning goes straight to the film.") { set { it.copy(discMenus = !it.discMenus) } } }
+        item {
+            SettingRow("Keep downloaded menus", onOff(s.discMenuKeepDownloads), "Off: a downloaded menu is deleted from this device when you leave it, and downloaded again the next time you press Play. Menus you copied onto the device yourself are never deleted.") {
+                set { it.copy(discMenuKeepDownloads = !it.discMenuKeepDownloads) }
+            }
+        }
+        item {
+            Text(
+                "Leave the address empty to use your Jellyfin server: put the menu folders and catalog.json in a folder named discmenus inside the server's web folder " +
+                    "(they are then served at <your server>/web/discmenus). Or enter a web address you control whose folder holds catalog.json and one folder per menu " +
+                    "(for example the raw files of a private GitHub repository: https://raw.githubusercontent.com/<you>/<repo>/<branch>). " +
+                    "The intro plays while the rest downloads. For a private repository, add a read-only access token; it is kept encrypted on this device and sent only to that address.",
+                style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            )
+        }
+        item { AuroraTextField(source, { source = it }, "Menu source address", Modifier.fillMaxWidth()) }
+        item { AuroraTextField(token, { token = it }, "Access token (private sources only)", Modifier.fillMaxWidth(), password = true) }
+        item {
+            SettingRow("Save and check", status, "Saves the address and token, then looks for the catalog") {
+                val address = source.trim()
+                set { it.copy(discMenuSource = address) }
+                container.saveDiscMenuToken(token)
+                val src = container.discMenuSource()
+                if (src == null) { status = if (address.isEmpty()) "No server is signed in" else "That isn't a web address (it must start with https:// or http://)"; return@SettingRow }
+                status = "Checking…"
+                scope.launch {
+                    val problem = container.discMenus.refreshCatalog(container.http, src, com.auroratv.playback.wallClockMs(), force = true)
+                    val n = container.discMenus.catalogSize()
+                    status = if (problem == null) "Saved · $n menu${if (n == 1) "" else "s"} listed" else "Saved, but the catalog couldn't be read: $problem"
+                }
             }
         }
     }

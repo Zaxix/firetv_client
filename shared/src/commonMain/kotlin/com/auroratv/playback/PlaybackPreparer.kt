@@ -3,6 +3,7 @@ package com.auroratv.playback
 import com.auroratv.core.Log
 import com.auroratv.jellyfin.JellyfinApi
 import com.auroratv.jellyfin.model.BaseItemDto
+import com.auroratv.jellyfin.model.MediaStream
 import com.auroratv.jellyfin.model.MediaSourceInfo
 import com.auroratv.settings.ResumeBehavior
 import com.auroratv.settings.Settings
@@ -49,6 +50,10 @@ object PlaybackPreparer {
         trackMemory: TrackMemory? = null,
         /** Play the whole file from this file position, ignoring any virtual-episode window (a split check). */
         wholeFileFromMs: Long? = null,
+        /** Start here instead of the saved resume point (a chosen chapter); unlike [wholeFileFromMs] this is a normal, recorded playback. */
+        startAtMs: Long? = null,
+        /** A subtitle choice made outside the player (the disc menu's Languages page); null from it = no opinion, the usual picking applies. */
+        subtitleOverride: ((List<MediaStream>) -> SubtitleOverride?)? = null,
     ): PreparedPlayback = coroutineScope {
         val t0 = TimeSource.Monotonic.markNow()
         // Ask how to play the file while the item details are still on their way (one round trip
@@ -73,12 +78,13 @@ object PlaybackPreparer {
             source?.defaultAudioStreamIndex,
         )
         val audioLang = streams.firstOrNull { it.index == audio }?.language
-        val subtitle = when (val pick = remembered.subtitle) {
+        val override = subtitleOverride?.invoke(streams)
+        val subtitle = if (override != null) (override as? SubtitleOverride.Track)?.index else when (val pick = remembered.subtitle) {
             RememberedTracks.Off -> null
             is RememberedTracks.Track -> pick.index
             null -> TrackSelector.pickSubtitle(streams, settings.subtitleMode, settings.preferredSubtitleLanguage, audioLang, source?.defaultSubtitleStreamIndex)
         }
-        val startMs = wholeFileFromMs ?: if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
+        val startMs = wholeFileFromMs ?: startAtMs ?: if (startFromBeginning || settings.resumeBehavior == ResumeBehavior.StartOver) 0L else item.resumePositionMs
         val fonts = source?.takeIf { needsFonts(it) }?.let { s -> async { downloadFonts(api, itemId, s) } }
         val earlyPlan = early?.await()?.takeIf { p ->
             (source == null || p.mediaSource.id == source.id) && negotiator.directPlayFits(p, audio, subtitle)

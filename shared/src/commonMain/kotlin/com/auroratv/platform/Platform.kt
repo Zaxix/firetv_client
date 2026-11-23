@@ -87,6 +87,9 @@ interface Platform {
     @Composable
     fun PlayerHost(engine: PlaybackEngine, onClose: () -> Unit, controls: @Composable () -> Unit)
 
+    /** Disc-style film menus read from packs on the device, or null where there are none (see com.auroratv.discmenu). */
+    val discMenus: com.auroratv.discmenu.DiscMenuPlatform? get() = null
+
     /** Dismisses any on-screen keyboard (Android TV's keyboard otherwise keeps capturing the D-pad). */
     fun hideKeyboard() {}
 
