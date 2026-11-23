@@ -28,7 +28,9 @@ back into the player.
   device in one of two ways: copied there by hand (`adb push`; debug builds use the `.debug`
   application id), or downloaded by the app as described next.
 - **Downloading** (Settings → Disc menus → source address, plus an optional read-only token for a
-  private host). The source is a folder of static files: `catalog.json` (which films have a pack,
+  private host). With no address set, the Jellyfin server itself is the source, at
+  `<server>/web/discmenus`: put `catalog.json` and the pack folders in a `discmenus` folder inside
+  the server's web folder (untested: whether the server serves every file type from there). The source is a folder of static files: `catalog.json` (which films have a pack,
   matched by TMDB / IMDb id), then `<id>/manifest.json` and the pack's files. Pressing Play on a
   matching film opens the menu at once. The app fetches `pack.json` and the intro first (about
   2 MB for the first pack), and the intro plays while the rest arrives, file by file, each one

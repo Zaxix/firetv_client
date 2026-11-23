@@ -81,11 +81,16 @@ class AppContainer(val platform: Platform) {
     var pendingSettingsPage: String? = null
 
     /** A change asked for at launch (e.g. `--es player mpv`), re-applied once a profile's own settings load. */
-    /** Where disc menu packs are downloaded from, or null when no source is set. The token (for a private host) lives in the vault. */
-    fun discMenuSource(): com.auroratv.discmenu.PackSource? =
-        settings.current.discMenuSource.takeIf { it.isNotBlank() }
-            ?.let { com.auroratv.discmenu.PackSource(it, platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()) }
-            ?.takeIf { it.valid }
+    /**
+     * Where disc menu packs are downloaded from. An address set in Settings wins (the token for a private host lives in the vault).
+     * With none set, the Jellyfin server itself is asked, at `/web/discmenus` (a folder put into the server's web folder).
+     */
+    fun discMenuSource(): com.auroratv.discmenu.PackSource? {
+        val set = settings.current.discMenuSource.trim()
+        if (set.isNotEmpty()) return com.auroratv.discmenu.PackSource(set, platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()).takeIf { it.valid }
+        val server = sessions.activeSession?.api?.baseUrl ?: return null
+        return com.auroratv.discmenu.PackSource(server.trimEnd('/') + "/web/discmenus").takeIf { it.valid }
+    }
 
     fun saveDiscMenuToken(token: String) { if (token.isBlank()) platform.vault.remove(DISC_MENU_TOKEN_KEY) else platform.vault.put(DISC_MENU_TOKEN_KEY, token.trim()) }
     fun discMenuToken(): String = platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()

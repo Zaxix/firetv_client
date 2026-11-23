@@ -353,7 +353,8 @@ private fun DiscMenusPage(container: AppContainer) {
         }
         item {
             Text(
-                "Menus are downloaded from a place you control: a web address whose folder holds catalog.json and one folder per menu " +
+                "Leave the address empty to use your Jellyfin server: put the menu folders and catalog.json in a folder named discmenus inside the server's web folder " +
+                    "(they are then served at <your server>/web/discmenus). Or enter a web address you control whose folder holds catalog.json and one folder per menu " +
                     "(for example the raw files of a private GitHub repository: https://raw.githubusercontent.com/<you>/<repo>/<branch>). " +
                     "The intro plays while the rest downloads. For a private repository, add a read-only access token; it is kept encrypted on this device and sent only to that address.",
                 style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
@@ -367,8 +368,7 @@ private fun DiscMenusPage(container: AppContainer) {
                 set { it.copy(discMenuSource = address) }
                 container.saveDiscMenuToken(token)
                 val src = container.discMenuSource()
-                if (address.isEmpty()) { status = "No source set"; return@SettingRow }
-                if (src == null) { status = "That isn't a web address (it must start with https:// or http://)"; return@SettingRow }
+                if (src == null) { status = if (address.isEmpty()) "No server is signed in" else "That isn't a web address (it must start with https:// or http://)"; return@SettingRow }
                 status = "Checking…"
                 scope.launch {
                     val problem = container.discMenus.refreshCatalog(container.http, src, com.auroratv.playback.wallClockMs(), force = true)
