@@ -110,8 +110,12 @@ fun AuroraTextField(
     fun emit(text: String) { typed.text = text; typed.sent = text; onValueChange(text) }
 
     fun closeKeyboard() { keyboard?.hide(); platform.hideKeyboard() }
-    fun startEditing() {
+    fun startEditing(handOverNow: Boolean = true) {
         editing = true
+        // The highlighted box holds focus and is about to leave the screen. Hand focus to the real field in the same moment:
+        // if focus is dropped first it falls to the first thing on screen, which on the Settings page is the list of sections
+        // (that switches the page away, and the keyboard never opens).
+        if (handOverNow) runCatching { fieldFocus.requestFocus() }
         scope.launch {
             androidx.compose.runtime.withFrameNanos { }
             runCatching { fieldFocus.requestFocus() }
@@ -173,7 +177,7 @@ fun AuroraTextField(
                         // With a computer keyboard there's no on-screen keyboard to get stuck in: type straight away.
                         when {
                             it.isFocused && holdAutoEdit -> heldWhileFocused = true
-                            it.isFocused && platform.typesOnFocus -> startEditing()
+                            it.isFocused && platform.typesOnFocus -> startEditing(handOverNow = false)
                             !it.isFocused && heldWhileFocused -> { holdAutoEdit = false; heldWhileFocused = false }
                         }
                     }
@@ -194,7 +198,7 @@ fun AuroraTextField(
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null,
-                        onClick = ::startEditing,
+                        onClick = { startEditing() },
                     )
             )
         }
