@@ -12,7 +12,13 @@ import kotlinx.coroutines.withContext
  * screen and the ones it links to are kept, never all eleven. Touched from the main thread only; [version] changes
  * when something finishes decoding so drawing code that reads it redraws.
  */
-class PageArtStore(private val pack: DiscMenuPackDef, private val assets: DiscMenuAssets, private val capacity: Int = 4) {
+class PageArtStore(
+    private val pack: DiscMenuPackDef,
+    private val assets: DiscMenuAssets,
+    private val capacity: Int = 4,
+    /** Which backdrop file a page uses (the credits pages use a clean one when the server's names are drawn over it). */
+    private val plateFor: (String) -> String = { id -> pack.pages.getValue(id).plate },
+) {
     class Art(val plate: ImageBitmap?, val highlights: Map<String, ImageBitmap>)
 
     var version by mutableIntStateOf(0)
@@ -29,7 +35,7 @@ class PageArtStore(private val pack: DiscMenuPackDef, private val assets: DiscMe
         if (cache.containsKey(pageId) || !inFlight.add(pageId)) return
         try {
             val art = withContext(Dispatchers.Default) {
-                val plate = assets.decode(def.plate)
+                val plate = assets.decode(plateFor(pageId))
                 val highlights = HashMap<String, ImageBitmap>()
                 for (h in def.hotspots) {
                     h.selected?.let { p -> assets.decode(p)?.let { highlights["${h.id}/sel"] = it } }

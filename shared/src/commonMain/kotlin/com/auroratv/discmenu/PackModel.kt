@@ -154,18 +154,25 @@ data class HotspotDef(
     val provenance: String? = null,
 )
 
-/** Where the server-driven cast and crew text goes on the cast and crew pages. Optional; absent = the plates' baked text is shown. */
+/**
+ * Server-driven cast and crew on the credits pages. When present (and the pages' clean backdrops exist), the baked
+ * names are replaced by the server's, drawn in a similar condensed face. Absent = the baked plates are shown as they are.
+ */
 @Serializable
 data class CreditsDef(
-    val castPages: List<String> = emptyList(),
-    val crewPages: List<String> = emptyList(),
-    val textRect: List<Int>,
+    val textLeftPx: Int,
+    val firstLineCenterYPx: Int,
     val lineHeightPx: Int,
-    val linesPerPage: Int,
     val fontSizePx: Int,
+    val textScaleX: Float = 1f,
+    val maxWidthPx: Int,
     val color: String,
-    val cleanPlates: Map<String, String> = emptyMap(),
+    /** In display order: cast pages fill in order, then the crew page. */
+    val pages: Map<String, CreditsPageDef>,
 )
+
+@Serializable
+data class CreditsPageDef(val kind: String, val capacity: Int, val cleanPlate: String)
 
 /** An axis-aligned rectangle in canvas pixels. Right and bottom are exclusive. */
 data class Rect(val left: Int, val top: Int, val right: Int, val bottom: Int) {

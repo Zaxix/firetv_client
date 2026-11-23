@@ -41,6 +41,14 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextGeometricTransform
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.auroratv.core.Log
 import com.auroratv.jellyfin.model.BaseItemDto
@@ -148,7 +156,11 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
     val logic = remember { MenuLogic(pack, server::isAvailable) }
     val media = remember { platform.createMedia(load.installed.folder, pack) }
     val sprites = remember { SpriteBank(load.assets, pack.sparkles) }
-    val art = remember { PageArtStore(pack, load.assets) }
+    val credits = remember { pack.credits?.let { CreditsLayout.build(server.item.people, it) }.orEmpty() }
+    val art = remember {
+        PageArtStore(pack, load.assets, plateFor = { id -> pack.credits?.pages?.get(id)?.takeIf { credits.containsKey(id) }?.cleanPlate ?: pack.pages.getValue(id).plate })
+    }
+    val textMeasurer = rememberTextMeasurer(cacheSize = 24)
     val canvasDef = pack.canvas
 
     val clock = remember { mutableLongStateOf(0L) }
@@ -317,7 +329,7 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
                 translate(fit.offsetX, fit.offsetY)
                 scale(fit.scale, fit.scale, pivot = Offset.Zero)
             }) {
-                drawMenu(pack, uiState, clock.longValue, sprites, art, lastSparkle, subtitleChoice)
+                drawMenu(pack, uiState, clock.longValue, sprites, art, lastSparkle, subtitleChoice, credits, textMeasurer)
             }
         }
         toast?.let { t ->
@@ -398,10 +410,12 @@ private fun DrawScope.drawMenu(
     art: PageArtStore,
     lastSparkle: MutableMap<String, androidx.compose.ui.graphics.ImageBitmap>,
     subtitleChoice: String?,
+    credits: Map<String, List<String>>,
+    measurer: TextMeasurer,
 ) {
     when (state) {
         is MenuState.Main -> drawSparkle(pack, state, now, sprites, lastSparkle)
-        is MenuState.Page -> drawPage(pack, state, art, subtitleChoice)
+        is MenuState.Page -> drawPage(pack, state, art, subtitleChoice, credits, measurer)
         else -> Unit
     }
 }
@@ -414,11 +428,14 @@ private fun DrawScope.drawSparkle(pack: DiscMenuPackDef, state: MenuState.Main, 
     drawImage(image, topLeft = Offset(seq.x.toFloat(), seq.y.toFloat()), blendMode = BlendMode.Plus)
 }
 
-private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art: PageArtStore, subtitleChoice: String?) {
+private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art: PageArtStore, subtitleChoice: String?, credits: Map<String, List<String>>, measurer: TextMeasurer) {
     val def = pack.pages[state.id] ?: return
     val a = art.peek(state.id)
     drawRect(Color.Black, size = Size(pack.canvas.w.toFloat(), pack.canvas.h.toFloat()))
     a?.plate?.let { drawImage(it, dstSize = IntSize(pack.canvas.w, pack.canvas.h), filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium) }
+    val creditsDef = pack.credits
+    val lines = credits[state.id]
+    if (creditsDef != null && lines != null) drawCredits(creditsDef, lines, measurer)
     val selected = def.hotspots.firstOrNull { it.id == state.selected } ?: return
     val activating = state.activation?.hotspotId == selected.id
     val kind = if (activating && selected.activated != null) "act" else "sel"
@@ -445,4 +462,21 @@ private fun DrawScope.outline(rect: List<Int>, color: Color, thickness: Float) {
         color, topLeft = Offset(rect[0] + thickness / 2, rect[1] + thickness / 2),
         size = Size(rect[2] - rect[0] - thickness, rect[3] - rect[1] - thickness), style = Stroke(thickness),
     )
+}
+
+/** The server's cast or crew, in the colour and line pitch measured from the baked text. */
+private fun DrawScope.drawCredits(def: CreditsDef, lines: List<String>, measurer: TextMeasurer) {
+    val style = TextStyle(
+        color = parseColor(def.color, Color(0xFF74594A)),
+        fontSize = def.fontSizePx.toFloat().toSp(),
+        fontFamily = FontFamily.SansSerif,
+        textGeometricTransform = TextGeometricTransform(scaleX = def.textScaleX),
+    )
+    val shown = lines.ifEmpty { listOf("No more listed on this server") }
+    // The horizontal squeeze is applied when painting, so the width limit is the unsqueezed one.
+    val limit = (def.maxWidthPx / def.textScaleX).toInt()
+    shown.forEachIndexed { i, line ->
+        val layout = measurer.measure(line, style, overflow = TextOverflow.Ellipsis, softWrap = false, maxLines = 1, constraints = Constraints(maxWidth = limit))
+        drawText(layout, topLeft = Offset(def.textLeftPx.toFloat(), def.firstLineCenterYPx + i * def.lineHeightPx - layout.size.height / 2f))
+    }
 }

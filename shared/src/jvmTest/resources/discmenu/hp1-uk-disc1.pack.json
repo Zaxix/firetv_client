@@ -1896,5 +1896,32 @@
   ]
  },
  "sequencesNote": "ASSUMED grouping from the observed link structure; the order of the scene pages and of cast/crew is observed, the Next/Previous page keys are an addition",
- "backNote": "ASSUMED: Back from cast/crew goes to Special Features; from every other page to the main menu (never observed)"
+ "backNote": "ASSUMED: Back from cast/crew goes to Special Features; from every other page to the main menu (never observed)",
+ "credits": {
+  "textLeftPx": 530,
+  "firstLineCenterYPx": 402,
+  "lineHeightPx": 50,
+  "fontSizePx": 38,
+  "textScaleX": 0.78,
+  "maxWidthPx": 590,
+  "color": "#74594A",
+  "status": "APPROXIMATE: colour is the median of the baked text pixels (114,89,74 / 115,90,73 / 116,90,72); line pitch 50 px and left edge measured from the plates; the condensed face is not identified, so size and horizontal squeeze are fitted by eye to the baked text's extent. Capacity of cast2 and crew is what fits above their 'back' link, not an observed count (baked: cast1 8 lines, cast2 6, crew 4).",
+  "pages": {
+   "cast1": {
+    "kind": "cast",
+    "capacity": 8,
+    "cleanPlate": "pages/cast1_clean.webp"
+   },
+   "cast2": {
+    "kind": "cast",
+    "capacity": 7,
+    "cleanPlate": "pages/cast2_clean.webp"
+   },
+   "crew": {
+    "kind": "crew",
+    "capacity": 7,
+    "cleanPlate": "pages/crew_clean.webp"
+   }
+  }
+ }
 }

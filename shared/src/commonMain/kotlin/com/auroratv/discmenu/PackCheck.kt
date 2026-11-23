@@ -22,6 +22,8 @@ object PackCheck {
         val dropped = mutableListOf<String>()
         val intro = pack.video.intro?.takeIf { assets.exists(it.file) || run { dropped += it.file; false } }
         val letter = pack.video.letter?.takeIf { assets.exists(it.file) || run { dropped += it.file; false } }
-        return pack.copy(video = pack.video.copy(intro = intro, letter = letter)) to dropped
+        // Server-driven credits need every page's clean backdrop; without them the baked names stay.
+        val credits = pack.credits?.takeIf { c -> c.pages.values.all { assets.exists(it.cleanPlate) || run { dropped += it.cleanPlate; false } } }
+        return pack.copy(video = pack.video.copy(intro = intro, letter = letter), credits = credits) to dropped
     }
 }

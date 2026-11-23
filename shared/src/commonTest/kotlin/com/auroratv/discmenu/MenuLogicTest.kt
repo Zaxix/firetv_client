@@ -333,3 +333,43 @@ class MenuLogicTest {
         assertEquals(9, MenuGeometry.holdIndex(10_000, 40.0, 10))
     }
 }
+
+class CreditsLayoutTest {
+    private val def = CreditsDef(
+        textLeftPx = 530, firstLineCenterYPx = 402, lineHeightPx = 50, fontSizePx = 38, maxWidthPx = 590, color = "#74594A",
+        pages = linkedMapOf(
+            "cast1" to CreditsPageDef("cast", 2, "c1.webp"),
+            "cast2" to CreditsPageDef("cast", 2, "c2.webp"),
+            "crew" to CreditsPageDef("crew", 3, "cr.webp"),
+        ),
+    )
+
+    private fun p(name: String, type: String, role: String? = null) = com.auroratv.jellyfin.model.PersonDto(name = name, type = type, role = role)
+
+    @Test
+    fun castFillsPagesInBillingOrderAndCrewIsGroupedByJob() {
+        val people = listOf(
+            p("A One", "Actor", "Harry"), p("B Two", "Actor", "Ron"), p("C Three", "Actor", "Hermione"), p("D Four", "Actor"),
+            p("Chris C", "Director"), p("Steve K", "Writer"), p("David H", "Producer"), p("Someone", "Producer"),
+        )
+        val lines = CreditsLayout.build(people, def)
+        assertEquals(listOf("A One....Harry", "B Two....Ron"), lines["cast1"])
+        assertEquals(listOf("C Three....Hermione", "D Four"), lines["cast2"])
+        assertEquals(listOf("Directed by Chris C", "Written by Steve K", "Produced by David H, Someone"), lines["crew"])
+    }
+
+    @Test
+    fun aPageTheServerHasNothingForKeepsItsBakedPlate() {
+        assertEquals(emptyMap(), CreditsLayout.build(emptyList(), def))
+        val onlyCrew = CreditsLayout.build(listOf(p("Chris C", "Director")), def)
+        assertEquals(setOf("crew"), onlyCrew.keys)
+    }
+
+    @Test
+    fun moreCastThanThePagesHoldIsCutAtTheLastPage() {
+        val many = (1..9).map { p("Actor $it", "Actor") }
+        val lines = CreditsLayout.build(many, def)
+        assertEquals(2, lines["cast1"]!!.size)
+        assertEquals(2, lines["cast2"]!!.size)
+    }
+}
