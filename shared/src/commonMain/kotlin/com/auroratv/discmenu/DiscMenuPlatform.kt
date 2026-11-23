@@ -38,6 +38,12 @@ interface DiscMenuMedia {
     fun resume()
     fun release()
 
+    /**
+     * Creates and prepares the looping video and the music. Until then only the intro/transition/letter player exists, so
+     * while the rest of a pack is still downloading no decoder is held for files that aren't there yet. Safe to call twice.
+     */
+    fun prepareMain()
+
     /** The looping menu video's surface; always composed, the media layer keeps it black until the loop runs. */
     @Composable fun LoopSurface(modifier: Modifier)
     /** The surface the intro, the transition and the letter dissolve share. */
@@ -51,5 +57,7 @@ interface DiscMenuPlatform {
     /** Folder names under [packsLocation] that contain a `pack.json`. */
     fun listPacks(): List<String>
     fun assets(folder: String): DiscMenuAssets
+    /** Disk side of downloading packs (see [PackInstall]). */
+    val store: PackStore
     fun createMedia(folder: String, pack: DiscMenuPackDef): DiscMenuMedia
 }

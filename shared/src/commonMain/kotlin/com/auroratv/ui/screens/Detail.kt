@@ -227,6 +227,10 @@ fun DetailScreen(route: Route.Detail) {
         return
     }
     val colors = Aurora.colors
+    // The list of downloadable disc menus is refreshed in the background (at most every few hours), so Play knows without waiting.
+    androidx.compose.runtime.LaunchedEffect(item.id) {
+        if (item.type == "Movie") container.discMenuSource()?.let { container.discMenus.refreshCatalog(container.http, it, com.auroratv.playback.wallClockMs()) }
+    }
 
     fun toggleFavorite() {
         val fav = !(item.userData?.isFavorite ?: false)
@@ -288,8 +292,9 @@ fun DetailScreen(route: Route.Detail) {
                     playFocus = playFocus,
                     onPlay = { target, fromStart ->
                         // A film with a disc menu pack opens it on Play; resuming and "From Beginning" go straight to the player.
-                        val menu = if (!fromStart && target.resumePositionMs == 0L && target.type == "Movie" && container.settings.current.discMenus) container.discMenus.packFor(target) else null
-                        navigator.push(if (menu != null) Route.DiscMenu(target.id, target) else Route.Player(target.id, fromStart, target))
+                        val menu = !fromStart && target.resumePositionMs == 0L && target.type == "Movie" && container.settings.current.discMenus &&
+                            (container.discMenus.packFor(target) != null || container.discMenus.catalogMatch(target) != null)
+                        navigator.push(if (menu) Route.DiscMenu(target.id, target) else Route.Player(target.id, fromStart, target))
                     },
                     // The page's own item already has its media details (a film or an episode page): the
                     // preparation doesn't ask for it again.

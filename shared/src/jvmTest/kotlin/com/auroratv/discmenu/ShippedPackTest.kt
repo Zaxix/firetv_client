@@ -52,6 +52,25 @@ class ShippedPackTest {
         assertEquals(emptyList(), unreachable)
     }
 
+    private val manifest: PackManifest by lazy {
+        PackManifest.parse(javaClass.getResourceAsStream("/discmenu/hp1-uk-disc1.manifest.json")!!.readBytes().decodeToString())
+    }
+
+    @Test
+    fun theManifestListsEveryFileThePackNeedsAndStagesThemByWhenTheMenuUsesThem() {
+        val listed = ManifestAssets(manifest)
+        assertEquals(emptyList(), PackCheck.missingRequired(pack, listed))
+        assertEquals(emptyList(), PackCheck.withoutMissingOptional(pack, listed).second)
+        fun stageOf(path: String) = manifest.files.single { it.path == path }.stage
+        // 0: what the intro needs; 1: what the menu itself needs; 3: the letter; 2: the rest
+        assertEquals(setOf("pack.json", pack.video.intro!!.file), manifest.files.filter { it.stage == 0 }.map { it.path }.toSet())
+        assertEquals(setOf(pack.video.loop.file, pack.music.file, pack.sparkles.index, pack.sparkles.data), manifest.files.filter { it.stage == 1 }.map { it.path }.toSet())
+        assertEquals(3, stageOf(pack.video.letter!!.file))
+        assertEquals(2, stageOf(pack.video.transition.file))
+        assertTrue(pack.pages.values.all { stageOf(it.plate) == 2 })
+        assertEquals(emptyList(), manifest.problems())
+    }
+
     @Test
     fun noTwoHotspotsOnAPageShareTheSameRectangle() {
         val clashes = pack.pages.flatMap { (pid, p) ->

@@ -66,11 +66,18 @@ sealed interface MenuState {
 class MenuLogic(
     private val pack: DiscMenuPackDef,
     private val isActionAvailable: (String) -> Boolean = { true },
+    /** Whether the files [action] needs are on the device yet (a pack that is still downloading). Unlike availability, this only delays. */
+    private val isReady: (String) -> Boolean = { true },
+    /** Whether the menu itself (loop, music, sparkles) can open. The intro waits on its last picture until it can. */
+    private val mainReady: () -> Boolean = { true },
 ) {
     var state: MenuState = MenuState.Idle
         private set
 
     private companion object { const val INTRO_FIRST_PICTURE_TIMEOUT_MS = 6_000L }
+
+    // Shown by the screen as a toast.
+    private val STILL_DOWNLOADING get() = "Still downloading the menu…"
 
     private val effects = ArrayDeque<MenuEffect>()
     private val log = ArrayDeque<String>()
@@ -180,7 +187,12 @@ class MenuLogic(
      */
     fun onKey(key: MenuKey, now: Long): Boolean {
         when (val s = state) {
-            is MenuState.Intro -> { if (key == MenuKey.Select || key == MenuKey.Back) skipIntro(now); return true }
+            is MenuState.Intro -> {
+                // Still downloading the menu: OK does nothing, Back leaves (there is nothing to skip to yet).
+                if (!mainReady()) return key != MenuKey.Back
+                if (key == MenuKey.Select || key == MenuKey.Back) skipIntro(now)
+                return true
+            }
             is MenuState.Transition -> { if (key == MenuKey.Select || key == MenuKey.Back) skipTransition(s, now); return true }
             is MenuState.Letter -> {
                 if (key == MenuKey.Back && !s.playbackRequested) { emit(MenuEffect.StopLetter); emit(MenuEffect.StopMusic); enterMain(now) }
@@ -260,6 +272,7 @@ class MenuLogic(
             is MenuState.Page -> {
                 val h = hotspot(s.id, s.selected)
                 if (!isActionAvailable(h.action)) { emit(MenuEffect.Gate("Not available for this title")); return }
+                if (!isReady(h.action)) { emit(MenuEffect.Gate(STILL_DOWNLOADING)); return }
                 state = s.copy(activation = PageActivation(h.id, now, now + pack.timing.subActivationToCutMs, h.action))
                 note("activate ${s.id}/${h.id} -> ${h.action}")
             }
@@ -269,6 +282,7 @@ class MenuLogic(
 
     private fun activateMain(s: MenuState.Main, now: Long) {
         val b = mainButton(s.selected)
+        if (!isReady(b.action)) { emit(MenuEffect.Gate(STILL_DOWNLOADING)); return }
         if (b.action == "play_movie") {
             val delay = pack.timing.playMovie?.activationToDissolveMs ?: 0L
             state = s.copy(activation = MainActivation(b.id, now, now + delay))
@@ -323,6 +337,7 @@ class MenuLogic(
     /** The intro can't be played (missing or undecodable file): open on the menu instead of hanging. */
     fun introFailed(now: Long) {
         if (state !is MenuState.Intro) return
+        if (!mainReady()) return // nothing to open yet; the intro's slot waits and the hand-off checks again
         emit(MenuEffect.StopIntro)
         enterMain(now)
         note("intro failed")
@@ -338,6 +353,7 @@ class MenuLogic(
         val half = intro.crossfadeMs / 2
         val handOffAt = startedAt + intro.durationMs
         if (now >= handOffAt - half) {
+            if (!mainReady()) return // the intro holds its last picture while the rest of the pack arrives
             // The loop starts `half` early (at the matching earlier phase) so it is already running underneath the fading intro;
             // the music starts exactly at the hand-off point.
             val early = maxOf(0L, handOffAt - now)

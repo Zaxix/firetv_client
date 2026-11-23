@@ -32,7 +32,20 @@ import com.auroratv.discmenu.DiscMenuMediaListener
 import com.auroratv.discmenu.DiscMenuPackDef
 import com.auroratv.discmenu.DiscMenuPlatform
 import com.auroratv.discmenu.MenuEffect
+import com.auroratv.discmenu.ManifestFile
+import com.auroratv.discmenu.PackManifestRules
+import com.auroratv.discmenu.PackStore
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.isSuccess
+import io.ktor.utils.io.readAvailable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.MessageDigest
 
 private const val TAG = "DiscMenu"
 
@@ -45,8 +58,11 @@ class AndroidDiscMenuPlatform(private val activity: Activity) : DiscMenuPlatform
 
     override val packsLocation: String get() = root.absolutePath
 
+    // A pack that is still being downloaded isn't listed: it can't open yet.
     override fun listPacks(): List<String> =
-        root.listFiles()?.filter { File(it, "pack.json").isFile }?.map { it.name }?.sorted().orEmpty()
+        root.listFiles()?.filter { File(it, "pack.json").isFile && !File(it, AndroidPackStore.INCOMPLETE).exists() }?.map { it.name }?.sorted().orEmpty()
+
+    override val store: PackStore = AndroidPackStore { root }
 
     override fun assets(folder: String): DiscMenuAssets = FileDiscMenuAssets(File(root, folder))
 
@@ -99,7 +115,10 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), /* handleAudioFocus = */ false)
         .build()
 
-    private val loop: ExoPlayer = newVideoPlayer().apply {
+    private var loop: ExoPlayer? = null
+    private var loopView: TextureView? = null
+
+    private fun createLoop(): ExoPlayer = newVideoPlayer().apply {
         trackSelectionParameters = trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
         val loopItem = item(pack.video.loop.file)
         setMediaItems(listOf(loopItem, loopItem))
@@ -127,7 +146,9 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
         })
     }
 
-    private val music: ExoPlayer = ExoPlayer.Builder(activity)
+    private var music: ExoPlayer? = null
+
+    private fun createMusic(): ExoPlayer = ExoPlayer.Builder(activity)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), /* handleAudioFocus = */ false)
         .build().apply {
             val m = item(pack.music.file)
@@ -139,6 +160,12 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
             })
             prepare()
         }
+
+    override fun prepareMain() {
+        if (released) return
+        if (loop == null) loop = createLoop().also { p -> loopView?.let(p::setVideoTextureView) }
+        if (music == null) music = createMusic()
+    }
 
     private var pendingMusicStart: Runnable? = null
     private var fade: Runnable? = null
@@ -156,11 +183,11 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
         when (effect) {
             MenuEffect.StartIntro -> pack.video.intro?.let { playEffect(Effect.Intro, it.file, play = true) } ?: listener?.onIntroFailed()
             MenuEffect.StopIntro -> stopEffect(Effect.Intro)
-            is MenuEffect.StartMainVideo -> { loop.seekTo(0, effect.fromMs); loop.playWhenReady = true }
-            MenuEffect.StopMainVideo -> {
-                loop.playWhenReady = false
+            is MenuEffect.StartMainVideo -> { prepareMain(); loop?.let { it.seekTo(0, effect.fromMs); it.playWhenReady = true } }
+            MenuEffect.StopMainVideo -> loop?.let {
+                it.playWhenReady = false
                 // The next entry shows its first picture at once instead of the frame the loop stopped on.
-                loop.seekTo(0, pack.video.loop.entryMs)
+                it.seekTo(0, pack.video.loop.entryMs)
             }
             is MenuEffect.StartMusic -> startMusic(effect.delayMs)
             MenuEffect.StopMusic -> stopMusic()
@@ -199,6 +226,8 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
     }
 
     private fun startMusic(delayMs: Long) {
+        prepareMain()
+        val music = music ?: return
         cancelMusicTimers()
         music.volume = 1f
         music.playWhenReady = false
@@ -211,6 +240,7 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
 
     private fun stopMusic() {
         cancelMusicTimers()
+        val music = music ?: return
         music.playWhenReady = false
         music.seekTo(0, 0L)
         music.volume = 1f
@@ -231,7 +261,7 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
                 elapsed += stepMs
                 val left = 1f - (elapsed.toFloat() / durationMs.coerceAtLeast(1L))
                 if (left <= 0f) { stopMusic(); return }
-                music.volume = left
+                music?.volume = left
                 handler.postDelayed(this, stepMs)
             }
         }
@@ -256,14 +286,14 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
     override fun pause() {
         if (released || pausedByLifecycle) return
         pausedByLifecycle = true
-        loopWasPlaying = loop.playWhenReady; fxWasPlaying = fx.playWhenReady; musicWasPlaying = music.playWhenReady
-        loop.playWhenReady = false; fx.playWhenReady = false; music.playWhenReady = false
+        loopWasPlaying = loop?.playWhenReady == true; fxWasPlaying = fx.playWhenReady; musicWasPlaying = music?.playWhenReady == true
+        loop?.playWhenReady = false; fx.playWhenReady = false; music?.playWhenReady = false
     }
 
     override fun resume() {
         if (released || !pausedByLifecycle) return
         pausedByLifecycle = false
-        loop.playWhenReady = loopWasPlaying; fx.playWhenReady = fxWasPlaying; music.playWhenReady = musicWasPlaying
+        loop?.playWhenReady = loopWasPlaying; fx.playWhenReady = fxWasPlaying; music?.playWhenReady = musicWasPlaying
     }
 
     override fun release() {
@@ -271,7 +301,8 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
         released = true
         (activity as? LifecycleOwner)?.lifecycle?.removeObserver(lifecycleObserver)
         handler.removeCallbacksAndMessages(null)
-        loop.release(); fx.release(); music.release()
+        loop?.release(); fx.release(); music?.release()
+        loop = null; music = null; loopView = null
         effectVisible = false
     }
 
@@ -280,9 +311,9 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
     @Composable
     override fun LoopSurface(modifier: Modifier) {
         AndroidView(
-            factory = { ctx -> TextureView(ctx).also { if (!released) loop.setVideoTextureView(it) } },
+            factory = { ctx -> TextureView(ctx).also { loopView = it; if (!released) loop?.setVideoTextureView(it) } },
             modifier = modifier,
-            onRelease = { tv -> if (!released) loop.clearVideoTextureView(tv) },
+            onRelease = { tv -> if (!released) loop?.clearVideoTextureView(tv); if (loopView === tv) loopView = null },
         )
     }
 
@@ -293,5 +324,90 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
             modifier = modifier,
             onRelease = { tv -> if (!released) fx.clearVideoTextureView(tv) },
         )
+    }
+}
+
+/**
+ * Packs the app downloads itself live next to hand-placed ones. A downloaded folder carries `.downloaded`, and `.incomplete`
+ * until every file has arrived; only folders with `.downloaded` are ever deleted by the app.
+ */
+class AndroidPackStore(private val root: () -> File) : PackStore {
+    companion object {
+        const val DOWNLOADED = ".downloaded"
+        const val INCOMPLETE = ".incomplete"
+    }
+
+    private fun dir(folder: String): File {
+        require(PackManifestRules.isSafeId(folder)) { "bad pack folder '$folder'" }
+        return File(root(), folder)
+    }
+
+    private fun target(folder: String, path: String): File {
+        require(PackManifestRules.isSafePath(path)) { "bad pack path '$path'" }
+        val base = dir(folder)
+        val f = File(base, path)
+        // Belt and braces after the path rules: a symlink or odd file system must not let a file land outside the pack folder.
+        require(f.canonicalPath.startsWith(base.canonicalPath + File.separator)) { "path leaves the pack folder: $path" }
+        return f
+    }
+
+    override fun hasFile(folder: String, path: String, size: Long): Boolean =
+        runCatching { target(folder, path).let { it.isFile && it.length() == size } }.getOrDefault(false)
+
+    override fun begin(folder: String) {
+        val d = dir(folder)
+        d.mkdirs()
+        File(d, DOWNLOADED).writeText("downloaded by the app; removed when you leave the menu\n")
+        File(d, INCOMPLETE).writeText("")
+    }
+
+    override suspend fun fetch(http: HttpClient, url: String, headers: Map<String, String>, folder: String, file: ManifestFile, onBytes: (Long) -> Unit) {
+        withContext(Dispatchers.IO) {
+            val out = target(folder, file.path)
+            out.parentFile?.mkdirs()
+            val part = File(out.parentFile, out.name + ".part")
+            part.delete()
+            val digest = MessageDigest.getInstance("SHA-256")
+            var total = 0L
+            val extraHeaders = headers // the request builder has a `headers` of its own
+            http.prepareGet(url) {
+                extraHeaders.forEach { (k, v) -> header(k, v) }
+                timeout { requestTimeoutMillis = 15 * 60_000L; socketTimeoutMillis = 60_000L }
+            }.execute { response ->
+                if (!response.status.isSuccess()) error("HTTP ${response.status.value}")
+                val channel = response.bodyAsChannel()
+                val buffer = ByteArray(256 * 1024)
+                part.outputStream().buffered(1 shl 20).use { sink ->
+                    while (true) {
+                        val n = channel.readAvailable(buffer, 0, buffer.size)
+                        if (n < 0) break
+                        if (n == 0) continue
+                        total += n
+                        // A host that sends more than the manifest promised is cut off rather than filling the disk.
+                        if (total > file.size) error("more data than the manifest lists")
+                        sink.write(buffer, 0, n)
+                        digest.update(buffer, 0, n)
+                        onBytes(total)
+                    }
+                }
+            }
+            val hex = digest.digest().joinToString("") { "%02x".format(it) }
+            if (total != file.size || !hex.equals(file.sha256, ignoreCase = true)) {
+                part.delete()
+                error("incomplete or corrupted (${total} of ${file.size} bytes)")
+            }
+            out.delete()
+            if (!part.renameTo(out)) { part.delete(); error("couldn't move the file into place") }
+        }
+    }
+
+    override fun finish(folder: String) { File(dir(folder), INCOMPLETE).delete() }
+
+    override fun downloadedFolders(): List<String> =
+        root().listFiles()?.filter { it.isDirectory && File(it, DOWNLOADED).exists() && PackManifestRules.isSafeId(it.name) }?.map { it.name }.orEmpty()
+
+    override fun delete(folder: String) {
+        val d = dir(folder)
+        if (File(d, DOWNLOADED).exists()) d.deleteRecursively()
     }
 }

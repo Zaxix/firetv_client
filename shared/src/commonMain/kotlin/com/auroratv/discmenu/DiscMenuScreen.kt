@@ -16,6 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,8 +79,12 @@ private class DiscMenuVisit { var hasPlayed = false }
 private sealed interface MenuLoad {
     data object Busy : MenuLoad
     data class Failed(val message: String) : MenuLoad
-    class Ready(val server: ServerData, val installed: InstalledPack, val assets: DiscMenuAssets, val pack: DiscMenuPackDef) : MenuLoad
+    /** [download] is set while the pack is fetched from its source as the menu runs (null: the whole pack is already on the device). */
+    class Ready(val server: ServerData, val folder: String, val assets: DiscMenuAssets, val pack: DiscMenuPackDef, val download: DownloadPlan?) : MenuLoad
 }
+
+/** What it takes to fetch the rest of a pack: its file list and where from. */
+internal class DownloadPlan(val manifest: PackManifest, val source: PackSource, val folder: String)
 
 /** What the server says about the film, as the menu's actions need it. */
 internal class ServerData(val item: BaseItemDto) {
@@ -98,6 +107,9 @@ internal class ServerData(val item: BaseItemDto) {
     }
 }
 
+private fun incomplete(id: String, missing: List<String>) =
+    "The menu pack '$id' is incomplete. Missing: ${missing.take(6).joinToString()}${if (missing.size > 6) " and ${missing.size - 6} more" else ""}"
+
 @Composable
 fun DiscMenuScreen(container: AppContainer, route: Route.DiscMenu) {
     val navigator = LocalNavigator.current
@@ -111,19 +123,40 @@ fun DiscMenuScreen(container: AppContainer, route: Route.DiscMenu) {
             val item = runCatching { session.api.item(route.itemId) }.getOrNull() ?: route.preview
                 ?: return@runCatching MenuLoad.Failed("Couldn't load the film from the server.")
             val installed = container.discMenus.packFor(item)
+            if (installed != null) {
+                val assets = platform.assets(installed.folder)
+                val missing = PackCheck.missingRequired(installed.def, assets)
+                if (missing.isNotEmpty()) return@runCatching MenuLoad.Failed(incomplete(installed.def.id, missing))
+                val (pack, dropped) = PackCheck.withoutMissingOptional(installed.def, assets)
+                if (dropped.isNotEmpty()) Log.w(TAG, "optional pack files missing, skipped: $dropped")
+                return@runCatching MenuLoad.Ready(ServerData(item), installed.folder, assets, pack, null)
+            }
+            // Not on the device: the catalog says where to get it.
+            val entry = container.discMenus.catalogMatch(item)
                 ?: return@runCatching MenuLoad.Failed("No disc menu pack for this film in ${platform.packsLocation}")
-            val assets = platform.assets(installed.folder)
-            val missing = PackCheck.missingRequired(installed.def, assets)
-            if (missing.isNotEmpty()) return@runCatching MenuLoad.Failed("The menu pack '${installed.def.id}' is incomplete. Missing: ${missing.take(6).joinToString()}${if (missing.size > 6) " and ${missing.size - 6} more" else ""}")
-            val (pack, dropped) = PackCheck.withoutMissingOptional(installed.def, assets)
-            if (dropped.isNotEmpty()) Log.w(TAG, "optional pack files missing, skipped: $dropped")
-            MenuLoad.Ready(ServerData(item), installed, assets, pack)
+            val source = container.discMenuSource() ?: return@runCatching MenuLoad.Failed("No menu source address is set (Settings → Disc menus).")
+            val manifest = container.discMenus.manifestFor(container.http, source, entry)
+            val folder = entry.id
+            val packJson = manifest.files.first { it.path == "pack.json" }
+            if (!platform.store.hasFile(folder, packJson.path, packJson.size)) {
+                platform.store.begin(folder)
+                val url = source.url("$folder/${packJson.path}")
+                platform.store.fetch(container.http, url, source.headersFor(url), folder, packJson) {}
+            }
+            val assets = platform.assets(folder)
+            val def = DiscMenuPackDef.parse(assets.readText("pack.json"))
+            val listed = ManifestAssets(manifest)
+            val missing = PackCheck.missingRequired(def, listed)
+            if (missing.isNotEmpty()) return@runCatching MenuLoad.Failed(incomplete(def.id, missing))
+            val (pack, dropped) = PackCheck.withoutMissingOptional(def, listed)
+            if (dropped.isNotEmpty()) Log.w(TAG, "optional pack files not in the manifest, skipped: $dropped")
+            MenuLoad.Ready(ServerData(item), folder, assets, pack, DownloadPlan(manifest, source, folder))
         }.getOrElse { MenuLoad.Failed("The disc menu couldn't be opened: ${it.message}") }
     }
 
     when (val l = load) {
         MenuLoad.Busy -> Box(Modifier.fillMaxSize().background(Color.Black))
-        is MenuLoad.Failed -> MenuNotice(l.message) { navigator.pop() }
+        is MenuLoad.Failed -> MenuNotice(l.message) { leaveMenu(container); navigator.pop() }
         is MenuLoad.Ready -> DiscMenuStage(container, route, l, visit)
     }
 }
@@ -143,6 +176,11 @@ private fun MenuNotice(message: String, onBack: () -> Unit) {
     }
 }
 
+/** Leaving the menu for good: a pack the app downloaded goes off the device again unless the user keeps downloads. */
+private fun leaveMenu(container: AppContainer) {
+    if (!container.settings.current.discMenuKeepDownloads) runCatching { container.discMenus.purgeDownloads() }
+}
+
 private class Toast(val text: String, val until: Long)
 
 @Composable
@@ -153,8 +191,29 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
     val server = load.server
     val scope = rememberCoroutineScope()
 
-    val logic = remember { MenuLogic(pack, server::isAvailable) }
-    val media = remember { platform.createMedia(load.installed.folder, pack) }
+    // While a pack is still downloading, what the menu may do depends on how much of it is on the device (see ManifestFile.stage).
+    val runner = remember {
+        load.download?.let { plan ->
+            PackInstall(plan.manifest, plan.folder, platform.store, fetch = { file, onBytes ->
+                val url = plan.source.url("${plan.folder}/${file.path}")
+                platform.store.fetch(container.http, url, plan.source.headersFor(url), plan.folder, file, onBytes)
+            })
+        }
+    }
+    val doneFlow = remember { MutableStateFlow<InstallState>(InstallState.Complete) }
+    val installState by (runner?.state ?: doneFlow).collectAsState()
+    val stageNow by rememberUpdatedState(installState.readyStage)
+    var mainAssetsReady by remember { mutableStateOf(false) }
+    val leaving = remember { BooleanArray(1) }
+
+    val logic = remember {
+        MenuLogic(
+            pack, server::isAvailable,
+            isReady = { action -> stageNow >= stageNeededFor(action, pack) },
+            mainReady = { mainAssetsReady },
+        )
+    }
+    val media = remember { platform.createMedia(load.folder, pack) }
     val sprites = remember { SpriteBank(load.assets, pack.sparkles) }
     val credits = remember { pack.credits?.let { CreditsLayout.build(server.item.people, it) }.orEmpty() }
     val art = remember {
@@ -175,6 +234,11 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
 
     fun now() = clock.longValue
     fun showToast(text: String) { toast = Toast(text, now() + TOAST_MS) }
+
+    fun leave() {
+        leaving[0] = true
+        navigator.pop()
+    }
 
     fun playMovie() {
         visit.hasPlayed = true
@@ -239,15 +303,30 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
             sprites.clear()
             art.clear()
             lastSparkle.clear()
+            // Only after the players let go of their files: a downloaded pack leaves the device when the menu is left for good
+            // (not when the player is opened on top of it, which comes back here).
+            if (leaving[0]) leaveMenu(container)
         }
     }
 
+    LaunchedEffect(runner) { runner?.run() }
+
+    // The menu's own media and sparkle frames, as soon as their files are on the device.
     LaunchedEffect(Unit) {
+        snapshotFlow { stageNow >= MAIN_STAGE }.first { it }
         runCatching { sprites.load() }.onFailure {
             Log.e(TAG, "sparkles unreadable", it)
             showToast("Sparkle frames couldn't be read: ${it.message}")
         }
-        // The first page the menu can open is decoded before it is needed; the rest follow the player's choices.
+        media.prepareMain()
+        mainAssetsReady = true
+    }
+
+    // Start: the intro plays as soon as it is on the device. Straight to the menu (no intro, or coming back from the film),
+    // wait for the menu's own files.
+    LaunchedEffect(Unit) {
+        if (pack.video.intro != null && !visit.hasPlayed) snapshotFlow { stageNow >= INTRO_STAGE }.first { it }
+        else snapshotFlow { mainAssetsReady }.first { it }
         ready = true
     }
 
@@ -284,14 +363,19 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
     fun press(k: MenuKey) {
         val stay = logic.onKey(k, now())
         sync()
-        if (!stay) navigator.pop()
+        if (!stay) leave()
     }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black).focusRequester(focus).focusable()
             .onPreviewKeyEvent { ev ->
                 val mapped = mapKey(ev.key, ev.type)
-                if (mapped != null) { press(mapped); true }
+                if (installState is InstallState.Failed && mapped != null) {
+                    // The menu can't be completed: OK plays the film anyway, Back leaves.
+                    if (mapped == MenuKey.Select) playMovie() else if (mapped == MenuKey.Back) leave()
+                    true
+                }
+                else if (mapped != null) { press(mapped); true }
                 else ev.key in HANDLED_KEYS
             }
             .pointerInput(logic) {
@@ -332,6 +416,7 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
                 drawMenu(pack, uiState, clock.longValue, sprites, art, lastSparkle, subtitleChoice, credits, textMeasurer)
             }
         }
+        DownloadBanner(installState)
         toast?.let { t ->
             Box(Modifier.fillMaxSize().padding(bottom = 48.dp), contentAlignment = Alignment.BottomCenter) {
                 Text(
@@ -341,6 +426,34 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
             }
         }
     }
+}
+
+@Composable
+private fun DownloadBanner(state: InstallState) {
+    val text = when (state) {
+        is InstallState.Running -> "Downloading menu… ${state.percent}%"
+        is InstallState.Failed -> "Couldn't finish downloading the menu: ${state.message}\nOK plays the film anyway · Back leaves"
+        InstallState.Complete -> return
+    }
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.TopEnd) {
+        Text(
+            text, color = Color.White.copy(alpha = if (state is InstallState.Failed) 1f else 0.75f), fontSize = if (state is InstallState.Failed) 20.sp else 15.sp,
+            modifier = Modifier.background(Color(0x99000000), RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** The stages of a pack that is downloaded as the menu runs (see ManifestFile). */
+private const val INTRO_STAGE = 0
+private const val MAIN_STAGE = 1
+private const val SUBMENU_STAGE = 2
+private const val LETTER_STAGE = 3
+
+/** The stage whose files an action needs before it can run. */
+private fun stageNeededFor(action: String, pack: DiscMenuPackDef): Int = when {
+    action.startsWith("goto:") && action != "goto:main" -> SUBMENU_STAGE
+    action == "play_movie" && pack.video.letter != null -> LETTER_STAGE
+    else -> 0
 }
 
 private val HANDLED_KEYS = setOf(

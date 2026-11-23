@@ -374,3 +374,68 @@ class CreditsLayoutTest {
         assertEquals(2, lines["cast2"]!!.size)
     }
 }
+
+/** A pack that is still downloading: the intro waits for the menu's files, and actions wait for theirs. */
+class DownloadGatingTest {
+    private fun pack(withIntro: Boolean) =
+        DiscMenuPackDef.parse(if (withIntro) MINI_PACK else MINI_PACK.replace(Regex("\"intro\": \\{[^}]*\\},"), ""))
+
+    @Test
+    fun theIntroHoldsUntilTheMenuItselfIsOnTheDevice() {
+        var ready = false
+        val m = MenuLogic(pack(true), { true }, { true }, { ready })
+        m.start(0)
+        m.drainEffects()
+        m.update(300); m.introStarted(300)
+        m.update(300 + 39_800) // the hand-off moment
+        assertIs<MenuState.Intro>(m.state)
+        m.update(300 + 60_000)
+        assertIs<MenuState.Intro>(m.state)
+        assertTrue(m.drainEffects().isEmpty())
+        ready = true
+        m.update(300 + 60_100)
+        assertIs<MenuState.Main>(m.state)
+        assertTrue(MenuEffect.StartMainVideo(15_000) in m.drainEffects())
+    }
+
+    @Test
+    fun whileTheMenuIsNotThereYetOkDoesNothingAndBackLeaves() {
+        val m = MenuLogic(pack(true), { true }, { true }, { false })
+        m.start(0)
+        m.drainEffects()
+        m.update(100); m.introStarted(100)
+        assertTrue(m.onKey(MenuKey.Select, 500))
+        assertIs<MenuState.Intro>(m.state)
+        assertFalse(m.onKey(MenuKey.Back, 600))
+        assertIs<MenuState.Intro>(m.state)
+    }
+
+    @Test
+    fun anActionWhoseFilesAreNotThereYetShowsAMessageAndChangesNothing() {
+        var ready = false
+        val m = MenuLogic(pack(false), { true }, { a -> ready || a != "goto:ss1" }, { true })
+        m.start(0)
+        m.drainEffects()
+        m.onKey(MenuKey.Down, 10); m.onKey(MenuKey.Down, 20)
+        m.onKey(MenuKey.Select, 30)
+        val s = assertIs<MenuState.Main>(m.state)
+        assertEquals("scene_selections", s.selected)
+        assertEquals(null, s.activation)
+        assertTrue(m.drainEffects().any { it is MenuEffect.Gate })
+        ready = true
+        m.onKey(MenuKey.Select, 40)
+        assertTrue((m.state as MenuState.Main).activation != null)
+    }
+
+    @Test
+    fun playMovieWaitsForItsLetterButOtherButtonsDoNot() {
+        val m = MenuLogic(pack(false), { true }, { a -> a != "play_movie" }, { true })
+        m.start(0)
+        m.drainEffects()
+        m.onKey(MenuKey.Select, 10) // default button: play_movie
+        assertEquals(null, (m.state as MenuState.Main).activation)
+        assertTrue(m.drainEffects().any { it is MenuEffect.Gate })
+        m.onKey(MenuKey.Down, 20); m.onKey(MenuKey.Select, 30)
+        assertTrue((m.state as MenuState.Main).activation != null)
+    }
+}
