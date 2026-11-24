@@ -5,10 +5,12 @@ import com.auroratv.playback.SubtitleOverride
 
 /**
  * Maps the Languages page's subtitle actions (`subtitle:<code>`) onto the file's subtitle tracks.
- * Codes: `off`, `en` (English), `en_hi` (English for the hearing impaired), `ar` (Arabic).
+ * Codes: `off`, `en` (English), `en_hi` (English for the hearing impaired), `ar` (Arabic), `es` (Spanish), `fr` (French).
  */
 object DiscSubtitles {
-    private val language = mapOf("en" to setOf("eng", "en"), "en_hi" to setOf("eng", "en"), "ar" to setOf("ara", "ar"))
+    private val language = mapOf("en" to setOf("eng", "en"), "en_hi" to setOf("eng", "en"), "ar" to setOf("ara", "ar"),
+        "es" to setOf("spa", "es"), "fr" to setOf("fra", "fre", "fr"),
+    )
     private val hearingImpairedWords = Regex("""\b(sdh|hi|hearing|cc|closed caption)""", RegexOption.IGNORE_CASE)
 
     private fun isHearingImpaired(s: MediaStream): Boolean =
@@ -40,6 +42,8 @@ object DiscSubtitles {
         "en" -> "Subtitles: English"
         "en_hi" -> "Subtitles: English for the Hearing Impaired"
         "ar" -> "Subtitles: Arabic"
+        "es" -> "Subtitles: Español"
+        "fr" -> "Subtitles: Français"
         else -> "Subtitles: $code"
     }
 }

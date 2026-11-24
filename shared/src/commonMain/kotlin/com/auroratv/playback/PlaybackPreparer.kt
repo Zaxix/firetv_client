@@ -54,6 +54,8 @@ object PlaybackPreparer {
         startAtMs: Long? = null,
         /** A subtitle choice made outside the player (the disc menu's Languages page); null from it = no opinion, the usual picking applies. */
         subtitleOverride: ((List<MediaStream>) -> SubtitleOverride?)? = null,
+        /** A spoken-language choice made outside the player (the same page): the stream index to play, or null = no opinion. */
+        audioOverride: ((List<MediaStream>) -> Int?)? = null,
     ): PreparedPlayback = coroutineScope {
         val t0 = TimeSource.Monotonic.markNow()
         // Ask how to play the file while the item details are still on their way (one round trip
@@ -72,7 +74,7 @@ object PlaybackPreparer {
         val streams = source?.mediaStreams ?: item.mediaStreams
         // Tracks picked by hand earlier in this series (or movie) win over the general preferences.
         val remembered = TrackMemory.apply(trackMemory?.takeIf { settings.rememberTracks }?.get(item), streams)
-        val audio = remembered.audioIndex ?: TrackSelector.pickAudio(
+        val audio = audioOverride?.invoke(streams) ?: remembered.audioIndex ?: TrackSelector.pickAudio(
             streams,
             settings.preferredAudioLanguage.ifBlank { automaticAudioLanguage(api, item, streams, source?.defaultAudioStreamIndex) },
             source?.defaultAudioStreamIndex,

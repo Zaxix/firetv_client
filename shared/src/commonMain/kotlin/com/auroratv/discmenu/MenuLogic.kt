@@ -7,12 +7,13 @@ sealed interface MenuEffect {
     /** Start the looping menu video at [fromMs] into the loop. */
     data class StartMainVideo(val fromMs: Long) : MenuEffect
     data object StopMainVideo : MenuEffect
-    data class StartMusic(val delayMs: Long) : MenuEffect
+    /** Start the music [delayMs] from now, [fromMs] into the music file. */
+    data class StartMusic(val delayMs: Long, val fromMs: Long = 0L) : MenuEffect
     data object StopMusic : MenuEffect
     data class FadeOutMusic(val startAfterMs: Long, val durationMs: Long) : MenuEffect
     /** The transition will start shortly (the activation delay): the media layer can get it ready. */
-    data object PrepareTransition : MenuEffect
-    data object StartTransition : MenuEffect
+    data class PrepareTransition(val target: String) : MenuEffect
+    data class StartTransition(val target: String) : MenuEffect
     data object StopTransition : MenuEffect
     data object StartLetter : MenuEffect
     data object StopLetter : MenuEffect
@@ -22,11 +23,14 @@ sealed interface MenuEffect {
     data class PlayChapter(val number: Int) : MenuEffect
     data object PlayLastChapter : MenuEffect
     data class SelectSubtitle(val code: String) : MenuEffect
+    /** The film's spoken-language track to play with (see DiscAudio). */
+    data class SelectAudio(val code: String) : MenuEffect
 }
 
 enum class MenuKey { Up, Down, Left, Right, Select, Back, NextPage, PreviousPage }
 
-data class MainActivation(val buttonId: String, val at: Long, val startsAt: Long)
+/** [musicStopAt]: when the music is cut (null = already cut, or not part of this activation). */
+data class MainActivation(val buttonId: String, val at: Long, val startsAt: Long, val musicStopAt: Long? = null)
 data class PageActivation(val hotspotId: String, val at: Long, val firesAt: Long, val action: String)
 
 sealed interface MenuState {
@@ -144,11 +148,17 @@ class MenuLogic(
     private fun defaultMainButton(): MainButtonDef =
         pack.main.buttons.firstOrNull { it.default } ?: pack.main.buttons.first()
 
-    private fun enterMain(now: Long, introFadeUntil: Long? = null, loopFromMs: Long = pack.video.loop.entryMs, musicDelayMs: Long = pack.music.startLagAfterVideoEntryMs) {
+    private fun enterMain(
+        now: Long,
+        introFadeUntil: Long? = null,
+        loopFromMs: Long = pack.video.loop.entryMs,
+        musicDelayMs: Long = pack.music.startLagAfterVideoEntryMs,
+        musicFromMs: Long = 0L,
+    ) {
         state = MenuState.Main(now, defaultMainButton().id, now, introFadeUntil = introFadeUntil)
         emit(MenuEffect.StopMusic)
         emit(MenuEffect.StartMainVideo(loopFromMs))
-        emit(MenuEffect.StartMusic(musicDelayMs))
+        emit(MenuEffect.StartMusic(musicDelayMs, musicFromMs))
         note("main @$now")
     }
 
@@ -273,7 +283,7 @@ class MenuLogic(
                 val h = hotspot(s.id, s.selected)
                 if (!isActionAvailable(h.action)) { emit(MenuEffect.Gate("Not available for this title")); return }
                 if (!isReady(h.action)) { emit(MenuEffect.Gate(STILL_DOWNLOADING)); return }
-                state = s.copy(activation = PageActivation(h.id, now, now + pack.timing.subActivationToCutMs, h.action))
+                state = s.copy(activation = PageActivation(h.id, now, now + (h.cutDelayMs ?: pack.timing.subActivationToCutMs), h.action))
                 note("activate ${s.id}/${h.id} -> ${h.action}")
             }
             else -> Unit
@@ -283,17 +293,37 @@ class MenuLogic(
     private fun activateMain(s: MenuState.Main, now: Long) {
         val b = mainButton(s.selected)
         if (!isReady(b.action)) { emit(MenuEffect.Gate(STILL_DOWNLOADING)); return }
+        // A button whose action the reference never showed: a visible notice, nothing else happens.
+        if (b.action.startsWith("gate:")) { emit(MenuEffect.Gate(b.action.removePrefix("gate:"))); note("gate ${b.id}"); return }
         if (b.action == "play_movie") {
             val delay = pack.timing.playMovie?.activationToDissolveMs ?: 0L
-            state = s.copy(activation = MainActivation(b.id, now, now + delay))
+            // Play Movie: the first disc fades the music after the dissolve (see PackMusic.fadeOutOnPlayMovie); only a pack that says when to cut it cuts it here.
+            val cutAt = if (pack.timing.musicStopBeforeTransitionMs != null) musicStopAt(now, now + delay) else null
+            state = s.copy(activation = MainActivation(b.id, now, now + delay, musicStopAt = cutAt))
             note("activate play_movie")
-            if (delay == 0L) update(now)
+            if (delay == 0L) update(now) else cutMusicIfDue(now)
             return
         }
-        state = s.copy(activation = MainActivation(b.id, now, now + mainActivationDelay(b.id)))
-        emit(MenuEffect.StopMusic) // observed: the music is cut at the moment of activation
-        emit(MenuEffect.PrepareTransition)
+        val startsAt = now + mainActivationDelay(b.id)
+        state = s.copy(activation = MainActivation(b.id, now, startsAt, musicStopAt = musicStopAt(now, startsAt)))
+        cutMusicIfDue(now) // the first disc: the music is cut at the moment of activation
+        emit(MenuEffect.PrepareTransition(b.action.removePrefix("goto:")))
         note("activate ${b.id}")
+    }
+
+    /** When the music is cut for an activation that starts its video at [startsAt]; see [PackTiming.musicStopBeforeTransitionMs]. */
+    private fun musicStopAt(now: Long, startsAt: Long): Long {
+        val before = pack.timing.musicStopBeforeTransitionMs ?: return now
+        return maxOf(now, startsAt - before)
+    }
+
+    private fun cutMusicIfDue(now: Long) {
+        val s = state as? MenuState.Main ?: return
+        val act = s.activation ?: return
+        val at = act.musicStopAt ?: return
+        if (now < at) return
+        state = s.copy(activation = act.copy(musicStopAt = null))
+        emit(MenuEffect.StopMusic)
     }
 
     private fun skipIntro(now: Long) {
@@ -317,7 +347,7 @@ class MenuLogic(
             is MenuState.Intro -> updateIntro(s, now)
             is MenuState.Main -> updateMain(s, now)
             is MenuState.Transition -> {
-                if (now >= s.startedAt + pack.video.transition.pageCutMs) {
+                if (now >= s.startedAt + pack.video.transitionFor(s.target).pageCutMs) {
                     emit(MenuEffect.StopTransition)
                     enterPage(s.target, now, "main")
                 }
@@ -358,11 +388,16 @@ class MenuLogic(
             // the music starts exactly at the hand-off point.
             val early = maxOf(0L, handOffAt - now)
             val loopFrom = (pack.video.loop.entryMs - early).coerceAtLeast(0L)
+            // When the intro's own sound already carries the music, it goes on from where it is instead of starting over.
+            val inIntro = pack.music.startsInIntroAtMs
+            val musicFrom = if (inIntro != null) (intro.durationMs - inIntro).coerceAtLeast(0L) else 0L
+            val musicDelay = if (inIntro != null) early + (inIntro - intro.durationMs).coerceAtLeast(0L) else early + pack.music.startLagAfterVideoEntryMs
             enterMain(
                 now,
                 introFadeUntil = if (intro.crossfadeMs > 0) handOffAt + half else null,
                 loopFromMs = loopFrom,
-                musicDelayMs = early + pack.music.startLagAfterVideoEntryMs,
+                musicDelayMs = musicDelay,
+                musicFromMs = musicFrom,
             )
             if (intro.crossfadeMs == 0L) emit(MenuEffect.StopIntro)
             note("intro hand-off")
@@ -377,7 +412,9 @@ class MenuLogic(
             cur = s.copy(introFadeUntil = null)
             state = cur
         }
-        val act = cur.activation ?: return
+        cutMusicIfDue(now)
+        val act = (state as? MenuState.Main)?.activation ?: return
+        cur = state as MenuState.Main
         if (now < act.startsAt) return
         val b = mainButton(act.buttonId)
         if (b.action == "play_movie") {
@@ -396,7 +433,7 @@ class MenuLogic(
         val target = b.action.removePrefix("goto:")
         state = MenuState.Transition(now, target)
         emit(MenuEffect.StopMainVideo)
-        emit(MenuEffect.StartTransition)
+        emit(MenuEffect.StartTransition(target))
         note("transition -> $target @$now")
     }
 
@@ -418,6 +455,7 @@ class MenuLogic(
                 if (n == null) emit(MenuEffect.Gate("Bad chapter action '$a' in the pack")) else emit(MenuEffect.PlayChapter(n))
             }
             a.startsWith("subtitle:") -> { state = s.copy(activation = null); emit(MenuEffect.SelectSubtitle(a.removePrefix("subtitle:"))) }
+            a.startsWith("audio:") -> { state = s.copy(activation = null); emit(MenuEffect.SelectAudio(a.removePrefix("audio:"))) }
             else -> state = s.copy(activation = null) // "stay"
         }
     }

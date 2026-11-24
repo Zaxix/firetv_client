@@ -6,7 +6,7 @@ object PackCheck {
     fun missingRequired(pack: DiscMenuPackDef, assets: DiscMenuAssets): List<String> {
         val needed = LinkedHashSet<String>()
         needed += pack.video.loop.file
-        needed += pack.video.transition.file
+        pack.video.allTransitions.forEach { needed += it.file }
         needed += pack.music.file
         needed += pack.sparkles.index
         needed += pack.sparkles.data

@@ -103,6 +103,7 @@ internal class ServerData(val item: BaseItemDto) {
         action == "chapter:last" -> chapters.isNotEmpty()
         action.startsWith("chapter:") -> action.removePrefix("chapter:").toIntOrNull()?.let { chapterStartMs(it) != null } ?: false
         action.startsWith("subtitle:") -> DiscSubtitles.isAvailable(streams, action.removePrefix("subtitle:"))
+        action.startsWith("audio:") -> DiscAudio.isAvailable(streams, action.removePrefix("audio:"))
         else -> true
     }
 }
@@ -239,6 +240,7 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
     var uiState by remember { mutableStateOf<MenuState>(MenuState.Idle) }
     var toast by remember { mutableStateOf<Toast?>(null) }
     var subtitleChoice by remember { mutableStateOf<String?>(null) }
+    var audioChoice by remember { mutableStateOf<String?>(null) }
     var ready by remember { mutableStateOf(false) }
     var warnedChapterCount by remember { mutableStateOf(false) }
     val lastSparkle = remember { HashMap<String, androidx.compose.ui.graphics.ImageBitmap>() }
@@ -255,14 +257,14 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
 
     fun playMovie() {
         visit.hasPlayed = true
-        navigator.push(Route.Player(server.item.id, startFromBeginning = true, preview = server.item, subtitleCode = subtitleChoice))
+        navigator.push(Route.Player(server.item.id, startFromBeginning = true, preview = server.item, subtitleCode = subtitleChoice, audioCode = audioChoice))
     }
 
     fun playChapter(number: Int) {
         val ms = server.chapterStartMs(number)
         if (ms == null) { showToast("Chapter $number isn't available on this server"); return }
         visit.hasPlayed = true
-        navigator.push(Route.Player(server.item.id, startFromBeginning = false, preview = server.item, startAtMs = ms, subtitleCode = subtitleChoice))
+        navigator.push(Route.Player(server.item.id, startFromBeginning = false, preview = server.item, startAtMs = ms, subtitleCode = subtitleChoice, audioCode = audioChoice))
     }
 
     fun sync() {
@@ -272,15 +274,14 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
             MenuEffect.PlayLastChapter -> playChapter(server.chapterCount)
             is MenuEffect.Gate -> showToast(e.message)
             is MenuEffect.SelectSubtitle -> { subtitleChoice = e.code; showToast(DiscSubtitles.label(e.code)) }
-            MenuEffect.StartTransition -> {
-                (logic.state as? MenuState.Transition)?.target?.let { target -> scope.launch { art.ensure(target) } }
+            is MenuEffect.SelectAudio -> { audioChoice = e.code; showToast(DiscAudio.label(e.code)) }
+            is MenuEffect.StartTransition -> {
+                scope.launch { art.ensure(e.target) }
                 media.apply(e)
             }
-            MenuEffect.PrepareTransition -> {
+            is MenuEffect.PrepareTransition -> {
                 // the page the button leads to is decoded while the transition video plays
-                (logic.state as? MenuState.Main)?.activation?.buttonId?.let { id ->
-                    pack.main.buttons.firstOrNull { it.id == id }?.action?.removePrefix("goto:")?.let { target -> scope.launch { art.ensure(target) } }
-                }
+                scope.launch { art.ensure(e.target) }
                 media.apply(e)
             }
             else -> media.apply(e)
@@ -426,7 +427,7 @@ private fun DiscMenuStage(container: AppContainer, route: Route.DiscMenu, load: 
                 translate(fit.offsetX, fit.offsetY)
                 scale(fit.scale, fit.scale, pivot = Offset.Zero)
             }) {
-                drawMenu(pack, uiState, clock.longValue, sprites, art, lastSparkle, subtitleChoice, credits, textMeasurer)
+                drawMenu(pack, uiState, clock.longValue, sprites, art, lastSparkle, subtitleChoice, audioChoice, credits, textMeasurer)
             }
         }
         DownloadBanner(installState)
@@ -536,12 +537,13 @@ private fun DrawScope.drawMenu(
     art: PageArtStore,
     lastSparkle: MutableMap<String, androidx.compose.ui.graphics.ImageBitmap>,
     subtitleChoice: String?,
+    audioChoice: String?,
     credits: Map<String, List<String>>,
     measurer: TextMeasurer,
 ) {
     when (state) {
         is MenuState.Main -> drawSparkle(pack, state, now, sprites, lastSparkle)
-        is MenuState.Page -> drawPage(pack, state, art, subtitleChoice, credits, measurer)
+        is MenuState.Page -> drawPage(pack, state, art, subtitleChoice, audioChoice, credits, measurer)
         else -> Unit
     }
 }
@@ -554,7 +556,7 @@ private fun DrawScope.drawSparkle(pack: DiscMenuPackDef, state: MenuState.Main, 
     drawImage(image, topLeft = Offset(seq.x.toFloat(), seq.y.toFloat()), blendMode = BlendMode.Plus)
 }
 
-private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art: PageArtStore, subtitleChoice: String?, credits: Map<String, List<String>>, measurer: TextMeasurer) {
+private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art: PageArtStore, subtitleChoice: String?, audioChoice: String?, credits: Map<String, List<String>>, measurer: TextMeasurer) {
     val def = pack.pages[state.id] ?: return
     val a = art.peek(state.id)
     drawRect(Color.Black, size = Size(pack.canvas.w.toFloat(), pack.canvas.h.toFloat()))
@@ -564,6 +566,8 @@ private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art
     if (creditsDef != null && lines != null) drawCredits(creditsDef, lines, measurer)
     val selected = def.hotspots.firstOrNull { it.id == state.selected } ?: return
     val activating = state.activation?.hotspotId == selected.id
+    // A pack can say its page buttons lose their highlight while the action runs (the Polar Express: the underline goes out).
+    if (activating && selected.activated == null && !pack.timing.pageActivationShowsHighlight) return drawChosenLanguages(pack, def, selected.id, subtitleChoice, audioChoice)
     val kind = if (activating && selected.activated != null) "act" else "sel"
     val image = a?.highlights?.get("${selected.id}/$kind")
     val spriteRect = selected.spriteRect?.takeIf { it.size == 4 }
@@ -574,9 +578,13 @@ private fun DrawScope.drawPage(pack: DiscMenuPackDef, state: MenuState.Page, art
         val style = if (activating) pack.activatedOutline else pack.selectedOutline
         outline(selected.rect, parseColor(style.color, Color(0xFFA55A3E)), style.thicknessPx.toFloat())
     }
-    // The chosen subtitle on the Languages page keeps an outline so the choice stays visible.
-    if (subtitleChoice != null) {
-        def.hotspots.firstOrNull { it.action == "subtitle:$subtitleChoice" && it.id != selected.id }?.let {
+    drawChosenLanguages(pack, def, selected.id, subtitleChoice, audioChoice)
+}
+
+/** The chosen subtitle and spoken language on the Languages page keep an outline so the choices stay visible. */
+private fun DrawScope.drawChosenLanguages(pack: DiscMenuPackDef, def: PageDef, selectedId: String, subtitleChoice: String?, audioChoice: String?) {
+    for (action in listOfNotNull(subtitleChoice?.let { "subtitle:$it" }, audioChoice?.let { "audio:$it" })) {
+        def.hotspots.firstOrNull { it.action == action && it.id != selectedId }?.let {
             outline(it.rect, parseColor(pack.activatedOutline.color, Color(0xFF5E5A42)), pack.activatedOutline.thicknessPx / 2f)
         }
     }

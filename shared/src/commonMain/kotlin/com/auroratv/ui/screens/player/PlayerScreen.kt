@@ -41,7 +41,7 @@ private fun PlayerSession(container: AppContainer, route: Route.Player, caps: De
     }
     DisposableEffect(controller) { onDispose { controller.release() } }
     LaunchedEffect(route.itemId) {
-        controller.start(route.itemId, route.startFromBeginning, route.previewAtMs, route.startAtMs, com.auroratv.discmenu.DiscSubtitles.override(route.subtitleCode))
+        controller.start(route.itemId, route.startFromBeginning, route.previewAtMs, route.startAtMs, com.auroratv.discmenu.DiscSubtitles.override(route.subtitleCode), com.auroratv.discmenu.DiscAudio.override(route.audioCode))
     }
 
     container.platform.PlayerHost(engine, onClose = { controller.stop(); navigator.pop() }) {
