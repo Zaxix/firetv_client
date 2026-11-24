@@ -95,7 +95,8 @@ Nothing is stored by the menu except the Settings toggle. The pack is read-only 
 Measured on the build machine (not a Fire TV):
 - **Pack size on disk: 6.4 MB** (was about 20 MB; the first recreation was a 171 MB Electron zip).
   Loop 0.57 MB, transition 0.41 MB, intro 1.15 MB, letter 0.10 MB, sparkle frames 2.19 MB, page plates
-  1.27 MB, page highlight crops 0.14 MB, music 0.49 MB. What the menu waits for
+  1.27 MB, page highlight crops 0.14 MB (one `page_sprites.bundle` file, 52 members; the pack is 24 files instead of 75, because
+  many tiny requests were what made the last 30% slow), music 0.49 MB. What the menu waits for
   (stage 0 + 1) is 4.5 MB, was 15.2 MB. Everything is encoded on the build machine; the host serves
   static files only.
 - **Video is HEVC (Main, 8-bit)** since the author allowed it: loop and transition 1920×1080 at

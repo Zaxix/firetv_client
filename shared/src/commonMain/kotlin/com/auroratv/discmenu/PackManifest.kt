@@ -48,7 +48,14 @@ data class PackCatalog(val schema: Int = 1, val packs: List<CatalogPack> = empty
  *  3 = the Play Movie letter.
  */
 @Serializable
-data class ManifestFile(val path: String, val size: Long, val sha256: String, val stage: Int = 0)
+data class ManifestFile(
+    val path: String,
+    val size: Long,
+    val sha256: String,
+    val stage: Int = 0,
+    /** For an [AssetBundle]: the paths of the files inside it, which the pack refers to as if they were separate files. */
+    val contains: List<String> = emptyList(),
+)
 
 @Serializable
 data class PackManifest(val schema: Int = 1, val id: String, val files: List<ManifestFile>) {
@@ -84,6 +91,10 @@ data class PackManifest(val schema: Int = 1, val id: String, val files: List<Man
             if (!PackManifestRules.isSha256(f.sha256)) add("'${f.path}' has no valid SHA-256")
             if (f.stage !in 0..PackManifestRules.MAX_STAGE) add("'${f.path}' has stage ${f.stage}")
         }
+        val inside = files.flatMap { it.contains }
+        inside.groupBy { it }.filterValues { it.size > 1 }.keys.forEach { add("'$it' is inside more than one bundle") }
+        inside.filter { p -> files.any { it.path == p } }.forEach { add("'$it' is both a file and inside a bundle") }
+        inside.filterNot { PackManifestRules.isSafePath(it) }.forEach { add("unsafe path '$it' inside a bundle") }
         if (totalBytes > PackManifestRules.MAX_TOTAL_BYTES) add("the pack is ${totalBytes / 1_000_000} MB (limit ${PackManifestRules.MAX_TOTAL_BYTES / 1_000_000} MB)")
     }
 
@@ -119,7 +130,7 @@ object PackManifestRules {
 
 /** The files a manifest says a pack will have, as the pack checks want to see them (existence only). */
 class ManifestAssets(private val paths: Set<String>) : DiscMenuAssets {
-    constructor(m: PackManifest) : this(m.files.mapTo(HashSet()) { it.path })
+    constructor(m: PackManifest) : this(m.files.flatMapTo(HashSet()) { listOf(it.path) + it.contains })
     override fun exists(path: String) = path in paths
     override fun readText(path: String): String = error("manifest view can't read files")
     override fun readBytes(path: String): ByteArray = error("manifest view can't read files")

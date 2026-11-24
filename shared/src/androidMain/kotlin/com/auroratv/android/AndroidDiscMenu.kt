@@ -26,6 +26,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import com.auroratv.core.Log
+import com.auroratv.discmenu.AssetBundle
 import com.auroratv.discmenu.DiscMenuAssets
 import com.auroratv.discmenu.DiscMenuMedia
 import com.auroratv.discmenu.DiscMenuMediaListener
@@ -45,6 +46,7 @@ import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.RandomAccessFile
 import java.security.MessageDigest
 
 private const val TAG = "DiscMenu"
@@ -77,9 +79,40 @@ class FileDiscMenuAssets(private val dir: File) : DiscMenuAssets {
         return f
     }
 
-    override fun exists(path: String): Boolean = runCatching { file(path).isFile }.getOrDefault(false)
-    override fun readText(path: String): String = file(path).readText()
-    override fun readBytes(path: String): ByteArray = file(path).readBytes()
+    private class Member(val bundle: File, val offset: Long, val length: Int)
+
+    // Bundles are indexed when first needed and again whenever a new one has arrived (they download after the menu opens).
+    private val members = HashMap<String, Member>()
+    private val indexed = HashSet<String>()
+
+    @Synchronized
+    private fun member(path: String): Member? {
+        members[path]?.let { return it }
+        val bundles = dir.listFiles { f -> f.isFile && f.name.endsWith(AssetBundle.EXTENSION) && f.name !in indexed }.orEmpty()
+        for (b in bundles) {
+            indexed += b.name
+            runCatching {
+                RandomAccessFile(b, "r").use { raf ->
+                    val prefix = ByteArray(AssetBundle.PREFIX_BYTES)
+                    raf.readFully(prefix)
+                    val n = AssetBundle.headerLength(prefix) ?: return@use
+                    val header = ByteArray(n)
+                    raf.readFully(header)
+                    AssetBundle.parseEntries(header, raf.length())?.forEach { e -> members.putIfAbsent(e.path, Member(b, e.offset, e.length)) }
+                }
+            }
+        }
+        return members[path]
+    }
+
+    override fun exists(path: String): Boolean = runCatching { file(path).isFile || member(path) != null }.getOrDefault(false)
+    override fun readText(path: String): String = readBytes(path).decodeToString()
+    override fun readBytes(path: String): ByteArray {
+        val f = file(path)
+        if (f.isFile) return f.readBytes()
+        val m = member(path) ?: throw java.io.FileNotFoundException(path)
+        return RandomAccessFile(m.bundle, "r").use { raf -> ByteArray(m.length).also { raf.seek(m.offset); raf.readFully(it) } }
+    }
     override fun decode(bytes: ByteArray, offset: Int, length: Int): ImageBitmap? =
         BitmapFactory.decodeByteArray(bytes, offset, length)?.asImageBitmap()
 }
