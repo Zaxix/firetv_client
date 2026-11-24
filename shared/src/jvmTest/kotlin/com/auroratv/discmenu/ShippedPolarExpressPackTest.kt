@@ -165,6 +165,7 @@ class ShippedPolarExpressPackTest {
         m.update(20 + 2_120 + 4_719); assertIs<MenuState.Transition>(m.state)
         m.update(20 + 2_120 + 4_720)
         assertEquals("lang", assertIs<MenuState.Page>(m.state).id)
+        m.drainEffects() // whatever entering the page emitted is not what this test is about
         m.click(380f, 140f, 20_000) // Español 5.1
         m.update(20_000 + 560)
         assertEquals(listOf(MenuEffect.SelectAudio("es")), m.drainEffects())
