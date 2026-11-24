@@ -84,6 +84,16 @@ jobs:
             $BT/apksigner verify --print-certs "$apk" | head -3
             $BT/aapt2 dump badging "$apk" | grep -E "package:|sdkVersion|leanback|native-code" || true
             unzip -l "$apk" | grep -E "libass|ffmpeg" | head -10 || true
+            # Whether the build carries its commit and the built-in disc menu token: lengths only, never the value.
+            $BT/aapt2 dump xmltree --file AndroidManifest.xml "$apk" | python3 -c '
+          import re, sys
+          t = sys.stdin.read()
+          def val(name):
+              m = re.search(r"android:name.*?\"" + re.escape(name) + r"\".*?android:value.*?=\"([^\"]*)\"", t, re.S)
+              return m.group(1)[1:] if m else ""
+          c, k = val("com.auroratv.commit"), val("com.auroratv.discMenuToken")
+          print("   commit: " + (c or "none") + " · built-in disc menu token: " + (("present, %d characters" % len(k)) if k else "absent"))
+          '
           done
           echo "Release signed with: $SIGNING"
 
