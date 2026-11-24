@@ -33,10 +33,10 @@ back into the player.
   the server's web folder (untested: whether the server serves every file type from there). The source is a folder of static files: `catalog.json` (which films have a pack,
   matched by TMDB / IMDb id), then `<id>/manifest.json` and the pack's files. Pressing Play on a
   matching film opens the menu at once. The app fetches `pack.json` and the intro first (about
-  2 MB for the first pack), and the intro plays while the rest arrives, file by file, each one
+  1.2 MB for the first pack), and the intro plays while the rest arrives, file by file, each one
   checked by size and SHA-256 and only given its final name when it matches. Files carry a
-  stage: 0 = `pack.json` + intro, 1 = loop, music, sparkle frames (13 MB), 2 = transition, page art
-  and highlights (5 MB), 3 = the Play Movie letter. The menu opens when stage 1 is on the device
+  stage: 0 = `pack.json` + intro, 1 = loop, music, sparkle frames (3.3 MB), 2 = transition, page art
+  and highlights (1.8 MB), 3 = the Play Movie letter. The menu opens when stage 1 is on the device
   (the intro holds its last picture until then, and shows "Downloading menu… NN%"), a submenu
   opens when stage 2 is, Play Movie when stage 3 is; before that the button says it is still
   downloading. The loop and music players are only created once their files are there. If a file
@@ -93,16 +93,20 @@ Nothing is stored by the menu except the Settings toggle. The pack is read-only 
 
 ## Performance considerations
 Measured on the build machine (not a Fire TV):
-- **Pack size on disk: about 20 MB** (loop 7.1 MB, transition 2.5 MB, intro 1.9 MB, letter 0.4 MB,
-  sparkle frames 5.2 MB, page art 2.2 MB, music 0.8 MB). The first recreation was a
-  171 MB Electron zip and about 58 MB of assets; the main saving is not shipping a browser runtime
-  and re-encoding the media.
-- **Video is H.264, not a newer codec** (menu loop and transition 1920×1080 at 40.84 fps, intro and
-  letter 640×360 at 30 fps), on purpose: every Fire TV
-  and Android TV box decodes it in hardware; HEVC / AV1 hardware support varies, and a fallback
-  to software decoding would hurt more than the extra size.
-- **Music is Opus** (48 kHz stereo, 0.8 MB) rather than FLAC, since Opus decodes everywhere
-  Media3 does.
+- **Pack size on disk: 6.4 MB** (was about 20 MB; the first recreation was a 171 MB Electron zip).
+  Loop 0.57 MB, transition 0.41 MB, intro 1.15 MB, letter 0.10 MB, sparkle frames 2.19 MB, page plates
+  1.27 MB, page highlight crops 0.14 MB, music 0.49 MB. What the menu waits for
+  (stage 0 + 1) is 4.5 MB, was 15.2 MB. Everything is encoded on the build machine; the host serves
+  static files only.
+- **Video is HEVC (Main, 8-bit)** since the author allowed it: loop and transition 1920×1080 at
+  40.84 fps (5350/131), intro and letter 640×360 at 30 fps, frame counts and durations identical to
+  the H.264 versions (828 / 300 / 1276 / 81 frames). Measured against the previous files: SSIM
+  0.989 (loop), 0.996 (transition), 0.990 (intro), 0.986 (letter). A device without an HEVC
+  decoder cannot play these; this has not been tried on any Fire TV.
+- **Sparkle frames** are WebP q85 (was q95): PSNR 42.6–44.6 dB against the source PNGs; rectangles,
+  frame counts and fps unchanged. **Plates** q84 (SSIM 0.98 against the previous plates).
+- **Music is Opus** (48 kHz stereo, 96 kbps, 0.49 MB, same 39.8065 s) rather than FLAC, since Opus
+  decodes everywhere Media3 does.
 - Only four decoded page backdrops are kept (LRU); sparkle frames are decoded a few ahead of the
   playhead, never all at once.
 - Not measured: CPU, memory and frame pacing on a Fire TV with three decoders open. This is the
@@ -116,7 +120,7 @@ level. Next / previous page keys walk the scene pages (1–6) and the cast / cre
 Unverified — listed so they get checked, not assumed:
 - **Downloading has never been run against a real host or on a device.** Unit tests cover the
   manifest rules, stage order, resume, retry and failure, and the menu's waiting; the network and
-  file code (`AndroidPackStore`) is only compiled. Whether 13 MB (stage 1) arrives within the
+  file code (`AndroidPackStore`) is only compiled. Whether 4.5 MB (stage 0 + 1) arrives within the
   42-second intro depends on the connection; if not, the intro holds its last picture.
 - GitHub raw files of a private repository with `Authorization: token <t>` is the intended
   private host; that exact request has not been tried.
