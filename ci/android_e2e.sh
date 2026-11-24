@@ -306,11 +306,13 @@ key KEYCODE_DPAD_DOWN; sleep 2; shot android-15-about-capabilities
 # jump to Appearance and lose the text). Nothing is saved: Save isn't pressed.
 tflog() { adb logcat -d -s AuroraTextField:I Settings:I | tr -d '\r' | grep -v "^---"; }
 tfield() {
-  local label="$1" end="$2"; adb logcat -c
+  local label="$1" end="$2"; sleep 1; adb logcat -c
+  # (Only what happens from "start typing" on counts: a slow emulator can log the keys that led here late.)
   key KEYCODE_DPAD_CENTER; sleep 2; adb shell input text "abc123"; sleep 2; key "$end"; sleep 2
   local log; log=$(tflog); local ok=0
   echo "$log" | grep -q "\"$label\": start typing" && echo "$log" | grep -q "\"$label\": 6 character(s)" \
-    && echo "$log" | grep -q "\"$label\": box focused=true" && ! echo "$log" | grep -q "page=" && ok=1
+    && echo "$log" | sed -n '/start typing/,$p' | grep -q "\"$label\": box focused=true" \
+    && ! echo "$log" | sed -n '/start typing/,$p' | grep -q "page=" && ok=1
   check "Settings → Ratings: $label typed with the remote ($end), text kept, focus back on the field, page unchanged" $ok "$(echo "$log" | grep -E "page=|box focused|stop typing" | tr '\n' ' ')"
 }
 opentrace "section:Settings"; sleep 12; key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_RIGHT; sleep 1
