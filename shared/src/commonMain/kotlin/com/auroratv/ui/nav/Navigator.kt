@@ -33,6 +33,8 @@ sealed interface Route {
         val startAtMs: Long? = null,
         /** A subtitle choice from the disc menu's Languages page (see DiscSubtitles). */
         val subtitleCode: String? = null,
+        /** A spoken-language choice from the same page (see DiscAudio). */
+        val audioCode: String? = null,
     ) : Route
     /** A film's disc-style menu (see com.auroratv.discmenu). Play and chapter choices push [Player] on top of it. */
     data class DiscMenu(val itemId: String, val preview: BaseItemDto? = null) : Route

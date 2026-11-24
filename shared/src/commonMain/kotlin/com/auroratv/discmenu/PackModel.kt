@@ -54,10 +54,16 @@ data class PackCanvas(val w: Int = 1920, val h: Int = 1080)
 @Serializable
 data class PackVideo(
     val loop: LoopVideo,
+    /** The transition into any page that has no entry in [transitions]. */
     val transition: TransitionVideo,
+    /** Per target page id: a disc whose buttons each play their own transition (the Polar Express: scenes and languages differ). */
+    val transitions: Map<String, TransitionVideo> = emptyMap(),
     val intro: IntroVideo? = null,
     val letter: LetterVideo? = null,
-)
+) {
+    fun transitionFor(target: String): TransitionVideo = transitions[target] ?: transition
+    val allTransitions: List<TransitionVideo> get() = listOf(transition) + transitions.values
+}
 
 @Serializable
 data class LoopVideo(val file: String, val durationMs: Long, val entryMs: Long, val fps: Double)
@@ -92,6 +98,12 @@ data class PackMusic(
     val restartOnMainEntry: Boolean = true,
     val startLagAfterVideoEntryMs: Long = 0,
     val fadeOutOnPlayMovie: MusicFade? = null,
+    /**
+     * Where in the intro (ms) the music file's first sample plays, when the intro's own sound already carries the music
+     * (the Polar Express: the music comes in under the intro's last seconds). At the hand-off the music then continues from
+     * its position at that moment instead of starting over. `null` = the music starts from its beginning at the hand-off.
+     */
+    val startsInIntroAtMs: Long? = null,
 )
 
 @Serializable
@@ -106,6 +118,13 @@ data class PackTiming(
     val activationToTransitionMs: Map<String, Long?> = emptyMap(),
     val subActivationToCutMs: Long,
     val playMovie: PlayMovieTiming? = null,
+    /**
+     * How long before the transition (or the Play Movie clip) starts the music is cut. `null` = at the moment of activation
+     * (the first disc). The Polar Express keeps playing for a while after the button is pressed.
+     */
+    val musicStopBeforeTransitionMs: Long? = null,
+    /** Whether a page button keeps its highlight picture while its action runs (false = the highlight is gone, as on the Polar Express). */
+    val pageActivationShowsHighlight: Boolean = true,
 )
 
 @Serializable
@@ -152,6 +171,8 @@ data class HotspotDef(
     val activated: String? = null,
     val action: String,
     val provenance: String? = null,
+    /** How long after activation the action takes effect, when it differs from [PackTiming.subActivationToCutMs]. */
+    val cutDelayMs: Long? = null,
 )
 
 /**

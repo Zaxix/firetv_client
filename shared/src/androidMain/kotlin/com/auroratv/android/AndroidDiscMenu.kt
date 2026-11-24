@@ -222,15 +222,15 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
                 // The next entry shows its first picture at once instead of the frame the loop stopped on.
                 it.seekTo(0, pack.video.loop.entryMs)
             }
-            is MenuEffect.StartMusic -> startMusic(effect.delayMs)
+            is MenuEffect.StartMusic -> startMusic(effect.delayMs, effect.fromMs)
             MenuEffect.StopMusic -> stopMusic()
             is MenuEffect.FadeOutMusic -> fadeOutMusic(effect.startAfterMs, effect.durationMs)
-            MenuEffect.PrepareTransition -> {
+            is MenuEffect.PrepareTransition -> {
                 if (this.effect == Effect.Intro) stopEffect(Effect.Intro)
-                playEffect(Effect.Transition, pack.video.transition.file, play = false)
+                playEffect(Effect.Transition, pack.video.transitionFor(effect.target).file, play = false)
             }
-            MenuEffect.StartTransition -> {
-                if (this.effect != Effect.Transition) playEffect(Effect.Transition, pack.video.transition.file, play = true)
+            is MenuEffect.StartTransition -> {
+                if (this.effect != Effect.Transition) playEffect(Effect.Transition, pack.video.transitionFor(effect.target).file, play = true)
                 else fx.playWhenReady = true
             }
             MenuEffect.StopTransition -> stopEffect(Effect.Transition)
@@ -258,13 +258,13 @@ class ExoDiscMenuMedia(private val activity: Activity, private val dir: File, pr
         effectVisible = false
     }
 
-    private fun startMusic(delayMs: Long) {
+    private fun startMusic(delayMs: Long, fromMs: Long) {
         prepareMain()
         val music = music ?: return
         cancelMusicTimers()
         music.volume = 1f
         music.playWhenReady = false
-        music.seekTo(0, 0L)
+        music.seekTo(0, fromMs)
         if (delayMs <= 0L) { music.playWhenReady = true; return }
         val start = Runnable { if (!released) music.playWhenReady = true }
         pendingMusicStart = start

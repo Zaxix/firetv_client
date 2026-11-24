@@ -1,0 +1,119 @@
+{
+ "schema": 1,
+ "id": "polar-express-wb-2005",
+ "files": [
+  {
+   "path": "pack.json",
+   "size": 27528,
+   "sha256": "f344cd2eddaf38dbbe041d8cc42be9c6032b877644405b257b4efff319bf4076",
+   "stage": 0
+  },
+  {
+   "path": "video/intro.mp4",
+   "size": 959302,
+   "sha256": "133db0db34b3465e42b5a5f5768631918de89334afcef1c1f688b6f527a95762",
+   "stage": 0
+  },
+  {
+   "path": "audio/music.opus",
+   "size": 253671,
+   "sha256": "9b94d22cecc721666986d158f0e3890868fddf19edae182f038308459c044cbd",
+   "stage": 1
+  },
+  {
+   "path": "sprites.bin",
+   "size": 5188,
+   "sha256": "050f52eef631b0888b4c6a134225b0cb0ae278f1394f1eab5c49647543a70f52",
+   "stage": 1
+  },
+  {
+   "path": "sprites.json",
+   "size": 862,
+   "sha256": "e4ffb6b536dc3a45e462a1e06d6ca75dfd808480d13ea3624dfff90c9edee4b8",
+   "stage": 1
+  },
+  {
+   "path": "video/menu_loop.mp4",
+   "size": 471012,
+   "sha256": "fbffd9262e031d46e03d2481277d23617d1b5a4bd321457efaba39c03ca3eace",
+   "stage": 1
+  },
+  {
+   "path": "page_sprites.bundle",
+   "size": 15776,
+   "sha256": "69a6019ea4b901e128d3bb533e4416ae6f5dd353edaf6b9b365044b229589151",
+   "stage": 2,
+   "contains": [
+    "page_sprites/lang_audio_en.webp",
+    "page_sprites/lang_audio_es.webp",
+    "page_sprites/lang_audio_fr.webp",
+    "page_sprites/lang_main_menu.webp",
+    "page_sprites/lang_next.webp",
+    "page_sprites/lang_sub_en.webp",
+    "page_sprites/lang_sub_es.webp",
+    "page_sprites/lang_sub_fr.webp",
+    "page_sprites/lang_sub_off.webp",
+    "page_sprites/legal_main_menu.webp",
+    "page_sprites/scene_main_menu.webp",
+    "page_sprites/tab_13_18.webp",
+    "page_sprites/tab_19_24.webp",
+    "page_sprites/tab_1_6.webp",
+    "page_sprites/tab_7_12.webp"
+   ]
+  },
+  {
+   "path": "pages/lang.webp",
+   "size": 26392,
+   "sha256": "a39a7dd09101f8a7fc37627c7a4ac3fc9df36a39a9f4192418131c358e48a882",
+   "stage": 2
+  },
+  {
+   "path": "pages/legal.webp",
+   "size": 33438,
+   "sha256": "18835e42561631118e59f78edb680a0e098afa2b18f7844e6dd12439034bb711",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss1.webp",
+   "size": 33354,
+   "sha256": "cb3553827e96d3bc177753f2e8e096b779b06cc9993cc16fcd2dff50ee37952c",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss2.webp",
+   "size": 43240,
+   "sha256": "43447a91ed4d207126744a3b72224dfc38b69f1d2ce596fab3b8ba63f82f7e47",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss3.webp",
+   "size": 41054,
+   "sha256": "841ece7925b64b06b993b011ec9af77496f4aebd5118454b0d931c772a757e77",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss4.webp",
+   "size": 42548,
+   "sha256": "168bbdc1a119f4fbf8f993480b917bb399570c62970c408510f5fd3f9863fd65",
+   "stage": 2
+  },
+  {
+   "path": "video/transition_languages.mp4",
+   "size": 181982,
+   "sha256": "36565758838b7912a3c423e033f41d825b6d59766f394abbf3cf7f3d447ee6c3",
+   "stage": 2
+  },
+  {
+   "path": "video/transition_scenes.mp4",
+   "size": 196422,
+   "sha256": "73afdd766036791a86dc2a28ed327e3c53c7a34e25557fa2aab45d9f3703ed02",
+   "stage": 2
+  },
+  {
+   "path": "video/play.mp4",
+   "size": 174351,
+   "sha256": "8dd6273179519c045dc29d455fb34d72f68b3021d4f1bedcdc5b5c01ba4a6d53",
+   "stage": 3
+  }
+ ]
+}
