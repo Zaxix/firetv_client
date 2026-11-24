@@ -6,6 +6,12 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Smaller disc menu pack
+The first pack went from 20.6 MB to 6.4 MB, and the part the menu waits for from 15.2 MB to 4.5 MB,
+by re-encoding on the build machine (HEVC video, 96 kbps Opus, WebP q85 sparkle frames, q84 plates).
+Durations, frame counts, fps and sprite rectangles are unchanged; similarity numbers are in
+[[Disc Menus]]. No app code changed (only the test fixture of the manifest). Not tried on a Fire TV.
+
 ## Disc menus (first version)
 **Play on a film can now open a DVD-style menu** instead of starting the video: main menu with
 sparkles and music, scene selection with the film's chapters, cast and crew from the server,
