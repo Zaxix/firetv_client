@@ -11,7 +11,7 @@ Layout to host (any static web server, or the raw files of a private GitHub repo
 Stages decide what is fetched first and what the menu may do before the rest has arrived:
   0 pack.json and the intro      1 loop, music, sparkle frames      2 everything else (transition, page art)      3 the letter
 """
-import argparse, hashlib, json, os, re, sys
+import argparse, hashlib, json, os, re, struct, sys
 
 
 def sha256(path):
@@ -20,6 +20,17 @@ def sha256(path):
         for chunk in iter(lambda: f.read(1 << 20), b''):
             h.update(chunk)
     return h.hexdigest()
+
+
+def bundle_paths(path):
+    """The member paths of a .bundle file (format: DMB1, 4-byte big-endian header length, JSON header, data)."""
+    with open(path, 'rb') as f:
+        head = f.read(8)
+        if head[:4] != b'DMB1':
+            sys.exit(f'{path} is not a bundle')
+        n = struct.unpack('>I', head[4:])[0]
+        hdr = json.loads(f.read(n))
+    return [m['p'] for m in hdr['files']]
 
 
 def main():
@@ -51,7 +62,10 @@ def main():
             rel = os.path.relpath(full, root).replace(os.sep, '/')
             if rel == 'manifest.json' or n.startswith('.') or n.endswith('.part'):
                 continue
-            files.append({'path': rel, 'size': os.path.getsize(full), 'sha256': sha256(full), 'stage': stage.get(rel, 2)})
+            entry = {'path': rel, 'size': os.path.getsize(full), 'sha256': sha256(full), 'stage': stage.get(rel, 2)}
+            if rel.endswith('.bundle'):
+                entry['contains'] = bundle_paths(full)
+            files.append(entry)
     files.sort(key=lambda f: (f['stage'], f['path']))
     missing = [p for p in stage if not any(f['path'] == p for f in files)]
     if missing:

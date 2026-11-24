@@ -6,6 +6,12 @@ tags: [development, changelog]
 Newest first. Numbers come from CI (Android TV emulator + a real Jellyfin server in Docker), not
 from a real Fire TV.
 
+## Bundled highlight crops
+The 52 tiny highlight images of the disc menu pack are one `.bundle` file (`AssetBundle`, `make_bundle.py`);
+the app reads each member by its old path, so `pack.json` is unchanged and old unbundled packs still work.
+A pack with a bundle needs this build. Reason: after the menu opened, the last 30% of the download was
+68 small files fetched one by one. Not measured on a device.
+
 ## Smaller disc menu pack
 The first pack went from 20.6 MB to 6.4 MB, and the part the menu waits for from 15.2 MB to 4.5 MB,
 by re-encoding on the build machine (HEVC video, 96 kbps Opus, WebP q85 sparkle frames, q84 plates).
