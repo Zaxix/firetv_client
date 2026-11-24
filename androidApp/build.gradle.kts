@@ -10,6 +10,11 @@ val auroraBuild = providers.environmentVariable("AURORA_BUILD").orNull?.toIntOrN
 val auroraBaseVersion = providers.gradleProperty("aurora.versionName").get()
 val auroraVersionName = auroraBuild?.let { auroraBaseVersion.substringBeforeLast('.') + ".$it" } ?: auroraBaseVersion
 val auroraVersionCode = auroraBuild ?: providers.gradleProperty("aurora.versionCode").get().toInt()
+// The commit a CI build was made from, shown next to the version in the app ("1.0.158 (abc1234)").
+val auroraCommit = providers.environmentVariable("GITHUB_SHA").orNull?.take(7).orEmpty()
+// The disc menu token every install starts with, from the DISC_MENU_TOKEN repository secret: never in
+// the source. Empty when the secret isn't set (local builds, forks); the app then has no built-in token.
+val discMenuToken = providers.environmentVariable("DISC_MENU_TOKEN").orNull?.trim().orEmpty()
 
 // Release signing comes from environment variables so no key material is ever committed.
 // CI sets these (from repository secrets when present, otherwise from a freshly generated key).
@@ -25,6 +30,9 @@ android {
         targetSdk = 35
         versionCode = auroraVersionCode
         versionName = auroraVersionName
+        // Prefixed so Android keeps them as text (a commit like "1234567" would otherwise be read as a number).
+        manifestPlaceholders["auroraCommit"] = "c$auroraCommit"
+        manifestPlaceholders["discMenuToken"] = "t$discMenuToken"
     }
 
     signingConfigs {

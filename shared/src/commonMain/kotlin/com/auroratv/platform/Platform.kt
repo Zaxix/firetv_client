@@ -45,6 +45,15 @@ interface Platform {
 
     fun createEngine(settings: com.auroratv.settings.Settings): PlaybackEngine
 
+    /** The commit this build was made from (7 characters), or "" for a local build. */
+    val buildCommit: String get() = ""
+
+    /**
+     * The disc menu token built into this app (from the build's DISC_MENU_TOKEN secret), or "". Used
+     * only for GitHub sources, and only when no token was entered in Settings.
+     */
+    val builtInDiscMenuToken: String get() = ""
+
     /** Self-update support (null where the app can't update itself). */
     val updater: com.auroratv.update.AppUpdater? get() = null
 

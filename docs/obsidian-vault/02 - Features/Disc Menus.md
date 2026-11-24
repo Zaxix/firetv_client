@@ -28,7 +28,14 @@ back into the player.
   device in one of two ways: copied there by hand (`adb push`; debug builds use the `.debug`
   application id), or downloaded by the app as described next.
 - **Downloading** (Settings → Disc menus → source address, plus an optional read-only token for a
-  private host). With no address set, the Jellyfin server itself is the source, at
+  private host). **Built-in token (Nov 2026):** builds can carry a default token for every install,
+  taken from the `DISC_MENU_TOKEN` repository secret at build time (never in the source or the logs;
+  `androidApp/build.gradle.kts` → manifest meta-data → `BuildValues` → `Platform.builtInDiscMenuToken`).
+  It's used only when no token is entered in Settings, and only for `https://` GitHub addresses
+  (`isGitHubAddress`: github.com, api.github.com, *.githubusercontent.com), so it can't be sent to
+  another site. It's never shown or saved in Settings; the field's label says when it's in use.
+  Like anything in an APK it can be extracted by whoever has the APK: keep it read-only and limited
+  to the menu repository. Replace it by updating the secret; the next build carries the new one. With no address set, the Jellyfin server itself is the source, at
   `<server>/web/discmenus`: put `catalog.json` and the pack folders in a `discmenus` folder inside
   the server's web folder (untested: whether the server serves every file type from there). The source is a folder of static files: `catalog.json` (which films have a pack,
   matched by TMDB / IMDb id), then `<id>/manifest.json` and the pack's files. Pressing Play on a

@@ -361,12 +361,17 @@ private fun DiscMenusPage(container: AppContainer) {
                 "Leave the address empty to use your Jellyfin server: put the menu folders and catalog.json in a folder named discmenus inside the server's web folder " +
                     "(they are then served at <your server>/web/discmenus). Or enter a web address you control whose folder holds catalog.json and one folder per menu " +
                     "(for example the raw files of a private GitHub repository: https://raw.githubusercontent.com/<you>/<repo>/<branch>). " +
-                    "The intro plays while the rest downloads. For a private repository, add a read-only access token; it is kept encrypted on this device and sent only to that address.",
+                    "The intro plays while the rest downloads. For a private repository, add a read-only access token; it is kept encrypted on this device and sent only to that address." +
+                    (if (container.hasBuiltInDiscMenuToken) " This app has a token built in for GitHub addresses: leave the token empty to use it." else ""),
                 style = AuroraType.caption, color = colors.onSurfaceFaint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
             )
         }
         item { AuroraTextField(source, { source = it }, "Menu source address", Modifier.fillMaxWidth()) }
-        item { AuroraTextField(token, { token = it }, "Access token (private sources only)", Modifier.fillMaxWidth(), password = true) }
+        item {
+            AuroraTextField(token, { token = it },
+                if (container.hasBuiltInDiscMenuToken && token.isEmpty()) "Access token (built-in token used)" else "Access token (private sources only)",
+                Modifier.fillMaxWidth(), password = true)
+        }
         item {
             SettingRow("Save and check", status, "Saves the address and token, then looks for the catalog") {
                 val address = source.trim()

@@ -44,6 +44,10 @@ class AndroidPlatform(private val activity: Activity) : Platform {
 
     override fun uiSoundOutput(): com.auroratv.ui.sound.UiSoundOutput = AndroidUiSounds(activity)
 
+    private val buildValues by lazy { BuildValues(activity) }
+    override val buildCommit: String get() = buildValues.commit
+    override val builtInDiscMenuToken: String get() = buildValues.discMenuToken
+
     override val discMenus: com.auroratv.discmenu.DiscMenuPlatform = AndroidDiscMenuPlatform(activity)
 
     override fun requestStats(): String = com.auroratv.jellyfin.SharedOkHttp.let {

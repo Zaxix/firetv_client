@@ -44,6 +44,15 @@ Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
   tried against a real host. See "Known limitations" in
   [[Disc Menus]] (sparkle blending over video, looping, three decoders, assumed actions).
 
+## Commit next to the version, old APK copies dropped, built-in disc menu token
+- **Version with commit:** the app shows the commit next to the build number, e.g. 1.0.158 (abc1234).
+- **Published files:** latest-build no longer includes `Nameless-release.apk` or `AuroraTV-release.apk`.
+- **Built-in disc menu token:** every install can start with one, taken from the `DISC_MENU_TOKEN`
+  repository secret.
+  - It's used only for GitHub addresses, and only when no token has been entered.
+  - It's never in the source.
+- **Tests:** `BuiltInTokenTest`.
+
 ## Settings text fields
 **Typing in a Settings field threw you back to Appearance.** Finishing typing (Back, or the
 keyboard's Next/Done) dropped focus for a moment. The app then put focus on the first section,

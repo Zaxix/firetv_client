@@ -40,7 +40,13 @@ class AndroidUpdater(private val context: Context) : AppUpdater {
             (if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()).toInt()
         }.getOrDefault(0)
 
-    override val currentVersion: String get() = runCatching { installedInfo().versionName }.getOrNull() ?: "unknown"
+    private val commit by lazy { BuildValues(context).commit }
+
+    /** The version with the commit it was built from, e.g. "1.0.158 (abc1234)". */
+    override val currentVersion: String get() {
+        val name = runCatching { installedInfo().versionName }.getOrNull() ?: return "unknown"
+        return if (commit.isEmpty()) name else "$name ($commit)"
+    }
 
     private val debuggable get() = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 

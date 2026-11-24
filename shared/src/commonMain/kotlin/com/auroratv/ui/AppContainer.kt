@@ -87,13 +87,24 @@ class AppContainer(val platform: Platform) {
      */
     fun discMenuSource(): com.auroratv.discmenu.PackSource? {
         val set = settings.current.discMenuSource.trim()
-        if (set.isNotEmpty()) return com.auroratv.discmenu.PackSource(set, platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()).takeIf { it.valid }
+        if (set.isNotEmpty()) return com.auroratv.discmenu.PackSource(set, discMenuTokenFor(set)).takeIf { it.valid }
         val server = sessions.activeSession?.api?.baseUrl ?: return null
         return com.auroratv.discmenu.PackSource(server.trimEnd('/') + "/web/discmenus").takeIf { it.valid }
     }
 
     fun saveDiscMenuToken(token: String) { if (token.isBlank()) platform.vault.remove(DISC_MENU_TOKEN_KEY) else platform.vault.put(DISC_MENU_TOKEN_KEY, token.trim()) }
+    /** The token entered in Settings ("" if none; the built-in one is never shown or saved there). */
     fun discMenuToken(): String = platform.vault.get(DISC_MENU_TOKEN_KEY).orEmpty()
+
+    /** Whether this build has a built-in disc menu token (used for GitHub sources when none is entered). */
+    val hasBuiltInDiscMenuToken: Boolean get() = platform.builtInDiscMenuToken.isNotEmpty()
+
+    /**
+     * The token for a source at [address]: the one entered in Settings, else the built-in one, but that
+     * only for GitHub addresses, so it's never sent to any other site an address might point at.
+     */
+    private fun discMenuTokenFor(address: String): String =
+        discMenuToken().ifEmpty { if (com.auroratv.discmenu.isGitHubAddress(address)) platform.builtInDiscMenuToken else "" }
 
     var launchSettingsOverride: ((com.auroratv.settings.Settings) -> com.auroratv.settings.Settings)? = null
 

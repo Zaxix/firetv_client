@@ -71,6 +71,9 @@ jobs:
           echo "AURORA_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Build debug APK, release APK and release AAB
+        env:
+          # The built-in disc menu token (empty if the secret isn't set). Goes into the app only, never the logs.
+          DISC_MENU_TOKEN: ${{ secrets.DISC_MENU_TOKEN }}
         run: ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
 
       - name: Verify APK signatures and contents
@@ -269,10 +272,8 @@ jobs:
           mkdir -p upload
           cp artifacts/android/* upload/
           for f in upload/*; do mv "$f" "$(echo "$f" | tr ' ' '-')" 2>/dev/null || true; done
-          # Published under the app's current name; Nameless-release.apk and AuroraTV-release.apk stay (same
-          # file) so builds from before each rename can still find their update.
-          cp upload/AuroraTV-release.apk upload/Sharkfin-release.apk
-          cp upload/AuroraTV-release.apk upload/Nameless-release.apk
+          # Published under the app's name only (the old Nameless/AuroraTV copies are no longer kept).
+          mv upload/AuroraTV-release.apk upload/Sharkfin-release.apk
           mv upload/AuroraTV-debug.apk upload/Sharkfin-debug.apk
           mv upload/AuroraTV-release.aab upload/Sharkfin-release.aab
           ls -la upload
@@ -302,7 +303,7 @@ jobs:
           cat > notes.md <<MD
           Automated build of \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
 
-          * **Fire TV / Android TV:** install \`Sharkfin-release.apk\` (sideload; \`Nameless-release.apk\` and \`AuroraTV-release.apk\` are the same file, kept for older builds' updater). \`Sharkfin-debug.apk\` is a debuggable build; the AAB is for store uploads.
+          * **Fire TV / Android TV:** install \`Sharkfin-release.apk\` (sideload, or the in-app update). \`Sharkfin-debug.apk\` is a debuggable build; the AAB is for store uploads.
           CI status: Android ${{ needs.android.result }} · real-server tests ${{ needs.e2e.result }} · Android TV emulator ${{ needs.android-e2e.result }}.
           MD
           gh release create latest-build upload/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \

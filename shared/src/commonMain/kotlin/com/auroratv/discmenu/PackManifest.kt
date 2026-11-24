@@ -153,3 +153,11 @@ data class PackSource(val baseUrl: String, val token: String = "") {
     fun headersFor(url: String): Map<String, String> =
         if (token.isNotBlank() && host(url) == host(base)) mapOf("Authorization" to "token ${token.trim()}") else emptyMap()
 }
+
+/** Whether [address] is on GitHub (the only kind of site the app's built-in disc menu token is sent to). */
+fun isGitHubAddress(address: String): Boolean {
+    if (!address.trim().lowercase().startsWith("https://")) return false
+    val host = address.trim().substringAfter("://").substringBefore('/').substringBefore('?').substringBefore('#')
+        .substringAfterLast('@').substringBefore(':').lowercase()
+    return host == "github.com" || host == "api.github.com" || host == "raw.githubusercontent.com" || host.endsWith(".githubusercontent.com")
+}

@@ -18,3 +18,19 @@ logs), `--ei resumeLevel 0..3` (compare resume optimisations).
 
 ## Related notes
 [[Development Setup]] · [[Testing Guide]]
+
+
+## Version shown in the app (Nov 2026)
+CI builds show the commit next to the build number, e.g. **1.0.158 (abc1234)**, in Settings → About
+and the update card. The commit comes from `GITHUB_SHA` at build time (manifest meta-data
+`com.auroratv.commit`); local builds show the version alone.
+
+## Published files
+`latest-build` holds `Sharkfin-release.apk`, `Sharkfin-debug.apk`, `Sharkfin-release.aab` and
+`version.json`. The old `Nameless-release.apk` and `AuroraTV-release.apk` copies are no longer
+published (from 1.0.158). Builds from before the Sharkfin rename can't update themselves: install
+`Sharkfin-release.apk` by hand on those.
+
+## Secrets the build uses
+- Release signing (`AURORA_*`, optional).
+- `DISC_MENU_TOKEN` (optional): the built-in disc menu token ([[Disc Menus]]).
