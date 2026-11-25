@@ -1,0 +1,30 @@
+name: Scratch
+on:
+  push:
+    branches: [aurora-tv-new]
+concurrency:
+  group: scratch
+  cancel-in-progress: true
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Android unit tests (PrepareTest)
+        run: |
+          ./gradlew --no-daemon :shared:testDebugUnitTest --tests com.auroratv.PrepareTest || true
+          python3 - <<'PY'
+          import glob, re, html
+          for f in glob.glob("shared/build/test-results/testDebugUnitTest/*.xml"):
+              t = open(f).read()
+              for m in re.finditer(r'<testcase name="([^"]+)"[^>]*>\s*<failure message="([^"]*)"[^>]*>(.*?)</failure>', t, re.S):
+                  print("FAIL", m.group(1)); print(html.unescape(m.group(2))[:600]); print("\n".join(html.unescape(m.group(3)).splitlines()[:25]))
+              for m in re.finditer(r'<system-out><!\[CDATA\[(.*?)\]\]>', t, re.S):
+                  print("STDOUT", m.group(1)[-3000:])
+          PY
