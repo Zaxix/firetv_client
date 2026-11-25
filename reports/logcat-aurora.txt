@@ -1,0 +1,137 @@
+11-25 02:01:54.422 21771 21771 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:01:54.424 21771 21771 I AndroidRuntime: Using default boot image
+11-25 02:01:54.424 21771 21771 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:01:54.485 21771 21771 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:01:54.490 21546 21546 D AuroraKeys: key=KEYCODE_A handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.492 21546 21546 D AuroraKeys: key=KEYCODE_B handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.494 21546 21546 D AuroraKeys: key=KEYCODE_C handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.495 21546 21546 D AuroraKeys: key=KEYCODE_1 handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.497 21546 21546 D AuroraKeys: key=KEYCODE_2 handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.560 21546 21546 D AuroraKeys: key=KEYCODE_3 handled=true focus=AndroidComposeView touchMode=false
+11-25 02:01:54.639 21771 21771 D AndroidRuntime: Shutting down VM
+11-25 02:01:57.124 21784 21784 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:01:57.129 21784 21784 I AndroidRuntime: Using default boot image
+11-25 02:01:57.129 21784 21784 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:01:57.197 21784 21784 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:01:57.201 21784 21784 D AndroidRuntime: Shutting down VM
+11-25 02:02:03.006 21826 21826 I AuroraFocus: region=content
+11-25 02:02:03.849 21826 21826 I AuroraFocus: region=none
+11-25 02:02:04.298 21826 21826 I AuroraFocus: region=content
+11-25 02:02:05.013 21826 21871 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-25 02:02:05.015 21826 21871 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-25 02:02:05.021 21826 21871 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-25 02:02:05.022 21826 21826 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-25 02:02:05.091 21826 21826 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported, VideoRangeTypeNotSupported]
+11-25 02:02:14.163 21889 21889 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:14.165 21889 21889 I AndroidRuntime: Using default boot image
+11-25 02:02:14.165 21889 21889 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:14.221 21889 21889 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:14.231 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:14.266 21889 21889 D AndroidRuntime: Shutting down VM
+11-25 02:02:16.099 21906 21906 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:16.101 21906 21906 I AndroidRuntime: Using default boot image
+11-25 02:02:16.101 21906 21906 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:16.158 21906 21906 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:16.183 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:16.229 21906 21906 D AndroidRuntime: Shutting down VM
+11-25 02:02:16.945 21826 21826 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-25 02:02:17.913 21920 21920 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:17.914 21920 21920 I AndroidRuntime: Using default boot image
+11-25 02:02:17.914 21920 21920 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:17.976 21920 21920 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:17.983 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:18.096 21920 21920 D AndroidRuntime: Shutting down VM
+11-25 02:02:18.736 21826 21826 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-25 02:02:19.776 21934 21934 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:19.777 21934 21934 I AndroidRuntime: Using default boot image
+11-25 02:02:19.777 21934 21934 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:19.836 21934 21934 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:19.842 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:19.847 21934 21934 D AndroidRuntime: Shutting down VM
+11-25 02:02:24.917 21953 21953 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:24.919 21953 21953 I AndroidRuntime: Using default boot image
+11-25 02:02:24.919 21953 21953 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:24.975 21953 21953 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:24.981 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:25.004 21953 21953 D AndroidRuntime: Shutting down VM
+11-25 02:02:26.679 21967 21967 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:26.681 21967 21967 I AndroidRuntime: Using default boot image
+11-25 02:02:26.681 21967 21967 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:26.737 21967 21967 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:26.741 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:26.744 21967 21967 D AndroidRuntime: Shutting down VM
+11-25 02:02:28.408 21980 21980 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:28.409 21980 21980 I AndroidRuntime: Using default boot image
+11-25 02:02:28.410 21980 21980 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:28.466 21980 21980 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:28.471 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:28.475 21980 21980 D AndroidRuntime: Shutting down VM
+11-25 02:02:30.139 21993 21993 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:02:30.141 21993 21993 I AndroidRuntime: Using default boot image
+11-25 02:02:30.141 21993 21993 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:02:30.198 21993 21993 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:02:30.202 21826 21826 D AuroraKeys: key=KEYCODE_DPAD_RIGHT handled=true focus=AndroidComposeView touchMode=false
+11-25 02:02:30.209 21993 21993 D AndroidRuntime: Shutting down VM
+11-25 02:02:37.280 22025 22025 I AuroraFocus: region=content
+11-25 02:02:37.327 22025 22050 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-25 02:02:37.330 22025 22050 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-25 02:02:37.335 22025 22025 I AuroraFocus: region=none
+11-25 02:02:37.393 22025 22050 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-25 02:02:37.411 22025 22025 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-25 02:02:37.594 22025 22025 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-25 02:02:37.594 22025 22082 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-25 02:02:37.764 22025 22082 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-25 02:02:37.764 22025 22082 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-25 02:02:37.764 22025 22082 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-25 02:02:37.764 22025 22082 V mpv     : [osd/libass:v] Setting up fonts...
+11-25 02:02:37.935 22025 22025 I AuroraFocus: region=content
+11-25 02:02:38.256 22025 22025 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-25 02:02:38.333 22025 22082 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-25 02:02:38.333 22025 22082 V mpv     : [osd/libass:v] Done.
+11-25 02:02:38.335 22025 22025 I Player  : Ready to play in 405 ms (cold, DirectPlay)
+11-25 02:03:08.408 22128 22128 I AuroraFocus: region=content
+11-25 02:03:08.421 22128 22153 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-25 02:03:08.424 22128 22153 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-25 02:03:08.448 22128 22128 I AuroraFocus: region=none
+11-25 02:03:08.522 22128 22153 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-25 02:03:08.528 22128 22128 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-25 02:03:08.672 22128 22128 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-25 02:03:08.673 22128 22184 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-25 02:03:08.769 22128 22184 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-25 02:03:08.769 22128 22184 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-25 02:03:08.769 22128 22184 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-25 02:03:08.769 22128 22184 V mpv     : [osd/libass:v] Setting up fonts...
+11-25 02:03:09.097 22128 22128 I AuroraFocus: region=content
+11-25 02:03:09.181 22128 22184 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-25 02:03:09.181 22128 22184 V mpv     : [osd/libass:v] Done.
+11-25 02:03:09.398 22128 22128 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:03:09.566 22128 22128 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:03:09.581 22128 22128 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-25 02:03:09.583 22128 22128 I Player  : Ready to play in 818 ms (cold, Transcode)
+11-25 02:03:12.889 22128 22184 V mpv     : [sub/ass:v] libass API version: 0x1704000
+11-25 02:03:12.889 22128 22184 V mpv     : [sub/ass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-25 02:03:34.494 22223 22223 I AuroraFocus: region=content
+11-25 02:03:34.522 22223 22252 I VideoCapabilities: Unsupported profile 4 for video/mp4v-es
+11-25 02:03:34.538 22223 22223 I AuroraFocus: region=none
+11-25 02:03:34.541 22223 22252 I Caps    : Dolby Vision: display=false decoderProfiles=[] convertP7=false maskHdr10Plus=false
+11-25 02:03:34.567 22223 22252 I Caps    : Android 30 Google AOSP TV on x86: DeviceCapabilities(engineName=Media3 ExoPlayer 1.8.0, video=[VideoCodecSupport(codec=h264, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[high, main, baseline, constrained baseline], decoderName=OMX.google.h264.decoder), VideoCodecSupport(codec=hevc, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=8, profiles=[main], decoderName=OMX.google.hevc.decoder), VideoCodecSupport(codec=vp9, hardware=false, maxWidth=1920, maxHeight=1080, maxBitDepth=10, profiles=[], decoderName=OMX.google.vp9.decoder), VideoCodecSupport(codec=mpeg4, hardware=false, maxWidth=352, maxHeight=288, maxBitDepth=8, profiles=[], decoderName=OMX.google.mpeg4.decoder)], hdr=[], audioDecode=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le], audioPassthrough=[], maxAudioChannels=8, containers=[mp4, m4v, mkv, webm, mov, ts, mpegts, m2ts, avi, ogg], subtitleEmbedded=[ass, ssa, srt, subrip, vtt, webvtt, pgssub, dvdsub, dvbsub, mov_text, ttml], subtitleExternal=[ass, ssa, srt, subrip, vtt, webvtt, ttml], libassRendering=true, supportsSubtitleDelay=false, notes=[HEVC decoder is 8-bit only: Main10 content will be transcoded., Display did not report HDR support: HDR content is tone-mapped by the server., Subtitle delay is not supported by the Android engine; use the server's subtitle tools if timing is off.], dolbyVision=DolbyVisionSupport(display=false, decoderProfiles=[], canConvertProfile7=false, masksHdr10Plus=false))
+11-25 02:03:34.567 22223 22223 I Capabilities: Media3 ExoPlayer 1.8.0: video=[h264(1920x1080,8bit,hw=false), hevc(1920x1080,8bit,hw=false), vp9(1920x1080,10bit,hw=false), mpeg4(352x288,8bit,hw=false)] hdr=[] audio=[aac, mp3, flac, opus, vorbis, ac3, eac3, dts, truehd, alac, pcm_s16le] passthrough=[]
+11-25 02:03:34.728 22223 22223 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-25 02:03:34.731 22223 22277 V mpv     : [cplayer:v] List of enabled features: aaudio android android-media-ndk audiotrack build-date cplugins dvbin egl-android ffmpeg gl glibc-thread-name gpl libass libavdevice libdl libplacebo linux-fstatfs lua memrchr opensles posix ppoll pthread-condattr-setclock vector vt.h zlib
+11-25 02:03:34.769 22223 22277 V mpv     : [osd/libass:v] libass API version: 0x1704000
+11-25 02:03:34.769 22223 22277 V mpv     : [osd/libass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-25 02:03:34.770 22223 22277 V mpv     : [osd/libass:v] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.1.0 (COMPLEX)
+11-25 02:03:34.770 22223 22277 V mpv     : [osd/libass:v] Setting up fonts...
+11-25 02:03:35.035 22223 22277 V mpv     : [osd/libass:v] Using font provider fontconfig
+11-25 02:03:35.035 22223 22277 V mpv     : [osd/libass:v] Done.
+11-25 02:03:35.312 22223 22223 I AuroraFocus: region=content
+11-25 02:03:35.571 22223 22223 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-25 02:03:35.576 22223 22223 I Player  : Ready to play in 372 ms (cold, DirectPlay)
+11-25 02:03:35.717 22223 22277 V mpv     : [sub/ass:v] libass API version: 0x1704000
+11-25 02:03:35.717 22223 22277 V mpv     : [sub/ass:v] libass source: commit: 0.17.4-0-gbbb3c7f1570a4a021e52683f3fbdf74fe492ae84
+11-25 02:03:50.259 22300 22300 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:03:50.282 22300 22300 I AndroidRuntime: Using default boot image
+11-25 02:03:50.282 22300 22300 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:03:50.381 22300 22300 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:03:50.388 22223 22223 D AuroraKeys: key=KEYCODE_DPAD_DOWN handled=true focus=AndroidComposeView touchMode=false
+11-25 02:03:50.564 22300 22300 D AndroidRuntime: Shutting down VM

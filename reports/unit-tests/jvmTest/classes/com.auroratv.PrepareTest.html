@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta http-equiv="x-ua-compatible" content="IE=edge"/>
+<title>Test results - Class com.auroratv.PrepareTest</title>
+<link href="../css/base-style.css" rel="stylesheet" type="text/css"/>
+<link href="../css/style.css" rel="stylesheet" type="text/css"/>
+<script src="../js/report.js" type="text/javascript"></script>
+</head>
+<body>
+<div id="content">
+<h1>Class com.auroratv.PrepareTest</h1>
+<div class="breadcrumbs">
+<a href="../index.html">all</a> &gt; 
+<a href="../packages/com.auroratv.html">com.auroratv</a> &gt; PrepareTest</div>
+<div id="summary">
+<table>
+<tr>
+<td>
+<div class="summaryGroup">
+<table>
+<tr>
+<td>
+<div class="infoBox" id="tests">
+<div class="counter">9</div>
+<p>tests</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="failures">
+<div class="counter">0</div>
+<p>failures</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="ignored">
+<div class="counter">0</div>
+<p>ignored</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="duration">
+<div class="counter">0.105s</div>
+<p>duration</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</td>
+<td>
+<div class="infoBox success" id="successRate">
+<div class="percent">100%</div>
+<p>successful</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="tab-container">
+<ul class="tabLinks">
+<li>
+<a href="#">Tests</a>
+</li>
+<li>
+<a href="#">Standard output</a>
+</li>
+</ul>
+<div class="tab">
+<h2>Tests</h2>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Method name</th>
+<th>Duration</th>
+<th>Result</th>
+</tr>
+</thead>
+<tr>
+<td class="success">aTranscodeIsNegotiatedAgainForTheResumePoint[jvm]</td>
+<td class="success">aTranscodeIsNegotiatedAgainForTheResumePoint</td>
+<td class="success">0.006s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">directPlayNeedsNoFonts[jvm]</td>
+<td class="success">directPlayNeedsNoFonts</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">focusComingBackToACardReusesWhatWasPrepared[jvm]</td>
+<td class="success">focusComingBackToACardReusesWhatWasPrepared</td>
+<td class="success">0.021s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">onlyTheLastFourTitlesAreKept[jvm]</td>
+<td class="success">onlyTheLastFourTitlesAreKept</td>
+<td class="success">0.013s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">originalPathAsksOneAfterTheOther[jvm]</td>
+<td class="success">originalPathAsksOneAfterTheOther</td>
+<td class="success">0.006s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">preparedPlaybackIsUsedOnceAndOnlyForTheSameSetup[jvm]</td>
+<td class="success">preparedPlaybackIsUsedOnceAndOnlyForTheSameSetup</td>
+<td class="success">0.012s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">preparingAheadAsksHowToPlayOnlyOnce[jvm]</td>
+<td class="success">preparingAheadAsksHowToPlayOnlyOnce</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">resumingDirectPlayNegotiatesWhileTheItemLoads[jvm]</td>
+<td class="success">resumingDirectPlayNegotiatesWhileTheItemLoads</td>
+<td class="success">0.006s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">transcodeWithAssBringsItsFontsAndResumePoint[jvm]</td>
+<td class="success">transcodeWithAssBringsItsFontsAndResumePoint</td>
+<td class="success">0.031s</td>
+<td class="success">passed</td>
+</tr>
+</table>
+</div>
+<div class="tab">
+<h2>Standard output</h2>
+<span class="code">
+<pre>[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 6 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 17 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported]
+[INFO] Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported]
+[INFO] Perf: Prepared in 6 ms (item 2 ms, PlaybackInfo again for this start/tracks, Transcode)
+[INFO] Prepare: Loaded 1/1 font attachments (2 KB) for ASS subtitles
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 4 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 3 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 4 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 8 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 7 ms (item 1 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 10 ms (item 5 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 11 ms (item 6 ms, PlaybackInfo after it, DirectPlay)
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Prepare: Loaded 1/1 font attachments (2 KB) for ASS subtitles
+[INFO] Perf: Prepared in 4 ms (item 1 ms, PlaybackInfo alongside it, DirectPlay)
+[INFO] Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported]
+[INFO] Perf: Prepared in 3 ms (item 0 ms, PlaybackInfo after it, Transcode)
+[INFO] Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported]
+[INFO] Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported]
+[INFO] Perf: Prepared in 4 ms (item 1 ms, PlaybackInfo again for this start/tracks, Transcode)
+[INFO] Prepare: Loaded 1/1 font attachments (2 KB) for ASS subtitles
+[INFO] Negotiator: Play method DirectPlay for mkv; reasons=[]
+[INFO] Perf: Prepared in 3 ms (item 3 ms, PlaybackInfo alongside it, DirectPlay)
+</pre>
+</span>
+</div>
+</div>
+<div id="footer">
+<p>
+<div>
+<label class="hidden" id="label-for-line-wrapping-toggle" for="line-wrapping-toggle">Wrap lines
+<input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
+</label>
+</div>Generated by 
+<a href="https://www.gradle.org">Gradle 8.14.3</a> at Nov 25, 2026, 1:26:38 AM</p>
+</div>
+</div>
+</body>
+</html>

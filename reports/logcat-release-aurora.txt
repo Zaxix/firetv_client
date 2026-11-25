@@ -1,0 +1,27 @@
+11-25 02:07:32.902 23970 23970 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:07:32.915 23970 23970 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-25 02:08:27.385 23970 23970 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:08:27.394 23970 23970 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-25 02:08:41.951 24081 24081 I Negotiator: Play method DirectPlay for mkv; reasons=[]
+11-25 02:08:41.958 24081 24081 I ExoEngine: state=buffering pos=0 buffered=0
+11-25 02:08:42.760 24081 24081 I ExoEngine: state=ready pos=16 buffered=3840
+11-25 02:09:01.311 24632 24632 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:09:01.322 24632 24632 I AndroidRuntime: Using default boot image
+11-25 02:09:01.322 24632 24632 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:09:01.404 24632 24632 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:09:01.412 24632 24632 D AndroidRuntime: Shutting down VM
+11-25 02:09:02.932 24680 24680 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 02:09:02.963 24680 24680 I AndroidRuntime: Using default boot image
+11-25 02:09:02.975 24680 24680 I AndroidRuntime: Leaving lock profiling enabled
+11-25 02:09:03.485 24680 24680 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-25 02:09:03.505 24680 24680 D AndroidRuntime: Shutting down VM
+11-25 02:09:07.136 24767 24767 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:09:07.329 24767 24767 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:09:07.336 24767 24767 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
+11-25 02:09:07.342 24767 24767 I ExoEngine: Gave 1 server font(s) to libass
+11-25 02:09:07.346 24767 24767 I ExoEngine: state=buffering pos=16256 buffered=16256
+11-25 02:09:11.333 24767 24767 I ExoEngine: state=ready pos=16273 buffered=18000
+11-25 02:09:28.111 25172 25172 I MpvEngine: libmpv ready (hwdec=true, passthrough=[])
+11-25 02:09:28.724 25172 25172 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:09:28.872 25172 25172 I Negotiator: Play method Transcode for mkv; reasons=[VideoCodecNotSupported, VideoProfileNotSupported, VideoBitDepthNotSupported]
+11-25 02:09:28.932 25172 25172 I Prepare : Loaded 1/1 font attachments (692 KB) for ASS subtitles
