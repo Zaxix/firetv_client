@@ -18,7 +18,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Android unit tests (PrepareTest)
         run: |
-          ./gradlew --no-daemon :shared:testDebugUnitTest --tests com.auroratv.PrepareTest || true
+          ./gradlew --no-daemon :shared:testDebugUnitTest --tests com.auroratv.PrepareTest --tests com.auroratv.ItemCacheTest --tests com.auroratv.BuiltInSourceTest --rerun-tasks || true
           python3 - <<'PY'
           import glob, re, html
           for f in glob.glob("shared/build/test-results/testDebugUnitTest/*.xml"):

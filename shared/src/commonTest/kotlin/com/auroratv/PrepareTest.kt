@@ -71,18 +71,17 @@ class PrepareTest {
         assertNull(warm.take(a, fireTv4k, Settings(maxBitrateMbps = 8), "ep1"), "settings changed since")
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         assertNull(warm.take(a, oldStick, Settings(), "ep1"), "different capabilities (e.g. player engine switched)")
+        // (Counted once everything has finished: the fake server answers on another thread.)
+        val infoBefore = s.playbackInfoCalls()
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         assertNull(warm.take(a, fireTv4k, Settings(), "other"), "different title")
-        testScheduler.advanceUntilIdle() // ep1's preparation (still kept) has finished
-        fun apiRequests() = s.requests.count { !it.url.encodedPath.contains("/Attachments/") }
-        val requests = apiRequests()
         // Asking for another title left ep1's preparation alone (several are kept), and focusing it
-        // again doesn't redo it.
+        // again doesn't redo it: one preparation in all.
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         val again = warm.take(a, fireTv4k, Settings(), "ep1")
         assertNotNull(again)
-        assertEquals(requests, apiRequests(), "nothing asked again")
+        assertEquals(infoBefore + 1, s.playbackInfoCalls(), "prepared once, not again")
         assertEquals("ep1", again.item.id)
     }
 
@@ -109,13 +108,12 @@ class PrepareTest {
         // Continue Watching card, then a detail page for another title, then the card again.
         warm.prewarm(a, fireTv4k, Settings(), "t1")
         warm.prewarm(a, fireTv4k, Settings(), "t2")
-        testScheduler.advanceUntilIdle()
-        val before = s.requests.size
         warm.prewarm(a, fireTv4k, Settings(), "t1")
-        testScheduler.advanceUntilIdle()
-        assertEquals(before, s.requests.size, "t1 was still prepared: nothing asked again")
         assertNotNull(warm.take(a, fireTv4k, Settings(), "t1"))
         assertNotNull(warm.take(a, fireTv4k, Settings(), "t2"), "and t2 too")
+        // Counted once both have finished: each title's item and PlaybackInfo once, t1 not twice.
+        assertEquals(2, s.requests.count { it.url.encodedPath == "/Items/t1" || it.url.encodedPath == "/Items/t1/PlaybackInfo" })
+        assertEquals(2, s.requests.count { it.url.encodedPath == "/Items/t2" || it.url.encodedPath == "/Items/t2/PlaybackInfo" })
     }
 
     @Test
