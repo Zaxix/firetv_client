@@ -52,8 +52,12 @@ Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
     whenever anything is watched, marked or favourited.
   - The banner's Play target is kept between visits to Home.
   - The update check waits 4 s after launch.
-- **Measured:** one round of the emulator test went from 72 requests to 53, and another from 66
-  to 53. The third pair isn't comparable (see [[Performance Optimization]]).
+- **Measured (1.0.170 CI, three before/after pairs):**
+  - Server requests per round went from 78–91 to 60–66 (about −23%), and exact repeats halved
+    (25 → 13).
+  - A reopened film page went from 64 ms to 5 ms.
+  - Memory is about 10 MB higher.
+  - Details in [[Performance Optimization]].
 - **Default disc menu address:** the release APK fills in the disc menu address once per profile.
   - Debug and test builds carry neither the address nor the token.
 - **Tests:** `ItemCacheTest`, `BuiltInSourceTest`, new `PrepareTest` cases.

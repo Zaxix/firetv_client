@@ -144,8 +144,22 @@ of each pair don't always take the same path through the app (key timing), so pa
 | Traced run B, first pair | 66 | 53 |
 | Traced run B, second pair | 71 | 71 (the "after" round also played two episodes: ~10 extra playback reports) |
 
-Time figures (page loads, playback start) on the emulator vary by ±50% run to run; no change could
-be shown beyond that, either way.
+**CI run for 1.0.170** (three alternating pairs, release APK, medians):
+
+| | Before (level 1) | After (level 2) |
+|---|---|---|
+| Server requests per round | 78 / 78 / 91 | 66 / 64 / 60 (about −23%) |
+| Requests repeated exactly | 25 | 13 |
+| Film page (opened) | 64 ms | 5 ms (details already fetched) |
+| Show page (opened) | 275 ms | 215 ms |
+| Playback prepared | 41 ms | 34 ms |
+| Playback started | 1298 ms | 1242 ms |
+| Memory (end of round) | 108 MB | 120 MB (4 prepared titles, short caches) |
+| Main thread blocked, first 12 s | 1752 ms | 1760 ms |
+
+"Home ready" isn't comparable: Home shows its saved copy only if reading it beats the server, and
+that race goes either way (over 7 pairs: new code faster 3 times, slower 3 times, level once).
+Other time figures on the emulator vary by ±50% run to run.
 
 **Not measured:** Fire TV hardware (start-up feel, remote response, GPU time). The CI emulator
 draws in software.
