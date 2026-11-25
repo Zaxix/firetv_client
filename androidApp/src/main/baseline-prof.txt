@@ -1,0 +1,15 @@
+# Startup profile for Sharkfin (ART compiles these ahead of time instead of interpreting them on the
+# first launches). Compose, Media3 and other androidx libraries ship their own profiles; these rules
+# cover the app's own code and the networking/image/JSON libraries Home uses on every start.
+HSPLcom/auroratv/**->**(**)**
+Lcom/auroratv/**;
+HSPLcoil3/**->**(**)**
+Lcoil3/**;
+HSPLio/ktor/**->**(**)**
+Lio/ktor/**;
+HSPLkotlinx/serialization/json/**->**(**)**
+Lkotlinx/serialization/json/**;
+HSPLokhttp3/**->**(**)**
+Lokhttp3/**;
+HSPLokio/**->**(**)**
+Lokio/**;

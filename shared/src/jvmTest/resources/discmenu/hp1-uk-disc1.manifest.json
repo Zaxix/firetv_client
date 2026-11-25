@@ -1,0 +1,204 @@
+{
+ "schema": 1,
+ "id": "hp1-uk-disc1",
+ "files": [
+  {
+   "path": "pack.json",
+   "size": 71930,
+   "sha256": "aaa279ba2db6e94daf1c91b242a1784b467e922e1df170e47255a9049a513005",
+   "stage": 0
+  },
+  {
+   "path": "video/intro.mp4",
+   "size": 1151385,
+   "sha256": "973c9990123bc84e74c47cc27cf1392676f5a70edcb8cbba88f04d420603395d",
+   "stage": 0
+  },
+  {
+   "path": "audio/music.opus",
+   "size": 494360,
+   "sha256": "67e679f3097ad93fdfb2b463283855f81f9f5880d4952206aa82f4ae7df52225",
+   "stage": 1
+  },
+  {
+   "path": "sprites.bin",
+   "size": 2191922,
+   "sha256": "736cf0b56a999b5f7ebc6f36ee965eec64cd9253c067055704c9aee067871a79",
+   "stage": 1
+  },
+  {
+   "path": "sprites.json",
+   "size": 17535,
+   "sha256": "820000ba7a39654a837bfc7fb87332c744ca9165b208b22a4e6aa52e8b57a752",
+   "stage": 1
+  },
+  {
+   "path": "video/menu_loop.mp4",
+   "size": 570790,
+   "sha256": "606978f27eae9c7d0d51064abc449f8821643aa758fdfdb0c606a451f85746b2",
+   "stage": 1
+  },
+  {
+   "path": "page_sprites.bundle",
+   "size": 145398,
+   "sha256": "9e16b818fc346c6d17122c900d3850e3b9147423ff1c0539e81c663c18ed3ddf",
+   "stage": 2,
+   "contains": [
+    "page_sprites/cast1/continue_act.webp",
+    "page_sprites/cast1/continue_sel.webp",
+    "page_sprites/cast1/special_features_sel.webp",
+    "page_sprites/cast2/continue_act.webp",
+    "page_sprites/cast2/continue_sel.webp",
+    "page_sprites/crew/special_features_act.webp",
+    "page_sprites/crew/special_features_sel.webp",
+    "page_sprites/lang/main_menu_act.webp",
+    "page_sprites/lang/main_menu_sel.webp",
+    "page_sprites/lang/sub_arabic_sel.webp",
+    "page_sprites/lang/sub_english_sel.webp",
+    "page_sprites/lang/sub_hearing_impaired_sel.webp",
+    "page_sprites/lang/sub_off_sel.webp",
+    "page_sprites/sf/cast_crew_act.webp",
+    "page_sprites/sf/cast_crew_sel.webp",
+    "page_sprites/sf/main_menu_act.webp",
+    "page_sprites/sf/main_menu_sel.webp",
+    "page_sprites/sf/teaser_sel.webp",
+    "page_sprites/sf/theatrical_sel.webp",
+    "page_sprites/ss1/link_19_24_sel.webp",
+    "page_sprites/ss1/link_7_12_act.webp",
+    "page_sprites/ss1/link_7_12_sel.webp",
+    "page_sprites/ss1/start_movie_sel.webp",
+    "page_sprites/ss1/tag_1_sel.webp",
+    "page_sprites/ss1/tag_2_sel.webp",
+    "page_sprites/ss1/tag_3_sel.webp",
+    "page_sprites/ss1/tag_4_sel.webp",
+    "page_sprites/ss1/tag_5_sel.webp",
+    "page_sprites/ss1/tag_6_sel.webp",
+    "page_sprites/ss2/link_13_18_act.webp",
+    "page_sprites/ss2/link_13_18_sel.webp",
+    "page_sprites/ss2/link_7_12_sel.webp",
+    "page_sprites/ss2/tag_1_sel.webp",
+    "page_sprites/ss2/tag_2_sel.webp",
+    "page_sprites/ss2/tag_3_sel.webp",
+    "page_sprites/ss2/tag_6_sel.webp",
+    "page_sprites/ss3/link_13_18_sel.webp",
+    "page_sprites/ss3/link_19_24_act.webp",
+    "page_sprites/ss3/link_19_24_sel.webp",
+    "page_sprites/ss4/link_19_24_sel.webp",
+    "page_sprites/ss4/link_25_30_act.webp",
+    "page_sprites/ss4/link_25_30_sel.webp",
+    "page_sprites/ss5/link_25_30_sel.webp",
+    "page_sprites/ss5/link_31_35_act.webp",
+    "page_sprites/ss5/link_31_35_sel.webp",
+    "page_sprites/ss6/link_31_35_sel.webp",
+    "page_sprites/ss6/main_menu_act.webp",
+    "page_sprites/ss6/main_menu_sel.webp",
+    "page_sprites/ss6/tag_32_sel.webp",
+    "page_sprites/ss6/tag_33_sel.webp",
+    "page_sprites/ss6/tag_34_sel.webp",
+    "page_sprites/ss6/tag_35_sel.webp"
+   ]
+  },
+  {
+   "path": "pages/cast1.webp",
+   "size": 94850,
+   "sha256": "b37ee6f0c4746beda9e235cfae3ee136e41d741477e315209d5fa5eaeeaafbeb",
+   "stage": 2
+  },
+  {
+   "path": "pages/cast1_clean.webp",
+   "size": 79788,
+   "sha256": "3bdce10757eb9c58ed824c089917a823d6138c76188c9e1748e6100bb4a8c3c2",
+   "stage": 2
+  },
+  {
+   "path": "pages/cast2.webp",
+   "size": 88632,
+   "sha256": "a78d42bd70c6126d4e17ac660313aa8d8a660277896f722d9441ee4084e5ba79",
+   "stage": 2
+  },
+  {
+   "path": "pages/cast2_clean.webp",
+   "size": 78274,
+   "sha256": "e67a4a54cc76b4a728f4116dd7fac6f20ef089d8e86b3123b773848c3d9b53f1",
+   "stage": 2
+  },
+  {
+   "path": "pages/crew.webp",
+   "size": 90740,
+   "sha256": "af6a33aa9e7c8a5a9ff56b55d3bb01a9299f0f0c8e4d66b9f786e10e77accaa4",
+   "stage": 2
+  },
+  {
+   "path": "pages/crew_clean.webp",
+   "size": 84574,
+   "sha256": "b9c2ff8f06c4ccca68684bba1993946ec4145aebe39a7525ab7dc0b3c5f108d7",
+   "stage": 2
+  },
+  {
+   "path": "pages/lang.webp",
+   "size": 98954,
+   "sha256": "1fe2a916b8caca70670eee8cfcb3d45bff9d170a8734220cda0181a83d3293b7",
+   "stage": 2
+  },
+  {
+   "path": "pages/letter_final.webp",
+   "size": 30616,
+   "sha256": "7a478b7b705b40a5f0ba22c4691fe6643c493740a20d883d342ee0262fffc69c",
+   "stage": 2
+  },
+  {
+   "path": "pages/sf.webp",
+   "size": 87562,
+   "sha256": "8c7999764acd7505235b8d64a312a9e61483760194699531fad85deb6ef253c3",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss1.webp",
+   "size": 88952,
+   "sha256": "2bf3e49203874aad7a21249b0239eec4d6197299c2998f81be7cfbdbc087a08a",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss2.webp",
+   "size": 84396,
+   "sha256": "d6011d4d0cecfbe2b99a2550d90bb7f82f5331e70e682d32b16781129ac08f9a",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss3.webp",
+   "size": 92986,
+   "sha256": "b83ce167f2604a527dc02174a0565785146187fb5edd96b2b31bc6b11d0e53ce",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss4.webp",
+   "size": 93662,
+   "sha256": "6a91b9e4ec1117387924d6ffd6aa0103d5102600dc1fa0e0c69738dbcedde47d",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss5.webp",
+   "size": 93106,
+   "sha256": "d96809f9bed0803c3c1a31e066fda0d3ea511a4e5defb6996dcfdb5a54454a79",
+   "stage": 2
+  },
+  {
+   "path": "pages/ss6.webp",
+   "size": 83504,
+   "sha256": "2f538457bd56a27c7a993580b83f21ce535d7e9f077c434d2159823a1e5dec43",
+   "stage": 2
+  },
+  {
+   "path": "video/transition.mp4",
+   "size": 406587,
+   "sha256": "b9ecf56d72d2acfdf45ba50f14c1dc85202a2656f20cf9d0617631d410b3c1d2",
+   "stage": 2
+  },
+  {
+   "path": "video/letter.mp4",
+   "size": 101220,
+   "sha256": "fc9ced16023438fa86402f5687bd9eb2e27eb754a38b1f276e1a090ac6d2c086",
+   "stage": 3
+  }
+ ]
+}

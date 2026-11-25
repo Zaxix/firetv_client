@@ -1,0 +1,1065 @@
+{
+ "schema": 2,
+ "id": "polar-express-wb-2005",
+ "title": "The Polar Express",
+ "edition": "Warner Home Video DVD with menus (c) 2005, as shown by the supplied walkthrough: the Credits page reads \"Photography (c) 2004, Menu Design & Supplementary Material (c) 2005 Warner Bros. Entertainment Inc.\" and the Languages page lists English 5.1, Espanol 5.1, Francais 5.1 (double au Quebec), i.e. a North American release. The exact disc edition is not independently verified.",
+ "match": {
+  "tmdb": [
+   "5255"
+  ],
+  "imdb": [
+   "tt0338348"
+  ],
+  "titleRegex": "^\\s*The Polar Express\\b"
+ },
+ "canvas": {
+  "w": 640,
+  "h": 360
+ },
+ "video": {
+  "loop": {
+   "file": "video/menu_loop.mp4",
+   "durationMs": 27000,
+   "entryMs": 0,
+   "fps": 25.0
+  },
+  "transition": {
+   "file": "video/transition_scenes.mp4",
+   "durationMs": 4680,
+   "pageCutMs": 4680,
+   "audioDelayMs": 0
+  },
+  "transitions": {
+   "lang": {
+    "file": "video/transition_languages.mp4",
+    "durationMs": 4720,
+    "pageCutMs": 4720,
+    "audioDelayMs": 0
+   }
+  },
+  "intro": {
+   "file": "video/intro.mp4",
+   "durationMs": 36400,
+   "clipDurationMs": 36400,
+   "crossfadeMs": 0,
+   "skippable": true,
+   "provenance": {
+    "source": "The Polar Express - menu walkthrough recording supplied by the pack author (videoplayback.mp4: 640x360, 25 fps, 124.09 s, AAC audio)",
+    "measured": "recording frames 0..909 (t = 0..36.40 s); the main-menu loop starts at frame 910 (36.40 s) and the clip hands over to it with no crossfade",
+    "status": "measured; re-encoded (HEVC, 640x360, 25 fps)"
+   }
+  },
+  "letter": {
+   "file": "video/play.mp4",
+   "durationMs": 5200,
+   "holdLastFrame": true,
+   "provenance": {
+    "source": "The Polar Express - menu walkthrough recording supplied by the pack author (videoplayback.mp4: 640x360, 25 fps, 124.09 s, AAC audio)",
+    "measured": "Play Movie clip = recording frames 2946..3075 (117.84..123.00 s); it ends on a flat dark grey that the recording holds for at least 1.24 s more",
+    "status": "measured"
+   }
+  }
+ },
+ "music": {
+  "file": "audio/music.opus",
+  "restartOnMainEntry": true,
+  "startLagAfterVideoEntryMs": 400,
+  "startsInIntroAtMs": 31861,
+  "fadeOutOnPlayMovie": null,
+  "provenance": {
+   "source": "The Polar Express - menu walkthrough recording supplied by the pack author (videoplayback.mp4: 640x360, 25 fps, 124.09 s, AAC audio)",
+   "measured": "music onset 0.39 s (frame 2173 -> 87.31 s) and 0.41 s (frame 2800 -> 112.41 s) after the loop re-entry; the three onsets (63.775, 87.31, 112.41 s) align to 0.7 ms. One full cycle is 31.914 s (onset to onset), ending in about 0.77 s of silence before the music restarts. The file is that cycle: its first 4.54 s are taken from a clean return-to-menu pass (the first pass has the intro mixed in), the rest from the first menu pass, spliced with a 90 ms crossfade where the two correlate at 0.98.",
+   "status": "measured; the loop point and the splice have not been listened to on a device",
+   "formatNote": "Opus 64 kbps stereo from the recording's AAC audio; gapless looping via the two-item repeat not yet verified on a device"
+  }
+ },
+ "sparkles": {
+  "index": "sprites.json",
+  "data": "sprites.bin"
+ },
+ "timing": {
+  "activationToTransitionMs": {
+   "scene_selections": 2400,
+   "languages": 2120,
+   "play_movie": null,
+   "theatrical_trailer": null
+  },
+  "subActivationToCutMs": 560,
+  "playMovie": {
+   "activationToDissolveMs": 3000,
+   "letterHoldBeforePlaybackMs": null,
+   "letterHoldStatus": "UNKNOWN: the recording ends 1.24 s into the held dark frame; how long the disc waits before the film is not shown. The engine starts the film when the clip ends."
+  },
+  "musicStopBeforeTransitionMs": 700,
+  "pageActivationShowsHighlight": false,
+  "measured": {
+   "source": "The Polar Express - menu walkthrough recording supplied by the pack author (videoplayback.mp4: 640x360, 25 fps, 124.09 s, AAC audio)",
+   "activation": "the underline turns pale at 65.88 s (scenes), 90.68 s (languages), 114.84 s (play); the clip starts at 68.28 / 92.80 / 117.84 s: 2400 / 2120 / 3000 ms. The pale underline stays 1400 / 1040 / 2000 ms and then goes out (frames 1682, 2293, 2921); a dark swirl then plays over the menu, which is NOT reproduced.",
+   "music": "cut 0.69, 0.69 and 0.70 s before the clip starts (67.62, 92.11, 117.14 s); the transition sound starts 0.82, 0.80 and 0.85 s after the clip starts.",
+   "pages": "on every page the highlighted underline goes out at the press, and the page changes 560 ms later (14 frames) for the tabs and Next, 1120 ms later (28 frames) for Main Menu",
+   "returnToMain": "cuts back to the loop start (entry phase 0 +- 3 frames); the music restarts 0.4 s later",
+   "status": "measured from the recording"
+  }
+ },
+ "activatedOutline": {
+  "color": "#C9A24D",
+  "thicknessPx": 2,
+  "status": "ASSUMED: the look of a chosen language was not shown; used for the outline that marks the chosen audio and subtitle"
+ },
+ "selectedOutline": {
+  "color": "#C9A24D",
+  "thicknessPx": 2,
+  "status": "ASSUMED: the highlight of the scene thumbnails was never shown; used only where no observed highlight picture exists"
+ },
+ "main": {
+  "buttons": [
+   {
+    "id": "play_movie",
+    "label": "Play Movie",
+    "rect": [
+     133,
+     302,
+     198,
+     322
+    ],
+    "selected": "play_sel",
+    "activated": "play_act",
+    "action": "play_movie",
+    "default": true
+   },
+   {
+    "id": "scene_selections",
+    "label": "Scene Selections",
+    "rect": [
+     213,
+     302,
+     314,
+     322
+    ],
+    "selected": "scene_sel",
+    "activated": "scene_act",
+    "action": "goto:ss1",
+    "default": false
+   },
+   {
+    "id": "theatrical_trailer",
+    "label": "Theatrical Trailer",
+    "rect": [
+     331,
+     302,
+     430,
+     322
+    ],
+    "selected": "trailer_sel",
+    "activated": null,
+    "action": "gate:The Theatrical Trailer isn't part of this menu yet",
+    "default": false
+   },
+   {
+    "id": "languages",
+    "label": "Languages",
+    "rect": [
+     447,
+     302,
+     508,
+     322
+    ],
+    "selected": "lang_sel",
+    "activated": "lang_act",
+    "action": "goto:lang",
+    "default": false
+   }
+  ],
+  "hotspotPadPx": 4,
+  "hotspotPadStatus": "ASSUMED"
+ },
+ "pages": {
+  "ss1": {
+   "title": "Scene Selections",
+   "plate": "pages/ss1.webp",
+   "default": "tab_1_6",
+   "hotspots": [
+    {
+     "id": "t1",
+     "rect": [
+      136,
+      84,
+      252,
+      180
+     ],
+     "action": "chapter:1",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t2",
+     "rect": [
+      262,
+      84,
+      378,
+      180
+     ],
+     "action": "chapter:2",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t3",
+     "rect": [
+      386,
+      84,
+      502,
+      180
+     ],
+     "action": "chapter:3",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t4",
+     "rect": [
+      136,
+      188,
+      252,
+      300
+     ],
+     "action": "chapter:4",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t5",
+     "rect": [
+      262,
+      188,
+      378,
+      300
+     ],
+     "action": "chapter:5",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t6",
+     "rect": [
+      386,
+      188,
+      502,
+      300
+     ],
+     "action": "chapter:6",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "tab_1_6",
+     "rect": [
+      164,
+      304,
+      201,
+      326
+     ],
+     "action": "stay",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_1_6.webp",
+     "spriteRect": [
+      166,
+      314,
+      198,
+      325
+     ]
+    },
+    {
+     "id": "tab_7_12",
+     "rect": [
+      215,
+      304,
+      261,
+      326
+     ],
+     "action": "goto:ss2",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_7_12.webp",
+     "spriteRect": [
+      217,
+      316,
+      256,
+      325
+     ]
+    },
+    {
+     "id": "tab_13_18",
+     "rect": [
+      270,
+      304,
+      320,
+      326
+     ],
+     "action": "goto:ss3",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_13_18.webp",
+     "spriteRect": [
+      272,
+      316,
+      317,
+      325
+     ]
+    },
+    {
+     "id": "tab_19_24",
+     "rect": [
+      330,
+      304,
+      383,
+      326
+     ],
+     "action": "goto:ss4",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_19_24.webp",
+     "spriteRect": [
+      331,
+      316,
+      380,
+      325
+     ]
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      394,
+      304,
+      517,
+      326
+     ],
+     "action": "goto:main",
+     "cutDelayMs": 1120,
+     "provenance": "underline box and the 1120 ms activation-to-cut measured on ss4 (walkthrough frames 2145 -> 2173); reused on the other scene pages (same label, same place)",
+     "selected": "page_sprites/scene_main_menu.webp",
+     "spriteRect": [
+      396,
+      316,
+      514,
+      326
+     ]
+    }
+   ]
+  },
+  "ss2": {
+   "title": "Scene Selections",
+   "plate": "pages/ss2.webp",
+   "default": "tab_7_12",
+   "hotspots": [
+    {
+     "id": "t7",
+     "rect": [
+      136,
+      84,
+      252,
+      180
+     ],
+     "action": "chapter:7",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t8",
+     "rect": [
+      262,
+      84,
+      378,
+      180
+     ],
+     "action": "chapter:8",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t9",
+     "rect": [
+      386,
+      84,
+      502,
+      180
+     ],
+     "action": "chapter:9",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t10",
+     "rect": [
+      136,
+      188,
+      252,
+      300
+     ],
+     "action": "chapter:10",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t11",
+     "rect": [
+      262,
+      188,
+      378,
+      300
+     ],
+     "action": "chapter:11",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t12",
+     "rect": [
+      386,
+      188,
+      502,
+      300
+     ],
+     "action": "chapter:12",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "tab_1_6",
+     "rect": [
+      164,
+      304,
+      201,
+      326
+     ],
+     "action": "goto:ss1",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_1_6.webp",
+     "spriteRect": [
+      166,
+      314,
+      198,
+      325
+     ]
+    },
+    {
+     "id": "tab_7_12",
+     "rect": [
+      215,
+      304,
+      261,
+      326
+     ],
+     "action": "stay",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_7_12.webp",
+     "spriteRect": [
+      217,
+      316,
+      256,
+      325
+     ]
+    },
+    {
+     "id": "tab_13_18",
+     "rect": [
+      270,
+      304,
+      320,
+      326
+     ],
+     "action": "goto:ss3",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_13_18.webp",
+     "spriteRect": [
+      272,
+      316,
+      317,
+      325
+     ]
+    },
+    {
+     "id": "tab_19_24",
+     "rect": [
+      330,
+      304,
+      383,
+      326
+     ],
+     "action": "goto:ss4",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_19_24.webp",
+     "spriteRect": [
+      331,
+      316,
+      380,
+      325
+     ]
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      394,
+      304,
+      517,
+      326
+     ],
+     "action": "goto:main",
+     "cutDelayMs": 1120,
+     "provenance": "underline box and the 1120 ms activation-to-cut measured on ss4 (walkthrough frames 2145 -> 2173); reused on the other scene pages (same label, same place)",
+     "selected": "page_sprites/scene_main_menu.webp",
+     "spriteRect": [
+      396,
+      316,
+      514,
+      326
+     ]
+    }
+   ]
+  },
+  "ss3": {
+   "title": "Scene Selections",
+   "plate": "pages/ss3.webp",
+   "default": "tab_13_18",
+   "hotspots": [
+    {
+     "id": "t13",
+     "rect": [
+      136,
+      84,
+      252,
+      180
+     ],
+     "action": "chapter:13",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t14",
+     "rect": [
+      262,
+      84,
+      378,
+      180
+     ],
+     "action": "chapter:14",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t15",
+     "rect": [
+      386,
+      84,
+      502,
+      180
+     ],
+     "action": "chapter:15",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t16",
+     "rect": [
+      136,
+      188,
+      252,
+      300
+     ],
+     "action": "chapter:16",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t17",
+     "rect": [
+      262,
+      188,
+      378,
+      300
+     ],
+     "action": "chapter:17",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t18",
+     "rect": [
+      386,
+      188,
+      502,
+      300
+     ],
+     "action": "chapter:18",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "tab_1_6",
+     "rect": [
+      164,
+      304,
+      201,
+      326
+     ],
+     "action": "goto:ss1",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_1_6.webp",
+     "spriteRect": [
+      166,
+      314,
+      198,
+      325
+     ]
+    },
+    {
+     "id": "tab_7_12",
+     "rect": [
+      215,
+      304,
+      261,
+      326
+     ],
+     "action": "goto:ss2",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_7_12.webp",
+     "spriteRect": [
+      217,
+      316,
+      256,
+      325
+     ]
+    },
+    {
+     "id": "tab_13_18",
+     "rect": [
+      270,
+      304,
+      320,
+      326
+     ],
+     "action": "stay",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_13_18.webp",
+     "spriteRect": [
+      272,
+      316,
+      317,
+      325
+     ]
+    },
+    {
+     "id": "tab_19_24",
+     "rect": [
+      330,
+      304,
+      383,
+      326
+     ],
+     "action": "goto:ss4",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_19_24.webp",
+     "spriteRect": [
+      331,
+      316,
+      380,
+      325
+     ]
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      394,
+      304,
+      517,
+      326
+     ],
+     "action": "goto:main",
+     "cutDelayMs": 1120,
+     "provenance": "underline box and the 1120 ms activation-to-cut measured on ss4 (walkthrough frames 2145 -> 2173); reused on the other scene pages (same label, same place)",
+     "selected": "page_sprites/scene_main_menu.webp",
+     "spriteRect": [
+      396,
+      316,
+      514,
+      326
+     ]
+    }
+   ]
+  },
+  "ss4": {
+   "title": "Scene Selections",
+   "plate": "pages/ss4.webp",
+   "default": "tab_19_24",
+   "hotspots": [
+    {
+     "id": "t19",
+     "rect": [
+      136,
+      84,
+      252,
+      180
+     ],
+     "action": "chapter:19",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t20",
+     "rect": [
+      262,
+      84,
+      378,
+      180
+     ],
+     "action": "chapter:20",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t21",
+     "rect": [
+      386,
+      84,
+      502,
+      180
+     ],
+     "action": "chapter:21",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t22",
+     "rect": [
+      136,
+      188,
+      252,
+      300
+     ],
+     "action": "chapter:22",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t23",
+     "rect": [
+      262,
+      188,
+      378,
+      300
+     ],
+     "action": "chapter:23",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "t24",
+     "rect": [
+      386,
+      188,
+      502,
+      300
+     ],
+     "action": "chapter:24",
+     "provenance": "rect read off the plate image (approximate, +/- 4 px); the highlight picture was never shown in the walkthrough, so the pack outline is drawn (ASSUMED look)"
+    },
+    {
+     "id": "tab_1_6",
+     "rect": [
+      164,
+      304,
+      201,
+      326
+     ],
+     "action": "goto:ss1",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_1_6.webp",
+     "spriteRect": [
+      166,
+      314,
+      198,
+      325
+     ]
+    },
+    {
+     "id": "tab_7_12",
+     "rect": [
+      215,
+      304,
+      261,
+      326
+     ],
+     "action": "goto:ss2",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_7_12.webp",
+     "spriteRect": [
+      217,
+      316,
+      256,
+      325
+     ]
+    },
+    {
+     "id": "tab_13_18",
+     "rect": [
+      270,
+      304,
+      320,
+      326
+     ],
+     "action": "goto:ss3",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_13_18.webp",
+     "spriteRect": [
+      272,
+      316,
+      317,
+      325
+     ]
+    },
+    {
+     "id": "tab_19_24",
+     "rect": [
+      330,
+      304,
+      383,
+      326
+     ],
+     "action": "stay",
+     "provenance": "underline box measured in the walkthrough (selected underline); label position from the plate",
+     "selected": "page_sprites/tab_19_24.webp",
+     "spriteRect": [
+      331,
+      316,
+      380,
+      325
+     ]
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      394,
+      304,
+      517,
+      326
+     ],
+     "action": "goto:main",
+     "cutDelayMs": 1120,
+     "provenance": "underline box and the 1120 ms activation-to-cut measured on ss4 (walkthrough frames 2145 -> 2173); reused on the other scene pages (same label, same place)",
+     "selected": "page_sprites/scene_main_menu.webp",
+     "spriteRect": [
+      396,
+      316,
+      514,
+      326
+     ]
+    }
+   ]
+  },
+  "lang": {
+   "title": "Languages",
+   "plate": "pages/lang.webp",
+   "default": "main_menu",
+   "hotspots": [
+    {
+     "id": "audio_en",
+     "rect": [
+      333,
+      113,
+      427,
+      131
+     ],
+     "action": "audio:en",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_audio_en.webp",
+     "spriteRect": [
+      337,
+      126,
+      421,
+      136
+     ]
+    },
+    {
+     "id": "audio_es",
+     "rect": [
+      333,
+      133,
+      430,
+      153
+     ],
+     "action": "audio:es",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_audio_es.webp",
+     "spriteRect": [
+      336,
+      145,
+      425,
+      154
+     ]
+    },
+    {
+     "id": "audio_fr",
+     "rect": [
+      333,
+      155,
+      458,
+      187
+     ],
+     "action": "audio:fr",
+     "provenance": "underline box measured in the walkthrough; text position from the plate (the underline sits under the two-line entry, \"(doublé au Québec)\")",
+     "selected": "page_sprites/lang_audio_fr.webp",
+     "spriteRect": [
+      336,
+      179,
+      453,
+      188
+     ]
+    },
+    {
+     "id": "sub_en",
+     "rect": [
+      333,
+      208,
+      404,
+      228
+     ],
+     "action": "subtitle:en",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_sub_en.webp",
+     "spriteRect": [
+      335,
+      221,
+      400,
+      232
+     ]
+    },
+    {
+     "id": "sub_es",
+     "rect": [
+      333,
+      230,
+      404,
+      247
+     ],
+     "action": "subtitle:es",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_sub_es.webp",
+     "spriteRect": [
+      338,
+      240,
+      402,
+      250
+     ]
+    },
+    {
+     "id": "sub_fr",
+     "rect": [
+      333,
+      249,
+      410,
+      266
+     ],
+     "action": "subtitle:fr",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_sub_fr.webp",
+     "spriteRect": [
+      338,
+      259,
+      406,
+      269
+     ]
+    },
+    {
+     "id": "sub_off",
+     "rect": [
+      333,
+      268,
+      378,
+      288
+     ],
+     "action": "subtitle:off",
+     "provenance": "underline box measured in the walkthrough; text position from the plate",
+     "selected": "page_sprites/lang_sub_off.webp",
+     "spriteRect": [
+      337,
+      278,
+      374,
+      288
+     ]
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      125,
+      304,
+      248,
+      326
+     ],
+     "action": "goto:main",
+     "provenance": "underline box measured in the walkthrough; text position from the plate; the 1120 ms delay to the cut is the value measured on the other Main Menu links (ASSUMED here: this link was highlighted but never pressed)",
+     "selected": "page_sprites/lang_main_menu.webp",
+     "spriteRect": [
+      127,
+      316,
+      246,
+      326
+     ],
+     "cutDelayMs": 1120
+    },
+    {
+     "id": "next",
+     "rect": [
+      450,
+      304,
+      516,
+      326
+     ],
+     "action": "goto:legal",
+     "provenance": "underline box measured in the walkthrough; text position from the plate; 560 ms activation-to-cut measured (frames 2662 -> 2676)",
+     "selected": "page_sprites/lang_next.webp",
+     "spriteRect": [
+      454,
+      316,
+      512,
+      326
+     ]
+    }
+   ]
+  },
+  "legal": {
+   "title": "Credits",
+   "plate": "pages/legal.webp",
+   "default": "main_menu",
+   "backTo": "lang",
+   "hotspots": [
+    {
+     "id": "back",
+     "rect": [
+      130,
+      304,
+      178,
+      326
+     ],
+     "action": "goto:lang",
+     "provenance": "label position from the plate; neither the highlight nor the destination was shown (ASSUMED: back to Languages, where the page is reached from)"
+    },
+    {
+     "id": "main_menu",
+     "rect": [
+      400,
+      304,
+      510,
+      326
+     ],
+     "action": "goto:main",
+     "provenance": "underline measured on one frame (2771); activation-to-cut 1120 ms measured (2772 -> 2800)",
+     "selected": "page_sprites/legal_main_menu.webp",
+     "spriteRect": [
+      396,
+      316,
+      514,
+      326
+     ],
+     "cutDelayMs": 1120
+    }
+   ]
+  }
+ },
+ "sequences": {
+  "scenes": [
+   "ss1",
+   "ss2",
+   "ss3",
+   "ss4"
+  ]
+ },
+ "sequencesNote": "Engine convenience (Next/Previous page keys walk the scene pages); not shown in the walkthrough.",
+ "provenanceNotes": {
+  "coordinateSystem": "640x360 pixels, top-left origin, the recording's own frame; every picture and video is stored at that size and scaled by the engine",
+  "observedMainLabels": "x 133-197 Play Movie, 213-313 Scene Selections, 331-429 Theatrical Trailer, 447-507 Languages; text rows 303-320 (measured on the cleaned loop)",
+  "cleanedLoop": "the gold underline that the recording shows on the selected button is removed from the loop (inpainted); the engine draws it back as a sprite. A faint smudge can remain where the underline crossed the text.",
+  "pagePlates": "median of the recording frames in which the page is static",
+  "notReproduced": [
+   "the dark swirl that plays over the menu after a main-menu button is pressed",
+   "the Theatrical Trailer (its action was never shown)",
+   "the highlight of the scene thumbnails, of Back (Credits) and of the Credits page links other than Main Menu",
+   "the look of a chosen audio or subtitle language"
+  ],
+  "chapterMapping": "the 24 scene thumbnails use chapter:1 .. chapter:24 = the 1st .. 24th chapter the server lists for the film; the disc shows 24 scenes, so a copy with a different chapter count shows a notice",
+  "languages": "audio:en / es / fr and subtitle:en / es / fr / off pick the film's own tracks by language tag on the server; nothing is bundled"
+ }
+}

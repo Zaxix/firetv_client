@@ -1,0 +1,64 @@
+package com.auroratv.android
+
+import android.app.Application
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
+import com.auroratv.ui.AppContainer
+import com.auroratv.ui.AuroraApp
+
+class AuroraApplication : Application()
+
+class MainActivity : ComponentActivity() {
+    private lateinit var container: AppContainer
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // `--ez perfTrace true` (CI only): where the UI thread is blocked at start-up, and every API request.
+        if (intent?.getBooleanExtra("perfTrace", false) == true) {
+            PerfProbe.start()
+            com.auroratv.jellyfin.SharedOkHttp.traceRequests = true
+        }
+        super.onCreate(savedInstanceState)
+        container = AppContainer(AndroidPlatform(this))
+        // Optional deep link, e.g. `adb shell am start ... --es route detail:<itemId>` (used by CI and launchers).
+        container.initialRoute = intent?.getStringExtra("route")
+        // `--ez traceUi true` (CI only): log each UI sound and a few layout positions the tests check.
+        com.auroratv.ui.components.UiTrace.on = intent?.getBooleanExtra("traceUi", false) == true
+        // `--ei resumeLevel 0|1|2` (CI only): time the original Play/resume path against the current one.
+        com.auroratv.playback.ResumeTuning.level = intent?.getIntExtra("resumeLevel", com.auroratv.playback.ResumeTuning.CURRENT) ?: com.auroratv.playback.ResumeTuning.CURRENT
+        // `--ei perfLevel 0|1` (CI only): time the code before the performance audit against the code now.
+        com.auroratv.core.PerfTuning.level = intent?.getIntExtra("perfLevel", com.auroratv.core.PerfTuning.CURRENT) ?: com.auroratv.core.PerfTuning.CURRENT
+        // `--es player mpv|exoplayer` (adb/CI): switch the video player, same as Settings → Playback.
+        intent?.getStringExtra("player")?.let { p ->
+            com.auroratv.settings.PlayerEngineChoice.entries.firstOrNull { it.name.equals(p, ignoreCase = true) }
+                ?.let { choice ->
+                    val change: (com.auroratv.settings.Settings) -> com.auroratv.settings.Settings = { it.copy(playerEngine = choice) }
+                    container.settings.update(change)
+                    container.launchSettingsOverride = change // and again once the profile's settings load
+                }
+        }
+        // Back presses that Compose didn't consume (e.g. nothing focused) still go through app navigation.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!container.backHandler()) finish()
+            }
+        })
+        setContent { AuroraApp(container) }
+    }
+
+    /** `am start --activity-single-top ... --es route section:Movies` on the running app (CI, launchers). */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("route")?.let { container.links.value = it }
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val handled = super.dispatchKeyEvent(event)
+        // Debug builds log remote input so CI can verify D-pad delivery; release builds don't.
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            android.util.Log.d("AuroraKeys", "key=${android.view.KeyEvent.keyCodeToString(event.keyCode)} handled=$handled focus=${currentFocus?.javaClass?.simpleName} touchMode=${window.decorView.isInTouchMode}")
+        }
+        return handled
+    }
+}
