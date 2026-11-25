@@ -71,17 +71,20 @@ class PrepareTest {
         assertNull(warm.take(a, fireTv4k, Settings(maxBitrateMbps = 8), "ep1"), "settings changed since")
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         assertNull(warm.take(a, oldStick, Settings(), "ep1"), "different capabilities (e.g. player engine switched)")
-        // (Counted once everything has finished: the fake server answers on another thread.)
-        val infoBefore = s.playbackInfoCalls()
-        warm.prewarm(a, fireTv4k, Settings(), "ep1")
-        assertNull(warm.take(a, fireTv4k, Settings(), "other"), "different title")
+        // A fresh server for the rest (earlier, cancelled preparations may still be answered late:
+        // the fake server answers on another thread).
+        val s2 = server(transcode = false)
+        val a2 = api(s2)
+        val warm2 = PlaybackPrewarmer(this)
+        warm2.prewarm(a2, fireTv4k, Settings(), "ep1")
+        assertNull(warm2.take(a2, fireTv4k, Settings(), "other"), "different title")
         // Asking for another title left ep1's preparation alone (several are kept), and focusing it
         // again doesn't redo it: one preparation in all.
-        warm.prewarm(a, fireTv4k, Settings(), "ep1")
-        warm.prewarm(a, fireTv4k, Settings(), "ep1")
-        val again = warm.take(a, fireTv4k, Settings(), "ep1")
+        warm2.prewarm(a2, fireTv4k, Settings(), "ep1")
+        warm2.prewarm(a2, fireTv4k, Settings(), "ep1")
+        val again = warm2.take(a2, fireTv4k, Settings(), "ep1")
         assertNotNull(again)
-        assertEquals(infoBefore + 1, s.playbackInfoCalls(), "prepared once, not again")
+        assertEquals(1, s2.playbackInfoCalls(), "prepared once, not again")
         assertEquals("ep1", again.item.id)
     }
 
