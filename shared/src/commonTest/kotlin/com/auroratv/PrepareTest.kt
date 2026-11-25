@@ -73,6 +73,7 @@ class PrepareTest {
         assertNull(warm.take(a, oldStick, Settings(), "ep1"), "different capabilities (e.g. player engine switched)")
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
         assertNull(warm.take(a, fireTv4k, Settings(), "other"), "different title")
+        testScheduler.advanceUntilIdle() // ep1's preparation (still kept) has finished
         fun apiRequests() = s.requests.count { !it.url.encodedPath.contains("/Attachments/") }
         val requests = apiRequests()
         // Asking for another title left ep1's preparation alone (several are kept), and focusing it
