@@ -24,9 +24,10 @@
         android:supportsRtl="true"
         android:largeHeap="true"
         android:theme="@style/Theme.Aurora">
-        <!-- Filled in by the build (androidApp/build.gradle.kts): the commit, and the built-in disc menu token. -->
+        <!-- Filled in by the build (androidApp/build.gradle.kts): the commit, and the built-in disc menu token and source. -->
         <meta-data android:name="com.auroratv.commit" android:value="${auroraCommit}" />
         <meta-data android:name="com.auroratv.discMenuToken" android:value="${discMenuToken}" />
+        <meta-data android:name="com.auroratv.discMenuSource" android:value="${discMenuSource}" />
 
         <activity
             android:name=".MainActivity"

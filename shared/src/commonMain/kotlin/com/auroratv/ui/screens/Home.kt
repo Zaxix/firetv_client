@@ -134,6 +134,12 @@ private const val RAIL_ATTEMPTS = 3
 private const val RAIL_ATTEMPT_TIMEOUT_MS = 30_000L
 
 class HomeModel {
+    /**
+     * What each banner show's Play starts, worked out once until something is watched. Kept here
+     * rather than in the screen, which is rebuilt every time Home comes back from another page.
+     */
+    internal val bannerTargets = HashMap<String, BaseItemDto>()
+    internal var bannerTargetsWatch = -1L
     var hero by mutableStateOf<List<BaseItemDto>>(emptyList())
     var rails by mutableStateOf<List<RailState>?>(null)
     var brands by mutableStateOf<List<com.auroratv.brands.ResolvedBrand>>(emptyList())
@@ -296,9 +302,12 @@ fun HomeScreen() {
     // (that jumped viewers far ahead, and the server's Next Up then followed the jump).
     // Worked out once per show until something is watched (the banner is focused again every time
     // Home comes back, and each time cost a Next Up and an episode list, plus preparing playback).
-    val bannerTargets = remember(session) { HashMap<String, BaseItemDto>() }
+    val bannerTargets = if (com.auroratv.core.PerfTuning.pass2) model.bannerTargets else remember(session) { HashMap<String, BaseItemDto>() }
     val bannerWatch by com.auroratv.data.WatchActivity.version.collectAsState()
-    LaunchedEffect(bannerWatch) { bannerTargets.clear() }
+    LaunchedEffect(bannerWatch) {
+        // Only when something was watched since they were worked out (not every time Home comes back).
+        if (model.bannerTargetsWatch != bannerWatch.toLong()) { bannerTargets.clear(); model.bannerTargetsWatch = bannerWatch.toLong() }
+    }
     val bannerFocus = remember { kotlinx.coroutines.flow.MutableStateFlow<BaseItemDto?>(null) }
     LaunchedEffect(Unit) {
         bannerFocus.collectLatest { item ->

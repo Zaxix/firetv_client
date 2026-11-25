@@ -110,6 +110,46 @@ load wasn't measured.
 - Measure server CPU during a browsing round with a large library, where "More Like This" costs
   the most.
 
+## Second pass: repeated requests (Nov 2026)
+**Method.** One emulator round traced with step markers (every API request in order, with what the
+remote was doing). Then `PerfTuning` level 1 (the build before) against level 2 (now), alternating on
+the same emulator. Main-thread time on the emulator is almost all its software GPU
+(`HardwareRenderer.nSyncAndDrawFrame`), so the server requests were the clearest app-side cost.
+
+**What was repeated, and the changes (all behind `PerfTuning.pass2`):**
+- **The same title prepared again and again.** Focusing a Continue Watching / Next Up card, a details
+  page and a series' episodes each prepare playback ahead, but only one prepared title was kept, so
+  coming back to a card redid it. In one round, one film got a details request plus PlaybackInfo
+  six times. `PlaybackPrewarmer` now keeps the last 4. Only the newest may keep subtitle fonts.
+- **Two PlaybackInfo calls for every transcode prepared in the background.** The early "might it play
+  directly?" guess (made while the item loads) is only worth it when someone is waiting at Play.
+  Background preparation skips it (`speculate = false`).
+- **A title's details fetched on every visit.** `JellyfinApi.fileItem` keeps whole items for 30 s
+  (32 at most). A show's seasons, episode lists and its own Next Up are kept the same way
+  (`listCache`). Both are cleared by anything that changes them here: watching (`reportStart` /
+  `reportStopped`), marking watched, a favourite, an episode-order change. A device-only profile's
+  own watch data is applied on top each time. Home's own Continue Watching and Next Up rows are
+  never cached.
+- **The banner's Play target re-asked on every return to Home.** It was kept in the screen's state,
+  which is rebuilt when Home comes back. It's now kept in `HomeModel` and cleared only when
+  something has been watched since.
+- **The update check at the same moment as Home's first requests.** It now waits 4 s.
+
+**Measured** (requests per test round, before → after, same emulator, alternating). The two rounds
+of each pair don't always take the same path through the app (key timing), so pairs vary:
+
+| Pair | Before (level 1) | After (level 2) |
+|---|---|---|
+| Traced run A | 72 | 53 |
+| Traced run B, first pair | 66 | 53 |
+| Traced run B, second pair | 71 | 71 (the "after" round also played two episodes: ~10 extra playback reports) |
+
+Time figures (page loads, playback start) on the emulator vary by ±50% run to run; no change could
+be shown beyond that, either way.
+
+**Not measured:** Fire TV hardware (start-up feel, remote response, GPU time). The CI emulator
+draws in software.
+
 ## Measuring
 The performance audit's A/B rounds (`ci/android_perf.sh`, output in `perf-audit.txt`) are described
 above. `PerfTuning.level` selects the code before or after the audit; normal use is always the

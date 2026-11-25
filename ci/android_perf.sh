@@ -69,7 +69,8 @@ round() { # level round-number
 }
 
 : > "$P"
-for n in 1 2 3; do round 0 $n; round 1 $n; done
+# Level 1 = the previous build, level 2 = now (PerfTuning), alternating on the same emulator.
+for n in 1 2 3; do round 1 $n; round 2 $n; done
 if grep -qE "FATAL EXCEPTION" "$OUT/logcat-perf-audit.txt"; then
   echo "Crash during the performance rounds:"; grep -E -A25 "FATAL EXCEPTION" "$OUT/logcat-perf-audit.txt" | head -60; exit 1
 fi

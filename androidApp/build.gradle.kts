@@ -15,6 +15,8 @@ val auroraCommit = providers.environmentVariable("GITHUB_SHA").orNull?.take(7).o
 // The disc menu token every install starts with, from the DISC_MENU_TOKEN repository secret: never in
 // the source. Empty when the secret isn't set (local builds, forks); the app then has no built-in token.
 val discMenuToken = providers.environmentVariable("DISC_MENU_TOKEN").orNull?.trim().orEmpty()
+// The disc menu source address every install starts with (DISC_MENU_SOURCE, set by CI); empty: none.
+val discMenuSource = providers.environmentVariable("DISC_MENU_SOURCE").orNull?.trim().orEmpty()
 
 // Release signing comes from environment variables so no key material is ever committed.
 // CI sets these (from repository secrets when present, otherwise from a freshly generated key).
@@ -33,6 +35,7 @@ android {
         // Prefixed so Android keeps them as text (a commit like "1234567" would otherwise be read as a number).
         manifestPlaceholders["auroraCommit"] = "c$auroraCommit"
         manifestPlaceholders["discMenuToken"] = "t$discMenuToken"
+        manifestPlaceholders["discMenuSource"] = "s$discMenuSource"
     }
 
     signingConfigs {
@@ -50,6 +53,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // The debug APK (the one CI's emulator tests drive) never carries the built-in disc menu
+            // source or token: tests must not reach that repository.
+            manifestPlaceholders["discMenuToken"] = "t"
+            manifestPlaceholders["discMenuSource"] = "s"
         }
         release {
             // R8 makes Compose markedly faster (inlining, dead-code removal) and the APK smaller,

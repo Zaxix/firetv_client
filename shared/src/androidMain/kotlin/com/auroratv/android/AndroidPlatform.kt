@@ -47,6 +47,7 @@ class AndroidPlatform(private val activity: Activity) : Platform {
     private val buildValues by lazy { BuildValues(activity) }
     override val buildCommit: String get() = buildValues.commit
     override val builtInDiscMenuToken: String get() = buildValues.discMenuToken
+    override val builtInDiscMenuSource: String get() = buildValues.discMenuSource
 
     override val discMenus: com.auroratv.discmenu.DiscMenuPlatform = AndroidDiscMenuPlatform(activity)
 

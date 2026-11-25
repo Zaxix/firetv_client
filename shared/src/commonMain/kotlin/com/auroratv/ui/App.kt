@@ -237,7 +237,11 @@ private fun MainShell(container: AppContainer) {
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide(); container.platform.hideKeyboard() }
     // Look for a newer build every time the app opens (the prompt waits for the player to close).
-    LaunchedEffect(Unit) { container.updates.checkOnLaunch() }
+    LaunchedEffect(Unit) {
+        // After Home's first requests (the check goes to GitHub, not the media server, but shares the connection and the CPU).
+        if (com.auroratv.core.PerfTuning.pass2) kotlinx.coroutines.delay(4_000)
+        container.updates.checkOnLaunch()
+    }
     // Probe the decoders (a few hundred ms on a Fire TV) once Home is up, not when Play is first pressed.
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_500); container.capabilities() }
     val updatePrompt by container.updates.prompt.collectAsState()

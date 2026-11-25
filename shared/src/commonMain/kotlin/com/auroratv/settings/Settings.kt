@@ -36,6 +36,8 @@ data class Settings(
     val discMenus: Boolean = true,
     /** Where disc menu packs are downloaded from (a base URL with catalog.json); empty = only packs placed on the device by hand. */
     val discMenuSource: String = "",
+    /** The build's own source address has been filled in once (so clearing it afterwards sticks). */
+    val discMenuSourceFilled: Boolean = false,
     /** Keep a downloaded pack on the device after leaving the menu. Off: it is deleted and fetched again next time. */
     val discMenuKeepDownloads: Boolean = false,
     /** Reuse audio/subtitle tracks picked by hand for the rest of a series (and for a movie). */
@@ -88,10 +90,14 @@ data class Settings(
  * profile; a profile opened for the first time starts from that, which is also how the settings of
  * the single user from before profiles carry over.
  */
-class SettingsRepository(private val files: FileStore) {
+class SettingsRepository(
+    private val files: FileStore,
+    /** The source address the build fills in (see [withBuiltInSource]); "" for none. */
+    private val builtInDiscMenuSource: String = "",
+) {
     private val fileName = "settings.json"
     private var profileFile: String? = null
-    private val _settings = MutableStateFlow(load(fileName) ?: Settings())
+    private val _settings = MutableStateFlow((load(fileName) ?: Settings()).withBuiltInSource())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
     val current: Settings get() = _settings.value
 
@@ -106,9 +112,17 @@ class SettingsRepository(private val files: FileStore) {
         val name = com.auroratv.profiles.ProfileFiles.name("settings", profile)
         if (name == profileFile) return
         profileFile = name
-        _settings.value = load(name) ?: _settings.value
+        _settings.value = (load(name) ?: _settings.value).withBuiltInSource()
         save()
     }
+
+    /**
+     * Fills in the build's disc menu source address once per profile, new or existing, where none was
+     * set. An address typed in Settings is kept; one cleared afterwards stays cleared.
+     */
+    private fun Settings.withBuiltInSource(): Settings =
+        if (discMenuSourceFilled || builtInDiscMenuSource.isEmpty()) this
+        else copy(discMenuSource = discMenuSource.ifBlank { builtInDiscMenuSource }, discMenuSourceFilled = true)
 
     fun update(transform: (Settings) -> Settings) {
         _settings.update(transform)

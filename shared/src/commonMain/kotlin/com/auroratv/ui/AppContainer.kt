@@ -32,7 +32,7 @@ class AppContainer(val platform: Platform) {
     /** Disc-style film menus found on this device (none unless a pack has been copied there). */
     val discMenus = com.auroratv.discmenu.DiscMenuRepository(platform.discMenus, platform.files)
     val http = createJellyfinHttpClient()
-    val settings = SettingsRepository(platform.files)
+    val settings = SettingsRepository(platform.files, platform.builtInDiscMenuSource)
     val sessions = SessionManager(http, platform.files, platform.vault, platform.info.deviceName)
     /** Optional MDBList / Trakt keys (secure vault, synced through the user's Jellyfin profile). */
     val ratingsKeys = com.auroratv.ratings.RatingsKeyStore(platform.vault)

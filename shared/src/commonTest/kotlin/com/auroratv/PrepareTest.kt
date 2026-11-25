@@ -75,12 +75,68 @@ class PrepareTest {
         assertNull(warm.take(a, fireTv4k, Settings(), "other"), "different title")
         fun apiRequests() = s.requests.count { !it.url.encodedPath.contains("/Attachments/") }
         val requests = apiRequests()
+        // Asking for another title left ep1's preparation alone (several are kept), and focusing it
+        // again doesn't redo it.
         warm.prewarm(a, fireTv4k, Settings(), "ep1")
-        warm.prewarm(a, fireTv4k, Settings(), "ep1") // repeated focus on the same page: no duplicate work
+        warm.prewarm(a, fireTv4k, Settings(), "ep1")
         val again = warm.take(a, fireTv4k, Settings(), "ep1")
         assertNotNull(again)
-        assertEquals(requests + 2, apiRequests(), "one item + one PlaybackInfo request")
+        assertEquals(requests, apiRequests(), "nothing asked again")
         assertEquals("ep1", again.item.id)
+    }
+
+    /** A server with titles t1…t9 (any id): Direct Play, or a transcode. */
+    private fun library(transcode: Boolean) = FakeServer { req ->
+        val path = req.url.encodedPath
+        val id = Regex("/Items/([^/]+)").find(path)?.groupValues?.get(1) ?: "x"
+        val src = """{"Id":"ms-$id","Container":"mkv","MediaStreams":[{"Index":0,"Type":"Video","Codec":"hevc"},{"Index":1,"Type":"Audio","Codec":"aac","Language":"eng"}]"""
+        when {
+            path.endsWith("/PlaybackInfo") -> json(
+                if (transcode) """{"MediaSources":[$src,"SupportsDirectPlay":false,"SupportsDirectStream":false,"TranscodingUrl":"/videos/$id/master.m3u8?TranscodeReasons=VideoCodecNotSupported"}],"PlaySessionId":"ps"}"""
+                else """{"MediaSources":[$src,"SupportsDirectPlay":true,"SupportsDirectStream":true}],"PlaySessionId":"ps"}"""
+            )
+            path.startsWith("/Items/") -> json("""{"Id":"$id","Name":"$id","Type":"Movie","RunTimeTicks":60000000000,"UserData":{"PlaybackPositionTicks":600000000},"MediaSources":[$src,"SupportsDirectPlay":true}]}""")
+            else -> json("{}", HttpStatusCode.NotFound)
+        }
+    }
+
+    @Test
+    fun focusComingBackToACardReusesWhatWasPrepared() = runTest {
+        val s = library(transcode = false)
+        val a = api(s)
+        val warm = PlaybackPrewarmer(this)
+        // Continue Watching card, then a detail page for another title, then the card again.
+        warm.prewarm(a, fireTv4k, Settings(), "t1")
+        warm.prewarm(a, fireTv4k, Settings(), "t2")
+        testScheduler.advanceUntilIdle()
+        val before = s.requests.size
+        warm.prewarm(a, fireTv4k, Settings(), "t1")
+        testScheduler.advanceUntilIdle()
+        assertEquals(before, s.requests.size, "t1 was still prepared: nothing asked again")
+        assertNotNull(warm.take(a, fireTv4k, Settings(), "t1"))
+        assertNotNull(warm.take(a, fireTv4k, Settings(), "t2"), "and t2 too")
+    }
+
+    @Test
+    fun onlyTheLastFourTitlesAreKept() = runTest {
+        val s = library(transcode = false)
+        val a = api(s)
+        val warm = PlaybackPrewarmer(this)
+        for (t in listOf("t1", "t2", "t3", "t4", "t5")) warm.prewarm(a, fireTv4k, Settings(), t)
+        testScheduler.advanceUntilIdle()
+        assertNull(warm.take(a, fireTv4k, Settings(), "t1"), "the oldest made room")
+        assertNotNull(warm.take(a, fireTv4k, Settings(), "t5"))
+    }
+
+    @Test
+    fun preparingAheadAsksHowToPlayOnlyOnce() = runTest {
+        val s = library(transcode = true)
+        val a = api(s)
+        val warm = PlaybackPrewarmer(this)
+        warm.prewarm(a, oldStick, Settings(), "t1")
+        val p = assertNotNull(warm.take(a, oldStick, Settings(), "t1"))
+        assertEquals(PlayMethod.Transcode, p.plan.method)
+        assertEquals(1, s.playbackInfoCalls(), "no guess made before the item arrived: nobody is waiting")
     }
 
     private fun FakeServer.playbackInfoCalls() = requests.count { it.url.encodedPath.endsWith("/PlaybackInfo") }

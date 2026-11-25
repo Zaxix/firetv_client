@@ -34,3 +34,6 @@ published (from 1.0.158). Builds from before the Sharkfin rename can't update th
 ## Secrets the build uses
 - Release signing (`AURORA_*`, optional).
 - `DISC_MENU_TOKEN` (optional): the built-in disc menu token ([[Disc Menus]]).
+- `DISC_MENU_SOURCE` (set in the workflow, not a secret): the built-in disc menu source address.
+  Both go into the release APK only. CI builds the release APK a second time without them
+  (`test-release.apk`) for its emulator tests, and never publishes that copy.

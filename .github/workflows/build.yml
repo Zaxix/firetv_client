@@ -74,12 +74,23 @@ jobs:
         env:
           # The built-in disc menu token (empty if the secret isn't set). Goes into the app only, never the logs.
           DISC_MENU_TOKEN: ${{ secrets.DISC_MENU_TOKEN }}
-        run: ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
+          # The disc menu source address every install starts with.
+          DISC_MENU_SOURCE: https://raw.githubusercontent.com/Zaxix/disc_menus/main
+        run: |
+          ./gradlew --no-daemon --stacktrace :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:bundleRelease
+          mkdir -p dist
+          cp androidApp/build/outputs/apk/debug/*.apk dist/AuroraTV-debug.apk
+          cp androidApp/build/outputs/apk/release/*.apk dist/AuroraTV-release.apk
+          cp androidApp/build/outputs/bundle/release/*.aab dist/AuroraTV-release.aab
+          # The release APK again, identical but without the built-in source and token: the one CI's
+          # emulator tests install, so no test ever reaches that repository. Never published.
+          DISC_MENU_TOKEN= DISC_MENU_SOURCE= ./gradlew --no-daemon --stacktrace :androidApp:assembleRelease
+          cp androidApp/build/outputs/apk/release/*.apk dist/test-release.apk
 
       - name: Verify APK signatures and contents
         run: |
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
-          for apk in androidApp/build/outputs/apk/*/*.apk; do
+          for apk in dist/*.apk; do
             echo "== $apk ($(du -h "$apk" | cut -f1))"
             $BT/apksigner verify --print-certs "$apk" | head -3
             $BT/aapt2 dump badging "$apk" | grep -E "package:|sdkVersion|leanback|native-code" || true
@@ -91,18 +102,12 @@ jobs:
           def val(name):
               m = re.search(r"android:name.*?\"" + re.escape(name) + r"\".*?android:value.*?=\"([^\"]*)\"", t, re.S)
               return m.group(1)[1:] if m else ""
-          c, k = val("com.auroratv.commit"), val("com.auroratv.discMenuToken")
-          print("   commit: " + (c or "none") + " · built-in disc menu token: " + (("present, %d characters" % len(k)) if k else "absent"))
+          c, k, s = val("com.auroratv.commit"), val("com.auroratv.discMenuToken"), val("com.auroratv.discMenuSource")
+          print("   commit: " + (c or "none") + " · built-in disc menu token: " + (("present, %d characters" % len(k)) if k else "absent")
+                + " · built-in source: " + (("present, %d characters" % len(s)) if s else "absent"))
           '
           done
           echo "Release signed with: $SIGNING"
-
-      - name: Collect artifacts
-        run: |
-          mkdir -p dist
-          cp androidApp/build/outputs/apk/debug/*.apk dist/AuroraTV-debug.apk
-          cp androidApp/build/outputs/apk/release/*.apk dist/AuroraTV-release.apk
-          cp androidApp/build/outputs/bundle/release/*.aab dist/AuroraTV-release.aab
 
       - uses: actions/upload-artifact@v4
         with:
@@ -225,7 +230,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # The release smoke test (start-up and Home timings) runs even when an e2e check fails, so its numbers are always there.
-          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN"; e=$?; bash ci/android_release_smoke.sh apk/AuroraTV-release.apk dist/android-screenshots "$JF_TOKEN"; s=$?; bash ci/android_perf.sh dist/android-screenshots "$JF_TOKEN"; p=$?; exit $((e | s | p))
+          script: bash ci/android_e2e.sh apk/AuroraTV-debug.apk dist/android-screenshots "$JF_TOKEN"; e=$?; bash ci/android_release_smoke.sh apk/test-release.apk dist/android-screenshots "$JF_TOKEN"; s=$?; bash ci/android_perf.sh dist/android-screenshots "$JF_TOKEN"; p=$?; exit $((e | s | p))
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -286,6 +291,7 @@ jobs:
           mv upload/AuroraTV-release.apk upload/Sharkfin-release.apk
           mv upload/AuroraTV-debug.apk upload/Sharkfin-debug.apk
           mv upload/AuroraTV-release.aab upload/Sharkfin-release.aab
+          rm -f upload/test-release.apk # CI's own copy (no built-in disc menu source or token)
           ls -la upload
           # version.json: what the in-app updater reads (build number, SHA-256 of every file, recent changes).
           OK=${{ needs.android.result == 'success' && needs.e2e.result == 'success' && needs.android-e2e.result == 'success' }}

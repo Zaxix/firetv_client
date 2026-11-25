@@ -28,7 +28,13 @@ back into the player.
   device in one of two ways: copied there by hand (`adb push`; debug builds use the `.debug`
   application id), or downloaded by the app as described next.
 - **Downloading** (Settings → Disc menus → source address, plus an optional read-only token for a
-  private host). **Built-in token (Nov 2026):** builds can carry a default token for every install,
+  private host). **Built-in source address (Nov 2026):** the release APK fills in Settings → Disc menus → source
+address with the build's `DISC_MENU_SOURCE` (CI sets it to the menu repository), once per profile,
+for new installs and for existing ones with no address. An address typed in Settings is kept, and
+one cleared afterwards stays cleared (`Settings.discMenuSourceFilled`, `SettingsRepository`).
+**Neither the address nor the token is in the debug APK or in CI's own copy of the release APK
+(`test-release.apk`, never published)**, so no test ever contacts that repository. The published
+APKs' build log shows only whether each value is present, and its length. **Built-in token (Nov 2026):** builds can carry a default token for every install,
   taken from the `DISC_MENU_TOKEN` repository secret at build time (never in the source or the logs;
   `androidApp/build.gradle.kts` → manifest meta-data → `BuildValues` → `Platform.builtInDiscMenuToken`).
   It's used only when no token is entered in Settings, and only for `https://` GitHub addresses

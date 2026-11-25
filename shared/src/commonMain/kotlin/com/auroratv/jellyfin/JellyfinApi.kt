@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.withLock
 import com.auroratv.core.AppError
 import com.auroratv.core.AuroraJson
 import com.auroratv.core.Log
+import com.auroratv.core.PerfTuning
 import com.auroratv.jellyfin.model.AuthenticateByName
 import com.auroratv.jellyfin.model.AuthenticationResult
 import com.auroratv.jellyfin.model.BaseItemDto
@@ -177,6 +178,8 @@ class JellyfinApi(
     fun invalidateArrangements(seriesId: String? = null) {
         arranged = if (seriesId == null) emptyMap() else arranged - seriesId
         if (seriesId == null) similarCache.clear()
+        itemCache.clear()
+        listCache.clear()
     }
 
     private fun List<BaseItemDto>.relabel(): List<BaseItemDto> = order?.let { o -> map { o.relabel(it) } } ?: this
@@ -459,10 +462,26 @@ class JellyfinApi(
     }
 
     /** The server's item for [itemId] (a virtual episode's file), whole: no episode split applied. */
-    suspend fun fileItem(itemId: String): BaseItemDto =
-        http.get(url("/Items/${sid(itemId)}")) {
+    suspend fun fileItem(itemId: String): BaseItemDto {
+        val id = sid(itemId)
+        if (PerfTuning.pass2) itemCache.get(id)?.let { return it.withLocal() }
+        val dto = http.get(url("/Items/$id")) {
             auth(); parameter("userId", requireUser())
-        }.read<BaseItemDto>().withLocal()
+        }.read<BaseItemDto>()
+        itemCache.put(id, dto)
+        return dto.withLocal()
+    }
+
+    /**
+     * Items just fetched whole (a details page, then preparing its playback, then coming back to it):
+     * kept 30 seconds, at most 32, and dropped as soon as anything is watched, marked or favourited
+     * here, so a resume point or watched mark is never stale. A device-only profile's own watch data
+     * is applied on top each time.
+     */
+    private val itemCache = TimedCache<String, BaseItemDto>(capacity = 32, ttl = kotlin.time.Duration.parse("30s"))
+
+    /** A show's seasons, episode lists and Next Up, kept and dropped the same way as [itemCache]. */
+    private val listCache = TimedCache<String, List<BaseItemDto>>(capacity = 48, ttl = kotlin.time.Duration.parse("30s"))
 
     suspend fun item(itemId: String): BaseItemDto {
         val dto = fileItem(itemId)
@@ -592,6 +611,14 @@ class JellyfinApi(
             ?: episodes(seriesId).firstOrNull { it.locationType != "Virtual" && (it.parentIndexNumber ?: 1) > 0 }
 
     private suspend fun serverNextUp(limit: Int, seriesId: String?): List<BaseItemDto> {
+        // One show's Next Up (its page, the banner's Play): kept briefly like the item itself. Home's
+        // whole Next Up row is always asked for fresh.
+        val key = seriesId?.let { "nextup|$it|$limit" }
+        if (key != null && PerfTuning.pass2) listCache.get(key)?.let { return it }
+        return fetchNextUp(limit, seriesId).also { if (key != null) listCache.put(key, it) }
+    }
+
+    private suspend fun fetchNextUp(limit: Int, seriesId: String?): List<BaseItemDto> {
         return http.get(url("/Shows/NextUp")) {
             auth()
             parameter("userId", requireUser())
@@ -619,10 +646,13 @@ class JellyfinApi(
 
     suspend fun seasons(seriesId: String): List<BaseItemDto> = arrangement(seriesId)?.seasons ?: serverSeasons(seriesId)
 
-    private suspend fun serverSeasons(seriesId: String): List<BaseItemDto> =
-        http.get(url("/Shows/$seriesId/Seasons")) {
+    private suspend fun serverSeasons(seriesId: String): List<BaseItemDto> {
+        val key = "seasons|$seriesId"
+        val list = (if (PerfTuning.pass2) listCache.get(key) else null) ?: http.get(url("/Shows/$seriesId/Seasons")) {
             auth(); parameter("userId", requireUser()); parameter("fields", Fields.CARD)
-        }.read<QueryResult<BaseItemDto>>().items.withLocal()
+        }.read<QueryResult<BaseItemDto>>().items.also { listCache.put(key, it) }
+        return list.withLocal()
+    }
 
     /**
      * A series' episodes (one season's, or all of them), in its episode order when it has one. From
@@ -646,16 +676,18 @@ class JellyfinApi(
         // From a virtual episode: ask from its file (and enough more to cover the file's other parts).
         val serverStart = startItemId?.let(::sid)
         val extra = startItemId?.takeIf { VirtualIds.isVirtual(it) }?.let { v?.splits?.get(sid(it))?.parts?.size } ?: 0
-        val list = http.get(url("/Shows/$seriesId/Episodes")) {
+        val fields = if (v != null) "${Fields.CARD},Path" else Fields.CARD
+        val key = "episodes|$seriesId|$seasonId|$serverStart|${limit?.let { it + extra }}|$fields"
+        val list = ((if (PerfTuning.pass2) listCache.get(key) else null) ?: http.get(url("/Shows/$seriesId/Episodes")) {
             auth()
             parameter("userId", requireUser())
             seasonId?.let { parameter("seasonId", it) }
             serverStart?.let { parameter("startItemId", it) }
             limit?.let { parameter("limit", it + extra) }
             // Path: spotting entries that share one file (see VirtualEpisodes.candidates).
-            parameter("fields", if (v != null) "${Fields.CARD},Path" else Fields.CARD)
+            parameter("fields", fields)
             parameter("enableImageTypes", Fields.IMAGE_TYPES)
-        }.read<QueryResult<BaseItemDto>>().items.withLocal()
+        }.read<QueryResult<BaseItemDto>>().items.also { listCache.put(key, it) }).withLocal()
         if (v == null) return list
         decideSplits(v, list)
         val out = v.expand(list)
@@ -720,6 +752,7 @@ class JellyfinApi(
 
     suspend fun setFavorite(itemId: String, favorite: Boolean) {
         local?.let { it.setFavorite(sid(itemId), favorite); return }
+        itemCache.clear(); listCache.clear()
         val path = url("/UserFavoriteItems/${sid(itemId)}")
         val response = if (favorite) http.post(path) { auth(); parameter("userId", requireUser()) }
         else http.delete(path) { auth(); parameter("userId", requireUser()) }

@@ -1,6 +1,7 @@
 package com.auroratv.playback
 
 import com.auroratv.core.Log
+import com.auroratv.core.PerfTuning
 import com.auroratv.jellyfin.JellyfinApi
 import com.auroratv.jellyfin.model.BaseItemDto
 import com.auroratv.jellyfin.model.MediaStream
@@ -56,13 +57,19 @@ object PlaybackPreparer {
         subtitleOverride: ((List<MediaStream>) -> SubtitleOverride?)? = null,
         /** A spoken-language choice made outside the player (the same page): the stream index to play, or null = no opinion. */
         audioOverride: ((List<MediaStream>) -> Int?)? = null,
+        /**
+         * Someone is waiting (Play was pressed): ask how to play the file before its details are back,
+         * on the chance it plays directly. Preparing ahead in the background skips that guess, which
+         * costs the server a second PlaybackInfo whenever the file needs transcoding.
+         */
+        speculate: Boolean = true,
     ): PreparedPlayback = coroutineScope {
         val t0 = TimeSource.Monotonic.markNow()
         // Ask how to play the file while the item details are still on their way (one round trip
         // instead of two). Direct Play doesn't depend on the start point, and the player picks the
         // tracks itself, so that answer is kept when it fits the tracks chosen below; anything else
         // (a transcode, a track that needs the server) is negotiated again with the real choices.
-        val early = if (knownItem == null && ResumeTuning.parallelPrepare) async {
+        val early = if (knownItem == null && ResumeTuning.parallelPrepare && (speculate || !PerfTuning.pass2)) async {
             try {
                 negotiator.negotiate(itemId, null, 0L, null, null, settings.maxBitrateMbps, settings.enableDirectPlay)
             } catch (c: CancellationException) { throw c } catch (t: Throwable) { null }
@@ -181,10 +188,12 @@ object PlaybackPreparer {
 }
 
 /**
- * Prepares the title a detail page's Play button would start while the viewer is still reading the
- * page, so pressing Play goes straight to the engine. One title at a time; a result is used once,
- * only if it is under 90 seconds old and was made with the same server session, settings and device
- * capabilities. Call from the main thread.
+ * Prepares the titles a Play button would start while the viewer is still looking (a detail page, a
+ * focused Continue Watching or Next Up card), so pressing Play goes straight to the engine. Keeps the
+ * last [MAX_ENTRIES] titles, so focus moving back to a card (after a detail page, or along a row)
+ * reuses what was prepared instead of asking the server again; at most one of them keeps subtitle
+ * fonts (they can be large). A result is used once, only if it is under 90 seconds old and was made
+ * with the same server session, settings and device capabilities. Call from the main thread.
  */
 class PlaybackPrewarmer(
     private val scope: CoroutineScope,
@@ -203,44 +212,66 @@ class PlaybackPrewarmer(
         val resumeMs: Long? = null,
     )
 
-    private var entry: Entry? = null
+    /** Oldest first. */
+    private val entries = LinkedHashMap<String, Entry>()
+
+    private fun Entry.fits(api: JellyfinApi, settings: Settings, caps: DeviceCapabilities) =
+        this.api === api && this.settings == settings && this.caps == caps
 
     fun prewarm(api: JellyfinApi, caps: DeviceCapabilities, settings: Settings, itemId: String, knownItem: BaseItemDto? = null) {
-        val e = entry
-        if (e != null && e.itemId == itemId && e.api === api && e.settings == settings && e.caps == caps && e.created.elapsedNow() < MAX_AGE / 2 &&
-            (knownItem == null || e.resumeMs == knownItem.resumePositionMs)) return
-        e?.job?.cancel()
+        val e = entries[itemId]
+        if (e != null && e.fits(api, settings, caps) && !e.job.isCancelled && e.created.elapsedNow() < MAX_AGE / 2 &&
+            (knownItem == null || e.resumeMs == knownItem.resumePositionMs)) {
+            if (PerfTuning.pass2) { entries.remove(itemId); entries[itemId] = e } // most recently wanted
+            return
+        }
+        e?.job?.cancel(); entries.remove(itemId)
         val job = scope.async {
             try {
                 PlaybackPreparer.prepare(api, PlaybackNegotiator(api, caps), settings, itemId, startFromBeginning = false,
-                    knownItem = knownItem?.takeIf { it.id == itemId && it.mediaSources.isNotEmpty() }, trackMemory = trackMemory)
-                    .also { p -> runCatching { onPrepared(p) } }
+                    knownItem = knownItem?.takeIf { it.id == itemId && it.mediaSources.isNotEmpty() }, trackMemory = trackMemory,
+                    speculate = false)
+                    .also { p ->
+                        if (p.fonts.isNotEmpty()) dropOtherFonts(itemId)
+                        runCatching { onPrepared(p) }
+                    }
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
                 Log.w("Prewarm", "Couldn't prepare $itemId ahead of time: ${t.message}"); null
             }
         }
-        entry = Entry(itemId, api, settings, caps, job, TimeSource.Monotonic.markNow(), knownItem?.resumePositionMs)
+        entries[itemId] = Entry(itemId, api, settings, caps, job, TimeSource.Monotonic.markNow(), knownItem?.resumePositionMs)
+        val keep = if (PerfTuning.pass2) MAX_ENTRIES else 1
+        while (entries.size > keep) entries.remove(entries.keys.first())?.job?.cancel()
+    }
+
+    /** Only the newest result keeps its (possibly large) subtitle fonts; older ones with fonts are dropped. */
+    private fun dropOtherFonts(keepId: String) {
+        val heavy = entries.values.filter { it.itemId != keepId && it.job.isCompleted && !it.job.isCancelled &&
+            runCatching { @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) it.job.getCompleted() }.getOrNull()?.fonts?.isNotEmpty() == true }
+        heavy.forEach { entries.remove(it.itemId) }
     }
 
     /**
      * The prepared playback for [itemId], waiting for it if it is still in flight; null when there
-     * is none that matches. Consumes the entry either way.
+     * is none that matches. Consumes that entry either way.
      */
     suspend fun take(api: JellyfinApi, caps: DeviceCapabilities, settings: Settings, itemId: String): PreparedPlayback? {
-        val e = entry ?: return null
-        entry = null
-        val usable = e.itemId == itemId && e.api === api && e.settings == settings && e.caps == caps && e.created.elapsedNow() < MAX_AGE
+        val e = entries.remove(itemId) ?: return null
+        val usable = e.fits(api, settings, caps) && e.created.elapsedNow() < MAX_AGE
         if (!usable || e.job.isCancelled) { e.job.cancel(); return null }
         return e.job.await()
     }
 
-    /** Drops any prepared result (e.g. after the item's watched state or resume point changed). */
+    /** Drops prepared results (e.g. after the item's watched state or resume point changed); all when [itemId] is null. */
     fun invalidate(itemId: String? = null) {
-        val e = entry ?: return
-        if (itemId == null || e.itemId == itemId) { e.job.cancel(); entry = null }
+        if (itemId == null) { entries.values.forEach { it.job.cancel() }; entries.clear(); return }
+        entries.remove(itemId)?.job?.cancel()
     }
 
-    private companion object { val MAX_AGE = 90.seconds }
+    private companion object {
+        val MAX_AGE = 90.seconds
+        const val MAX_ENTRIES = 4
+    }
 }

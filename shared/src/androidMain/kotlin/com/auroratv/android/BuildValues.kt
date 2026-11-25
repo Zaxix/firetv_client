@@ -18,4 +18,5 @@ internal class BuildValues(context: Context) {
 
     val commit: String = value("com.auroratv.commit")
     val discMenuToken: String = value("com.auroratv.discMenuToken")
+    val discMenuSource: String = value("com.auroratv.discMenuSource")
 }

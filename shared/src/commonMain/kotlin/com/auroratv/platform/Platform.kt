@@ -54,6 +54,9 @@ interface Platform {
      */
     val builtInDiscMenuToken: String get() = ""
 
+    /** The disc menu source address this build starts every install with (Settings → Disc menus), or "". */
+    val builtInDiscMenuSource: String get() = ""
+
     /** Self-update support (null where the app can't update itself). */
     val updater: com.auroratv.update.AppUpdater? get() = null
 

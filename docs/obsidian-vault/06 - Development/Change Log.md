@@ -44,6 +44,20 @@ Philosopher's Stone (UK, disc 1). Details in [[Disc Menus]].
   tried against a real host. See "Known limitations" in
   [[Disc Menus]] (sparkle blending over video, looping, three decoders, assumed actions).
 
+## Fewer repeated server requests; default disc menu address
+- **Fewer repeated requests:**
+  - Up to 4 titles are kept prepared to play (was 1).
+  - Preparing in the background asks for PlaybackInfo once, not twice, when a file needs transcoding.
+  - Whole items, a show's seasons, its episode lists and its Next Up are kept for 30 s, and cleared
+    whenever anything is watched, marked or favourited.
+  - The banner's Play target is kept between visits to Home.
+  - The update check waits 4 s after launch.
+- **Measured:** one round of the emulator test went from 72 requests to 53, and another from 66
+  to 53. The third pair isn't comparable (see [[Performance Optimization]]).
+- **Default disc menu address:** the release APK fills in the disc menu address once per profile.
+  - Debug and test builds carry neither the address nor the token.
+- **Tests:** `ItemCacheTest`, `BuiltInSourceTest`, new `PrepareTest` cases.
+
 ## Commit next to the version, old APK copies dropped, built-in disc menu token
 - **Version with commit:** the app shows the commit next to the build number, e.g. 1.0.158 (abc1234).
 - **Published files:** latest-build no longer includes `Nameless-release.apk` or `AuroraTV-release.apk`.

@@ -10,6 +10,9 @@ and never cache anything that could go stale silently.
 |---|---|---|
 | Back-stack screen models | Until the entry is popped | Re-fetching when going Back |
 | Home saved copy | Replaced every visit | Blank Home at launch; works offline |
+| Whole items (`/Items/{id}`) | 30 s, at most 32; cleared by watching, marking, favourites, order changes (Nov 2026) | A details page, its playback preparation and coming back to it each asking again |
+| A show's seasons, episode lists, own Next Up | Same as whole items | Reopening a show page re-asking for all of them |
+| Prepared playback | The last 4 titles, 90 s each, used once; only the newest keeps subtitle fonts | Focus coming back to a card redoing PlaybackInfo |
 | Recommendation rows | While the history signature is unchanged (memory + disk, card fields only). Rows worked out while a request failed are kept in memory only and worked out again after 1 min | Candidate queries on most launches |
 | Top 10 in Your Home | Ranking per server for 30 min; after watching, worked out again no sooner than 1 min; the row as fetched for a viewer reused while the ranking is the same | Household history requests on every Home |
 | Recommendation history plan | Per profile in memory: until something is watched/marked/favourited here, or 30 min; stale shown while a new one loads | The history requests every time Home opens |
